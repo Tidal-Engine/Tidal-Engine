@@ -17,6 +17,7 @@ A modern C++23 Vulkan-based demo showcasing a rotating textured cube with real-t
 - Vulkan 1.3 compatible GPU and drivers
 - C++23 compatible compiler (GCC 13+, Clang 16+, MSVC 19.35+)
 - CMake 3.25+
+- Ninja build system (recommended for faster builds)
 
 ### Dependencies (managed via vcpkg)
 - Vulkan SDK
@@ -26,7 +27,7 @@ A modern C++23 Vulkan-based demo showcasing a rotating textured cube with real-t
 
 ## Building
 
-### Using vcpkg (Recommended)
+### Using vcpkg with Clang and Ninja (Recommended)
 
 1. Clone the repository:
 ```bash
@@ -41,11 +42,22 @@ git clone https://github.com/Microsoft/vcpkg.git
 ./vcpkg/bootstrap-vcpkg.bat # Windows
 ```
 
-3. Configure and build:
+3. Configure and build with Clang and Ninja:
 ```bash
 mkdir build && cd build
-cmake .. -DCMAKE_TOOLCHAIN_FILE=<path-to-vcpkg>/scripts/buildsystems/vcpkg.cmake
-cmake --build . --config Release
+cmake .. -DCMAKE_TOOLCHAIN_FILE=<path-to-vcpkg>/scripts/buildsystems/vcpkg.cmake \
+         -DCMAKE_C_COMPILER=clang \
+         -DCMAKE_CXX_COMPILER=clang++ \
+         -GNinja
+ninja
+```
+
+Alternative build with make:
+```bash
+cmake .. -DCMAKE_TOOLCHAIN_FILE=<path-to-vcpkg>/scripts/buildsystems/vcpkg.cmake \
+         -DCMAKE_C_COMPILER=clang \
+         -DCMAKE_CXX_COMPILER=clang++
+make -j$(nproc)
 ```
 
 ### Manual Dependencies
@@ -54,7 +66,18 @@ If you prefer to install dependencies manually:
 
 1. Install Vulkan SDK from LunarG
 2. Install GLFW3, GLM, and STB through your package manager
-3. Build normally with CMake
+3. Build with Clang and Ninja:
+```bash
+mkdir build && cd build
+cmake .. -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -GNinja
+ninja
+```
+
+Or with make:
+```bash
+cmake .. -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
+make -j$(nproc)
+```
 
 ## Controls
 
