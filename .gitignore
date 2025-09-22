@@ -1,0 +1,45 @@
+# Build directories
+build/
+cmake-build-*/
+
+# Compiled shader files
+shaders/compiled/
+
+# Binary files
+*.exe
+*.dll
+*.so
+*.dylib
+
+# IDE files
+.vs/
+.vscode/
+*.user
+*.suo
+*.sln
+*.vcxproj*
+
+# vcpkg files
+vcpkg_installed/
+
+# Cache files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+
+# Debug files
+*.pdb
+*.dSYM/
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+
+# macOS files
+.DS_Store
+
+# Vulkan validation layers output
+validation_*.txt
