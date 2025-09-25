@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>World System - Tidal Engine Documentation</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Left Sidebar Navigation -->
+        <nav class="sidebar-left">
+            <h1>Tidal Engine</h1>
+
+            <div class="nav-section">
+                <h3>Getting Started</h3>
+                <ul>
+                    <li><a href="index.html">Overview</a></li>
+                    <li><a href="architecture.html">Architecture</a></li>
+                    <li><a href="quick-start.html">Quick Start</a></li>
+                </ul>
+            </div>
+
+            <div class="nav-section">
+                <h3>Core Systems</h3>
+                <ul>
+                    <li><a href="rendering.html">Rendering System</a></li>
+                    <li><a href="networking.html">Networking</a></li>
+                    <li><a href="world-system.html" class="active">World System</a></li>
+                    <li><a href="input-system.html">Input System</a></li>
+                </ul>
+            </div>
+
+            <div class="nav-section">
+                <h3>Infrastructure</h3>
+                <ul>
+                    <li><a href="vulkan-infrastructure.html">Vulkan Infrastructure</a></li>
+                    <li><a href="threading.html">Threading & Concurrency</a></li>
+                    <li><a href="shaders.html">Shader System</a></li>
+                </ul>
+            </div>
+
+            <div class="nav-section">
+                <h3>Development</h3>
+                <ul>
+                    <li><a href="build-system.html">Build System</a></li>
+                    <li><a href="performance.html">Performance</a></li>
+                    <li><a href="debugging.html">Debugging</a></li>
+                </ul>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="content">
+            <section class="section">
+                <h1>World System</h1>
+
+                <p>Infinite voxel worlds using 16³ chunks with on-demand loading and procedural generation.</p>
+
+                <h2>Chunk Format</h2>
+                <pre><code>// Chunk coordinates
+struct ChunkPos {
+    int32_t x, y, z;     // Chunk position in world
+};
+
+// World position to chunk position
+ChunkPos worldToChunk(int32_t worldX, int32_t worldY, int32_t worldZ) {
+    return {worldX >> 4, worldY >> 4, worldZ >> 4};  // Divide by 16
+}
+
+// Chunk data: 16x16x16 voxels = 4096 bytes
+enum class BlockType : uint8_t {
+    AIR = 0, STONE = 1, DIRT = 2, GRASS = 3, WOOD = 4,
+    SAND = 5, BRICK = 6, COBBLESTONE = 7, SNOW = 8
+};
+
+class Chunk {
+    BlockType m_data[16][16][16];  // [x][y][z] indexing
+    bool m_modified;               // Dirty flag for saving
+    glm::ivec3 m_position;        // Chunk coordinates
+};</code></pre>
+
+                <h3>Block Indexing</h3>
+                <div class="method-signature">
+                    <code>BlockType& Chunk::getBlock(int x, int y, int z)</code><br>
+                    Accesses block at local chunk coordinates (0-15 range).
+                </div>
+
+                <pre><code>// 3D to 1D index conversion
+inline int blockIndex(int x, int y, int z) {
+    return x + (z * 16) + (y * 16 * 16);
+}
+
+// Bounds checking
+BlockType Chunk::getBlock(int x, int y, int z) const {
+    if (x < 0 || x >= 16 || y < 0 || y >= 16 || z < 0 || z >= 16) {
+        return BlockType::AIR;
+    }
+    return m_data[x][y][z];
+}</code></pre>
+
+                <h2>Chunk Management</h2>
+                <p class="file-path">src/ChunkManager.cpp</p>
+
+                <div class="method-signature">
+                    <code>void ChunkManager::updateChunks(const glm::vec3& playerPos)</code><br>
+                    Manages chunk loading/unloading based on player position and render distance.
+                </div>
+
+                <pre><code>// Chunk loading strategy
+const int RENDER_DISTANCE = 8;  // chunks
+const int UNLOAD_DISTANCE = 12; // chunks
+
+void updateChunks(glm::vec3 playerPos) {
+    ChunkPos playerChunk = worldToChunk(playerPos);
+
+    // Load chunks in spiral pattern around player
+    for (int dx = -RENDER_DISTANCE; dx <= RENDER_DISTANCE; dx++) {
+        for (int dz = -RENDER_DISTANCE; dz <= RENDER_DISTANCE; dz++) {
+            ChunkPos pos = {playerChunk.x + dx, playerChunk.y, playerChunk.z + dz};
+            if (!isChunkLoaded(pos)) {
+                loadChunk(pos);
+            }
+        }
+    }
+
+    // Unload distant chunks
+    unloadChunksOutsideRange(playerPos, UNLOAD_DISTANCE);
+}</code></pre>
+
+                <h3>Chunk States</h3>
+                <table>
+                    <tr><th>State</th><th>Description</th><th>Next State</th></tr>
+                    <tr><td>UNLOADED</td><td>Not in memory</td><td>LOADING</td></tr>
+                    <tr><td>LOADING</td><td>Being loaded from disk/network</td><td>LOADED</td></tr>
+                    <tr><td>LOADED</td><td>In memory, ready for use</td><td>MESH_DIRTY</td></tr>
+                    <tr><td>MESH_DIRTY</td><td>Data changed, needs mesh rebuild</td><td>LOADED</td></tr>
+                    <tr><td>UNLOADING</td><td>Being saved and removed</td><td>UNLOADED</td></tr>
+                </table>
+
+                <h2>World Generation</h2>
+
+                <h3>Procedural Generation</h3>
+                <div class="info-box">
+                    Basic world generation creates a simple terrain with grass, dirt, and stone layers.
+                </div>
+
+                <pre><code>// Simple terrain generation
+void generateChunk(Chunk& chunk, const ChunkPos& pos) {
+    const int GRASS_LEVEL = 64;
+    const int DIRT_DEPTH = 4;
+
+    for (int x = 0; x < 16; x++) {
+        for (int z = 0; z < 16; z++) {
+            // World coordinates
+            int worldX = pos.x * 16 + x;
+            int worldZ = pos.z * 16 + z;
+
+            // Simple height map (flat with noise)
+            int height = GRASS_LEVEL + (int)(simplex_noise(worldX * 0.01f, worldZ * 0.01f) * 10);
+
+            for (int y = 0; y < 16; y++) {
+                int worldY = pos.y * 16 + y;
+
+                if (worldY < height - DIRT_DEPTH) {
+                    chunk.setBlock(x, y, z, BlockType::STONE);
+                } else if (worldY < height - 1) {
+                    chunk.setBlock(x, y, z, BlockType::DIRT);
+                } else if (worldY == height - 1) {
+                    chunk.setBlock(x, y, z, BlockType::GRASS);
+                } else {
+                    chunk.setBlock(x, y, z, BlockType::AIR);
+                }
+            }
+        }
+    }
+}</code></pre>
+
+                <h3>Noise Functions</h3>
+                <div class="method-signature">
+                    <code>float simplex_noise(float x, float y)</code><br>
+                    Generates coherent noise for terrain height variation.
+                </div>
+
+                <pre><code>// Basic noise-based terrain
+class TerrainGenerator {
+    NoiseGenerator m_heightNoise;
+    NoiseGenerator m_caveNoise;
+
+public:
+    int getHeightAt(int worldX, int worldZ) {
+        float height = m_heightNoise.sample(worldX * 0.005f, worldZ * 0.005f);
+        return 64 + (int)(height * 32); // Range: 32-96
+    }
+
+    bool isCave(int worldX, int worldY, int worldZ) {
+        if (worldY > 50) return false; // No caves above ground
+
+        float cave = m_caveNoise.sample(worldX * 0.02f, worldY * 0.02f, worldZ * 0.02f);
+        return cave > 0.6f; // Cave threshold
+    }
+};</code></pre>
+
+                <h2>Save System</h2>
+                <p class="file-path">src/SaveSystem.cpp</p>
+                <div class="info-box">
+                    Handles world persistence. Saves chunks as binary files in <code>~/.tidal-engine/saves/worldname/</code>.
+                </div>
+
+                <pre><code>// Save directory structure
+~/.tidal-engine/saves/
+├── world_name/
+│   ├── world.json        // World metadata
+│   ├── chunks/
+│   │   ├── 0_0_0.chunk   // Chunk at (0,0,0)
+│   │   ├── 1_0_0.chunk   // Chunk at (1,0,0)
+│   │   └── ...
+│   └── players/
+│       └── player1.dat   // Player save data
+└── other_world/
+    └── ...</code></pre>
+
+                <h3>Chunk Serialization</h3>
+                <div class="method-signature">
+                    <code>void saveChunk(const ChunkPos& pos, const Chunk& chunk)</code><br>
+                    Serializes chunk data to binary file. Called when chunk is modified or server shuts down.
+                </div>
+
+                <pre><code>// Binary chunk format
+struct ChunkHeader {
+    uint32_t magic = 0x54494445;  // "TIDE"
+    uint32_t version = 1;
+    ChunkPos position;
+    uint32_t dataSize;
+    uint32_t checksum;
+};
+
+void SaveSystem::saveChunk(const ChunkPos& pos, const Chunk& chunk) {
+    std::string filename = getChunkFileName(pos);
+    std::ofstream file(filename, std::ios::binary);
+
+    ChunkHeader header;
+    header.position = pos;
+    header.dataSize = 4096; // 16³ bytes
+
+    // Write header
+    file.write(reinterpret_cast&lt;const char*&gt;(&header), sizeof(header));
+
+    // Write chunk data
+    file.write(reinterpret_cast&lt;const char*&gt;(chunk.getData()), 4096);
+}</code></pre>
+
+                <h3>World Metadata</h3>
+                <pre><code>// world.json structure
+{
+    "name": "My World",
+    "seed": 12345678,
+    "created": "2024-01-15T10:30:00Z",
+    "lastPlayed": "2024-01-16T15:45:00Z",
+    "gamemode": "survival",
+    "spawn": {
+        "x": 0,
+        "y": 70,
+        "z": 0
+    },
+    "settings": {
+        "generateCaves": true,
+        "generateOres": true,
+        "worldHeight": 256
+    }
+}</code></pre>
+
+                <h2>Block Interaction</h2>
+
+                <h3>Block Placement</h3>
+                <div class="method-signature">
+                    <code>bool ChunkManager::setBlock(const glm::ivec3& worldPos, BlockType type)</code><br>
+                    Places or removes block at world position, handling chunk boundaries.
+                </div>
+
+                <pre><code>bool ChunkManager::setBlock(const glm::ivec3& worldPos, BlockType type) {
+    ChunkPos chunkPos = worldToChunk(worldPos.x, worldPos.y, worldPos.z);
+
+    auto chunk = getChunk(chunkPos);
+    if (!chunk) {
+        return false; // Chunk not loaded
+    }
+
+    // Convert to local chunk coordinates
+    glm::ivec3 localPos = {
+        worldPos.x & 15,  // worldPos.x % 16 (but works with negatives)
+        worldPos.y & 15,
+        worldPos.z & 15
+    };
+
+    chunk->setBlock(localPos.x, localPos.y, localPos.z, type);
+    chunk->markDirty(); // Flag for mesh regeneration
+
+    // Update neighboring chunks if on boundary
+    updateNeighborChunks(worldPos);
+
+    return true;
+}</code></pre>
+
+                <h3>Block Physics</h3>
+                <div class="warning-box">
+                    <strong>Future Enhancement:</strong> Block physics not yet implemented but designed for gravity-affected blocks like sand and water.
+                </div>
+
+                <pre><code>// Planned physics system
+class BlockPhysics {
+public:
+    virtual void update(ChunkManager* chunks, const glm::ivec3& pos) = 0;
+};
+
+class FallingBlockPhysics : public BlockPhysics {
+    void update(ChunkManager* chunks, const glm::ivec3& pos) override {
+        glm::ivec3 below = pos + glm::ivec3(0, -1, 0);
+
+        if (chunks->getBlock(below) == BlockType::AIR) {
+            // Move block down
+            BlockType current = chunks->getBlock(pos);
+            chunks->setBlock(pos, BlockType::AIR);
+            chunks->setBlock(below, current);
+        }
+    }
+};</code></pre>
+
+                <h2>Lighting System</h2>
+
+                <h3>Light Propagation</h3>
+                <div class="info-box">
+                    Basic sunlight and block light propagation for realistic lighting effects.
+                </div>
+
+                <pre><code>// Light levels (0-15)
+enum LightLevel : uint8_t {
+    LIGHT_MIN = 0,
+    LIGHT_BLOCK_MAX = 15,
+    LIGHT_SUN_MAX = 15
+};
+
+class LightManager {
+    // Each chunk stores light data
+    uint8_t m_sunlight[16][16][16];    // Sunlight levels
+    uint8_t m_blocklight[16][16][16];  // Block light levels
+
+public:
+    void propagateLight(const ChunkPos& pos);
+    void updateLightingAroundBlock(const glm::ivec3& worldPos);
+};</code></pre>
+
+                <h3>Light Calculation</h3>
+                <pre><code>// Sunlight propagation
+void LightManager::propagateSunlight(Chunk& chunk) {
+    // Top-down sunlight
+    for (int x = 0; x < 16; x++) {
+        for (int z = 0; z < 16; z++) {
+            uint8_t lightLevel = LIGHT_SUN_MAX;
+
+            for (int y = 15; y >= 0; y--) {
+                if (chunk.getBlock(x, y, z) != BlockType::AIR) {
+                    lightLevel = 0; // Block stops sunlight
+                }
+
+                chunk.setSunlight(x, y, z, lightLevel);
+            }
+        }
+    }
+}</code></pre>
+
+                <h2>Optimization</h2>
+
+                <h3>Memory Management</h3>
+                <div class="method-signature">
+                    <code>void ChunkManager::garbageCollect()</code><br>
+                    Unloads distant chunks to manage memory usage.
+                </div>
+
+                <pre><code>void ChunkManager::garbageCollect() {
+    const size_t MAX_LOADED_CHUNKS = 1000;
+
+    if (m_loadedChunks.size() > MAX_LOADED_CHUNKS) {
+        std::vector&lt;ChunkPos&gt; toUnload;
+
+        for (const auto& [pos, chunk] : m_loadedChunks) {
+            float distance = glm::length(glm::vec3(pos.x, 0, pos.z) - m_playerChunkPos);
+
+            if (distance > UNLOAD_DISTANCE) {
+                toUnload.push_back(pos);
+            }
+        }
+
+        // Unload chunks by distance (furthest first)
+        std::sort(toUnload.begin(), toUnload.end(), [this](const ChunkPos& a, const ChunkPos& b) {
+            float distA = glm::length(glm::vec3(a.x, 0, a.z) - m_playerChunkPos);
+            float distB = glm::length(glm::vec3(b.x, 0, b.z) - m_playerChunkPos);
+            return distA > distB;
+        });
+
+        for (const auto& pos : toUnload) {
+            unloadChunk(pos);
+        }
+    }
+}</code></pre>
+
+                <h3>Async Loading</h3>
+                <pre><code>// Background chunk loading
+void ChunkManager::requestChunkAsync(const ChunkPos& pos) {
+    if (m_loadingChunks.count(pos) > 0) {
+        return; // Already loading
+    }
+
+    m_loadingChunks.insert(pos);
+
+    m_threadPool->enqueue([this, pos]() {
+        // Load from disk or generate
+        std::unique_ptr&lt;Chunk&gt; chunk;
+
+        if (m_saveSystem->chunkExists(pos)) {
+            chunk = m_saveSystem->loadChunk(pos);
+        } else {
+            chunk = std::make_unique&lt;Chunk&gt;(pos);
+            m_generator->generateChunk(*chunk, pos);
+        }
+
+        // Queue for main thread processing
+        {
+            std::lock_guard&lt;std::mutex&gt; lock(m_pendingChunksMutex);
+            m_pendingChunks[pos] = std::move(chunk);
+        }
+    });
+}</code></pre>
+            </section>
+        </main>
+
+        <!-- Right Sidebar - Table of Contents -->
+        <aside class="sidebar-right">
+            <div class="toc">
+                <h4>On This Page</h4>
+                <ul>
+                    <!-- TOC will be dynamically generated -->
+                </ul>
+            </div>
+        </aside>
+    </div>
+
+    <script src="nav.js"></script>
+</body>
+</html>

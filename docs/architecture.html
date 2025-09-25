@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Architecture Overview - Tidal Engine Documentation</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Left Sidebar Navigation -->
+        <nav class="sidebar-left">
+            <h1>Tidal Engine</h1>
+
+            <div class="nav-section">
+                <h3>Getting Started</h3>
+                <ul>
+                    <li><a href="index.html">Overview</a></li>
+                    <li><a href="architecture.html" class="active">Architecture</a></li>
+                    <li><a href="quick-start.html">Quick Start</a></li>
+                </ul>
+            </div>
+
+            <div class="nav-section">
+                <h3>Core Systems</h3>
+                <ul>
+                    <li><a href="rendering.html">Rendering System</a></li>
+                    <li><a href="networking.html">Networking</a></li>
+                    <li><a href="world-system.html">World System</a></li>
+                    <li><a href="input-system.html">Input System</a></li>
+                </ul>
+            </div>
+
+            <div class="nav-section">
+                <h3>Infrastructure</h3>
+                <ul>
+                    <li><a href="vulkan-infrastructure.html">Vulkan Infrastructure</a></li>
+                    <li><a href="threading.html">Threading & Concurrency</a></li>
+                    <li><a href="shaders.html">Shader System</a></li>
+                </ul>
+            </div>
+
+            <div class="nav-section">
+                <h3>Development</h3>
+                <ul>
+                    <li><a href="build-system.html">Build System</a></li>
+                    <li><a href="performance.html">Performance</a></li>
+                    <li><a href="debugging.html">Debugging</a></li>
+                </ul>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="content">
+            <section class="section">
+                <h1>Architecture Overview</h1>
+
+                <p>The engine follows a client-server architecture even for single-player games, ensuring consistency and enabling seamless multiplayer support.</p>
+
+                <h2>Core Components</h2>
+
+                <div class="info-box">
+                    <strong>GameClient</strong> <span class="file-path">src/GameClient.cpp</span><br>
+                    Main client-side class handling rendering, input, UI, and client game logic.
+                </div>
+
+                <div class="info-box">
+                    <strong>GameServer</strong> <span class="file-path">src/GameServer.cpp</span><br>
+                    Server-side game logic, world state management, and multiplayer coordination.
+                </div>
+
+                <div class="info-box">
+                    <strong>NetworkManager</strong> <span class="file-path">src/NetworkManager.cpp</span><br>
+                    TCP-based networking for reliable client-server communication.
+                </div>
+
+                <h2>Data Flow</h2>
+                <pre><code>Player Input → GameClient → NetworkManager → GameServer
+                    ↓                                            ↓
+                UI/Rendering ← ChunkManager ← World State ← Game Logic</code></pre>
+
+                <h2>Threading Model</h2>
+                <table>
+                    <tr><th>Thread</th><th>Responsibility</th><th>Implementation</th></tr>
+                    <tr><td>Main Thread</td><td>Rendering, UI, Input</td><td><code>GameClient::run()</code></td></tr>
+                    <tr><td>Server Thread</td><td>Game Logic, Physics</td><td><code>GameServer::run()</code></td></tr>
+                    <tr><td>Network Thread</td><td>I/O Operations</td><td><code>NetworkManager</code></td></tr>
+                    <tr><td>Worker Pool</td><td>Chunk Generation, I/O</td><td><code>ThreadPool</code></td></tr>
+                </table>
+
+                <h2>Component Interaction</h2>
+
+                <h3>Single Player Mode</h3>
+                <p>Even in single-player mode, the engine runs a local server to maintain consistency with multiplayer architecture:</p>
+
+                <pre><code>// Single-player initialization
+GameServer localServer;
+localServer.startLocal();  // No networking, direct communication
+
+GameClient client;
+client.connectToLocalServer(localServer);</code></pre>
+
+                <h3>Multiplayer Mode</h3>
+                <p>Multiplayer simply connects clients to a remote server instance:</p>
+
+                <pre><code>// Multiplayer client
+GameClient client;
+client.connectToServer("192.168.1.100", 7777);
+
+// Dedicated server
+GameServer server;
+server.startDedicated(7777);  // Listen on port 7777</code></pre>
+
+                <h2>State Management</h2>
+
+                <h3>Game States</h3>
+                <pre><code>enum class GameState {
+    MAIN_MENU,      // Main menu interface
+    WORLD_SELECTION,// World selection screen
+    CONNECTING,     // Connecting to server
+    LOADING,        // Loading world data
+    IN_GAME,        // Active gameplay
+    PAUSED,         // In-game pause menu
+    SETTINGS,       // Settings interface
+    QUIT            // Shutdown sequence
+};</code></pre>
+
+                <h3>State Transitions</h3>
+                <div class="method-signature">
+                    <code>void GameClient::setState(GameState newState)</code><br>
+                    Handles state transitions with proper cleanup and initialization.
+                </div>
+
+                <pre><code>// Example state transition
+void GameClient::setState(GameState newState) {
+    // Cleanup current state
+    switch (m_gameState) {
+        case GameState::IN_GAME:
+            glfwSetInputMode(m_window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+            break;
+        // ... other cleanup
+    }
+
+    m_gameState = newState;
+
+    // Initialize new state
+    switch (newState) {
+        case GameState::IN_GAME:
+            glfwSetInputMode(m_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+            break;
+        // ... other initialization
+    }
+}</code></pre>
+
+                <h2>Memory Management</h2>
+
+                <h3>RAII Patterns</h3>
+                <div class="info-box">
+                    The engine extensively uses RAII (Resource Acquisition Is Initialization) for automatic resource management, particularly for Vulkan resources.
+                </div>
+
+                <pre><code>class GameClient {
+    std::unique_ptr&lt;VulkanDevice&gt; m_device;        // Auto-cleanup
+    std::unique_ptr&lt;ChunkManager&gt; m_chunkManager; // Auto-cleanup
+    std::unique_ptr&lt;TextureManager&gt; m_textureManager; // Auto-cleanup
+
+    // Proper destruction order ensured by member order
+    ~GameClient() {
+        // m_textureManager destroyed first (depends on m_device)
+        // m_chunkManager destroyed next
+        // m_device destroyed last
+    }
+};</code></pre>
+
+                <h3>Resource Lifecycles</h3>
+                <table>
+                    <tr><th>Resource Type</th><th>Lifecycle</th><th>Managed By</th></tr>
+                    <tr><td>Vulkan Buffers</td><td>Frame-based</td><td>VulkanDevice</td></tr>
+                    <tr><td>Chunk Data</td><td>Distance-based</td><td>ChunkManager</td></tr>
+                    <tr><td>Textures</td><td>Application lifetime</td><td>TextureManager</td></tr>
+                    <tr><td>Network Connections</td><td>Session-based</td><td>NetworkManager</td></tr>
+                </table>
+
+                <h2>Error Handling</h2>
+
+                <h3>Exception Strategy</h3>
+                <div class="warning-box">
+                    <strong>Exception Policy:</strong><br>
+                    • Vulkan errors: Check return codes, throw on critical failures<br>
+                    • Network errors: Graceful degradation, retry mechanisms<br>
+                    • File I/O: Exception-based error handling<br>
+                    • Game logic: Assertion-based debugging in debug builds
+                </div>
+
+                <pre><code>// Vulkan error handling
+VkResult result = vkCreateBuffer(device, &bufferInfo, nullptr, &buffer);
+if (result != VK_SUCCESS) {
+    throw VulkanException("Failed to create buffer: " + std::to_string(result));
+}
+
+// Network error handling
+bool NetworkManager::sendMessage(const NetworkMessage& msg) {
+    try {
+        // Attempt to send
+        return sendInternal(msg);
+    } catch (const NetworkException& e) {
+        // Log error and attempt reconnection
+        reconnect();
+        return false;
+    }
+}</code></pre>
+
+                <h2>Configuration System</h2>
+
+                <h3>Settings Management</h3>
+                <div class="method-signature">
+                    <code>class ConfigManager</code><br>
+                    Handles persistent settings storage and runtime configuration.
+                </div>
+
+                <pre><code>// Configuration hierarchy
+~/.tidal-engine/
+├── config.json          // User settings
+├── keybinds.json        // Key bindings
+└── servers.json         // Server list
+
+// Example configuration
+{
+    "graphics": {
+        "renderDistance": 8,
+        "vsync": true,
+        "fullscreen": false
+    },
+    "audio": {
+        "masterVolume": 0.8,
+        "effectsVolume": 0.9
+    }
+}</code></pre>
+            </section>
+        </main>
+
+        <!-- Right Sidebar - Table of Contents -->
+        <aside class="sidebar-right">
+            <div class="toc">
+                <h4>On This Page</h4>
+                <ul>
+                    <!-- TOC will be dynamically generated -->
+                </ul>
+            </div>
+        </aside>
+    </div>
+
+    <script src="nav.js"></script>
+</body>
+</html>

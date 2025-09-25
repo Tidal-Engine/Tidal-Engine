@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debugging & Development - Tidal Engine Documentation</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Left Sidebar Navigation -->
+        <nav class="sidebar-left">
+            <h1>Tidal Engine</h1>
+
+            <div class="nav-section">
+                <h3>Getting Started</h3>
+                <ul>
+                    <li><a href="index.html">Overview</a></li>
+                    <li><a href="architecture.html">Architecture</a></li>
+                    <li><a href="quick-start.html">Quick Start</a></li>
+                </ul>
+            </div>
+
+            <div class="nav-section">
+                <h3>Core Systems</h3>
+                <ul>
+                    <li><a href="rendering.html">Rendering System</a></li>
+                    <li><a href="networking.html">Networking</a></li>
+                    <li><a href="world-system.html">World System</a></li>
+                    <li><a href="input-system.html">Input System</a></li>
+                </ul>
+            </div>
+
+            <div class="nav-section">
+                <h3>Infrastructure</h3>
+                <ul>
+                    <li><a href="vulkan-infrastructure.html">Vulkan Infrastructure</a></li>
+                    <li><a href="threading.html">Threading & Concurrency</a></li>
+                    <li><a href="shaders.html">Shader System</a></li>
+                </ul>
+            </div>
+
+            <div class="nav-section">
+                <h3>Development</h3>
+                <ul>
+                    <li><a href="build-system.html">Build System</a></li>
+                    <li><a href="performance.html">Performance</a></li>
+                    <li><a href="debugging.html" class="active">Debugging</a></li>
+                </ul>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="content">
+            <section class="section">
+                <h1>Debugging & Development</h1>
+
+                <h2>Debug Controls</h2>
+                <table>
+                    <tr><th>Key</th><th>Function</th><th>Implementation</th></tr>
+                    <tr><td>F1</td><td>Debug Window</td><td><code>m_showDebugWindow</code> toggle</td></tr>
+                    <tr><td>F2</td><td>Performance HUD</td><td>FPS, frame time, chunk count</td></tr>
+                    <tr><td>F3</td><td>Rendering Info</td><td>GPU stats, draw calls</td></tr>
+                    <tr><td>F4</td><td>Chunk Boundaries</td><td>Wireframe chunk outlines</td></tr>
+                </table>
+
+                <h2>Vulkan Validation</h2>
+                <pre><code>// Enable in debug builds via CMake
+#ifdef ENABLE_VALIDATION_LAYERS
+const std::vector&lt;const char*&gt; validationLayers = {
+    "VK_LAYER_KHRONOS_validation"
+};
+#endif
+
+// Common validation errors to watch for:
+// - Buffer/image memory not bound before use
+// - Command buffer recorded while already recording
+// - Descriptor set not updated before binding
+// - Pipeline barriers missing for layout transitions</code></pre>
+
+                <h2>Development Workflow</h2>
+                <div class="info-box">
+                    <strong>Best Practices:</strong><br>
+                    1. Always use debug builds during development<br>
+                    2. Enable Vulkan validation layers to catch API misuse<br>
+                    3. Monitor performance HUD for real-time metrics<br>
+                    4. Use chunk boundary visualization for spatial debugging
+                </div>
+
+                <div class="warning-box">
+                    <strong>Coming Soon:</strong> More detailed debugging guides and common issue solutions will be added soon.
+                </div>
+            </section>
+        </main>
+
+        <!-- Right Sidebar - Table of Contents -->
+        <aside class="sidebar-right">
+            <div class="toc">
+                <h4>On This Page</h4>
+                <ul>
+                    <!-- TOC will be dynamically generated -->
+                </ul>
+            </div>
+        </aside>
+    </div>
+
+    <script src="nav.js"></script>
+</body>
+</html>

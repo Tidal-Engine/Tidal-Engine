@@ -1,0 +1,21 @@
+{
+  "name": "Default",
+  "description": "Default Tidal Engine texturepack",
+  "version": "1.0.0",
+  "texture_size": 16,
+  "author": "Tidal Engine",
+  "blocks": {
+    "stone": "stone.png",
+    "dirt": "dirt.png",
+    "grass": {
+      "top": "grass_top.png",
+      "side": "grass_side.png",
+      "bottom": "dirt.png"
+    },
+    "wood": "wood.png",
+    "sand": "sand.png",
+    "brick": "brick.png",
+    "cobblestone": "cobblestone.png",
+    "snow": "snow.png"
+  }
+}

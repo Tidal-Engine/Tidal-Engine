@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Input System - Tidal Engine Documentation</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Left Sidebar Navigation -->
+        <nav class="sidebar-left">
+            <h1>Tidal Engine</h1>
+
+            <div class="nav-section">
+                <h3>Getting Started</h3>
+                <ul>
+                    <li><a href="index.html">Overview</a></li>
+                    <li><a href="architecture.html">Architecture</a></li>
+                    <li><a href="quick-start.html">Quick Start</a></li>
+                </ul>
+            </div>
+
+            <div class="nav-section">
+                <h3>Core Systems</h3>
+                <ul>
+                    <li><a href="rendering.html">Rendering System</a></li>
+                    <li><a href="networking.html">Networking</a></li>
+                    <li><a href="world-system.html">World System</a></li>
+                    <li><a href="input-system.html" class="active">Input System</a></li>
+                </ul>
+            </div>
+
+            <div class="nav-section">
+                <h3>Infrastructure</h3>
+                <ul>
+                    <li><a href="vulkan-infrastructure.html">Vulkan Infrastructure</a></li>
+                    <li><a href="threading.html">Threading & Concurrency</a></li>
+                    <li><a href="shaders.html">Shader System</a></li>
+                </ul>
+            </div>
+
+            <div class="nav-section">
+                <h3>Development</h3>
+                <ul>
+                    <li><a href="build-system.html">Build System</a></li>
+                    <li><a href="performance.html">Performance</a></li>
+                    <li><a href="debugging.html">Debugging</a></li>
+                </ul>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="content">
+            <section class="section">
+                <h1>Input System</h1>
+
+                <h2>GLFW Integration</h2>
+                <p class="file-path">src/GameClient.cpp</p>
+                <div class="info-box">
+                    Input handling through GLFW callbacks and polling. State-dependent input processing.
+                </div>
+
+                <pre><code>// Input callbacks setup
+glfwSetKeyCallback(m_window, keyCallback);
+glfwSetCursorPosCallback(m_window, mouseCallback);
+glfwSetMouseButtonCallback(m_window, mouseButtonCallback);
+glfwSetScrollCallback(m_window, scrollCallback);
+
+// Mouse capture control
+if (m_gameState == GameState::IN_GAME) {
+    glfwSetInputMode(m_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+} else {
+    glfwSetInputMode(m_window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+}</code></pre>
+
+                <h2>Movement Controls</h2>
+                <table>
+                    <tr><th>Key</th><th>Action</th><th>Implementation</th></tr>
+                    <tr><td>WASD</td><td>Horizontal Movement</td><td>Minecraft-style (X/Z plane only)</td></tr>
+                    <tr><td>Space</td><td>Move Up</td><td>Pure Y-axis movement</td></tr>
+                    <tr><td>Shift</td><td>Move Down</td><td>Pure Y-axis movement</td></tr>
+                    <tr><td>Ctrl</td><td>Speed Boost</td><td>5x movement multiplier</td></tr>
+                    <tr><td>Mouse</td><td>Look Around</td><td>FPS-style camera control</td></tr>
+                    <tr><td>Mouse Wheel</td><td>FOV/Speed</td><td>Adjusts camera zoom</td></tr>
+                </table>
+
+                <pre><code>// Minecraft-style horizontal movement (Camera.cpp:26-46)
+glm::vec3 horizontalFront = glm::normalize(glm::vec3(Front.x, 0.0f, Front.z));
+glm::vec3 horizontalRight = glm::normalize(glm::vec3(Right.x, 0.0f, Right.z));
+
+if (direction == CameraMovement::FORWARD)
+    Position += horizontalFront * velocity;
+if (direction == CameraMovement::UP)
+    Position += glm::vec3(0.0f, 1.0f, 0.0f) * velocity; // Pure Y-axis</code></pre>
+
+                <h2>Block Interaction</h2>
+                <div class="method-signature">
+                    <code>void GameClient::handleMouseClick(int button, int action)</code><br>
+                    Handles block placement/breaking via raycasting. Left click breaks, right click places.
+                </div>
+
+                <pre><code>// Ray casting for block interaction (Camera.cpp:171-219)
+BlockHitResult result = m_camera.raycastVoxels(ray, m_chunkManager.get(), 10.0f);
+if (result.hit) {
+    if (button == GLFW_MOUSE_BUTTON_LEFT) {
+        // Break block
+        m_chunkManager->setVoxel(result.blockPosition, BlockType::AIR);
+    } else if (button == GLFW_MOUSE_BUTTON_RIGHT) {
+        // Place block adjacent to hit face
+        glm::ivec3 placePos = result.blockPosition + result.normal;
+        m_chunkManager->setVoxel(placePos, m_selectedBlockType);
+    }
+}</code></pre>
+
+                <h2>UI Input States</h2>
+                <div class="info-box">
+                    Input behavior changes based on game state to prevent conflicts between game controls and UI interaction.
+                </div>
+                <pre><code>switch (m_gameState) {
+    case GameState::MAIN_MENU:
+        // Only UI interactions, no camera movement
+        break;
+    case GameState::IN_GAME:
+        // Full FPS controls, mouse captured
+        processKeyboard(); processMouseMovement();
+        break;
+    case GameState::PAUSED:
+        // UI only, mouse free for menu interaction
+        break;
+}</code></pre>
+            </section>
+        </main>
+
+        <!-- Right Sidebar - Table of Contents -->
+        <aside class="sidebar-right">
+            <div class="toc">
+                <h4>On This Page</h4>
+                <ul>
+                    <!-- TOC will be dynamically generated -->
+                </ul>
+            </div>
+        </aside>
+    </div>
+
+    <script src="nav.js"></script>
+</body>
+</html>

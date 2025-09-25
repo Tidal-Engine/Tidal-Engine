@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Networking System - Tidal Engine Documentation</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Left Sidebar Navigation -->
+        <nav class="sidebar-left">
+            <h1>Tidal Engine</h1>
+
+            <div class="nav-section">
+                <h3>Getting Started</h3>
+                <ul>
+                    <li><a href="index.html">Overview</a></li>
+                    <li><a href="architecture.html">Architecture</a></li>
+                    <li><a href="quick-start.html">Quick Start</a></li>
+                </ul>
+            </div>
+
+            <div class="nav-section">
+                <h3>Core Systems</h3>
+                <ul>
+                    <li><a href="rendering.html">Rendering System</a></li>
+                    <li><a href="networking.html" class="active">Networking</a></li>
+                    <li><a href="world-system.html">World System</a></li>
+                    <li><a href="input-system.html">Input System</a></li>
+                </ul>
+            </div>
+
+            <div class="nav-section">
+                <h3>Infrastructure</h3>
+                <ul>
+                    <li><a href="vulkan-infrastructure.html">Vulkan Infrastructure</a></li>
+                    <li><a href="threading.html">Threading & Concurrency</a></li>
+                    <li><a href="shaders.html">Shader System</a></li>
+                </ul>
+            </div>
+
+            <div class="nav-section">
+                <h3>Development</h3>
+                <ul>
+                    <li><a href="build-system.html">Build System</a></li>
+                    <li><a href="performance.html">Performance</a></li>
+                    <li><a href="debugging.html">Debugging</a></li>
+                </ul>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="content">
+            <section class="section">
+                <h1>Networking System</h1>
+
+                <p>TCP-based client-server networking with custom protocol for reliable voxel world synchronization.</p>
+
+                <h2>Protocol Design</h2>
+                <div class="info-box">
+                    <strong>Why TCP over UDP?</strong><br>
+                    Voxel games require reliable delivery of block changes and chunk data. TCP's built-in ordering and reliability eliminate the need for custom reliability layers.
+                </div>
+
+                <h3>Message Format</h3>
+                <pre><code>struct NetworkMessage {
+    uint32_t type;      // Message type identifier
+    uint32_t length;    // Payload size
+    uint8_t data[];     // Variable-length payload
+};
+
+// Message types
+enum MessageType {
+    CHUNK_REQUEST = 1,
+    CHUNK_DATA = 2,
+    BLOCK_UPDATE = 3,
+    PLAYER_MOVE = 4,
+    PLAYER_JOIN = 5,
+    PLAYER_LEAVE = 6
+};</code></pre>
+
+                <h2>Connection Management</h2>
+                <p class="file-path">src/NetworkManager.cpp</p>
+
+                <div class="method-signature">
+                    <code>bool NetworkManager::connectToServer(const std::string& host, int port)</code><br>
+                    Establishes TCP connection with error handling and timeout support.
+                </div>
+
+                <pre><code>// Client connection flow
+1. Create TCP socket
+2. Connect with timeout
+3. Send handshake message
+4. Receive server acknowledgment
+5. Start message processing loop</code></pre>
+
+                <h3>Connection States</h3>
+                <table>
+                    <tr><th>State</th><th>Description</th><th>Actions Available</th></tr>
+                    <tr><td>DISCONNECTED</td><td>No connection</td><td>Connect</td></tr>
+                    <tr><td>CONNECTING</td><td>Attempting connection</td><td>Wait, Cancel</td></tr>
+                    <tr><td>CONNECTED</td><td>Active connection</td><td>Send/Receive, Disconnect</td></tr>
+                    <tr><td>RECONNECTING</td><td>Lost connection, retrying</td><td>Wait, Cancel</td></tr>
+                </table>
+
+                <h2>Chunk Synchronization</h2>
+                <div class="info-box">
+                    Chunks are synchronized on-demand as players move through the world. The server tracks which chunks each client has loaded.
+                </div>
+
+                <pre><code>// Chunk request/response cycle
+Client: "Request chunk at (x, y, z)"
+Server: "Here's chunk data: [4096 bytes of voxel data]"
+Client: "Generate mesh and render"
+
+// Block updates are broadcast to all clients in range
+Server: "Block at (wx, wy, wz) changed to type X"
+Clients: "Update local chunk and regenerate affected meshes"</code></pre>
+
+                <h3>Chunk Loading Strategy</h3>
+                <div class="method-signature">
+                    <code>void NetworkManager::requestChunksAroundPlayer(const glm::vec3& playerPos)</code><br>
+                    Requests chunks in spiral pattern around player position.
+                </div>
+
+                <pre><code>// Client-side chunk requests
+const int NETWORK_RANGE = 6; // chunks
+ChunkPos playerChunk = worldToChunk(playerPos);
+
+for (int dx = -NETWORK_RANGE; dx <= NETWORK_RANGE; dx++) {
+    for (int dz = -NETWORK_RANGE; dz <= NETWORK_RANGE; dz++) {
+        ChunkPos pos = {playerChunk.x + dx, playerChunk.y, playerChunk.z + dz};
+
+        if (!hasChunk(pos) && !isRequested(pos)) {
+            requestChunk(pos);
+        }
+    }
+}</code></pre>
+
+                <h2>Message Processing</h2>
+
+                <h3>Async Message Handling</h3>
+                <p class="file-path">src/NetworkManager.cpp:45-120</p>
+
+                <pre><code>// Network thread processes messages
+void NetworkManager::processMessages() {
+    while (m_running) {
+        NetworkMessage msg;
+        if (receiveMessage(msg)) {
+            switch (msg.type) {
+                case MessageType::CHUNK_DATA:
+                    handleChunkData(msg);
+                    break;
+                case MessageType::BLOCK_UPDATE:
+                    handleBlockUpdate(msg);
+                    break;
+                case MessageType::PLAYER_MOVE:
+                    handlePlayerMove(msg);
+                    break;
+            }
+        }
+    }
+}</code></pre>
+
+                <h3>Thread Safety</h3>
+                <div class="warning-box">
+                    <strong>Critical Sections:</strong><br>
+                    • Message queues protected by mutexes<br>
+                    • Chunk data updates synchronized with game thread<br>
+                    • Player position updates atomic where possible
+                </div>
+
+                <pre><code>// Thread-safe message queue
+class NetworkManager {
+    std::queue&lt;NetworkMessage&gt; m_incomingMessages;
+    std::queue&lt;NetworkMessage&gt; m_outgoingMessages;
+    std::mutex m_incomingMutex;
+    std::mutex m_outgoingMutex;
+
+public:
+    void queueMessage(const NetworkMessage& msg) {
+        std::lock_guard&lt;std::mutex&gt; lock(m_outgoingMutex);
+        m_outgoingMessages.push(msg);
+    }
+};</code></pre>
+
+                <h2>Server Architecture</h2>
+
+                <h3>Dedicated Server</h3>
+                <p class="file-path">src/GameServer.cpp</p>
+
+                <div class="method-signature">
+                    <code>void GameServer::startDedicated(int port)</code><br>
+                    Starts server listening on specified port for client connections.
+                </div>
+
+                <pre><code>// Server main loop
+void GameServer::run() {
+    while (m_running) {
+        // Accept new connections
+        acceptNewClients();
+
+        // Process client messages
+        processClientMessages();
+
+        // Update game world
+        updateWorld();
+
+        // Send updates to clients
+        broadcastUpdates();
+
+        // Sleep to maintain tick rate
+        std::this_thread::sleep_for(std::chrono::milliseconds(50)); // 20 TPS
+    }
+}</code></pre>
+
+                <h3>Client Management</h3>
+                <table>
+                    <tr><th>Client State</th><th>Description</th><th>Server Actions</th></tr>
+                    <tr><td>CONNECTING</td><td>Initial handshake</td><td>Validate, send world info</td></tr>
+                    <tr><td>LOADING</td><td>Downloading initial chunks</td><td>Send chunk data</td></tr>
+                    <tr><td>IN_GAME</td><td>Active gameplay</td><td>Process actions, send updates</td></tr>
+                    <tr><td>DISCONNECTING</td><td>Graceful logout</td><td>Save state, cleanup</td></tr>
+                </table>
+
+                <h2>Network Optimization</h2>
+
+                <h3>Compression</h3>
+                <div class="info-box">
+                    Chunk data is compressed before transmission to reduce bandwidth usage.
+                </div>
+
+                <pre><code>// Simple RLE compression for chunk data
+std::vector&lt;uint8_t&gt; compressChunk(const Chunk& chunk) {
+    std::vector&lt;uint8_t&gt; compressed;
+
+    BlockType current = chunk.getBlock(0, 0, 0);
+    uint16_t count = 1;
+
+    for (int i = 1; i &lt; 4096; i++) {
+        BlockType block = chunk.getBlockByIndex(i);
+
+        if (block == current && count &lt; 65535) {
+            count++;
+        } else {
+            // Write current run
+            compressed.push_back(static_cast&lt;uint8_t&gt;(current));
+            compressed.push_back(count & 0xFF);
+            compressed.push_back((count >> 8) & 0xFF);
+
+            current = block;
+            count = 1;
+        }
+    }
+
+    return compressed;
+}</code></pre>
+
+                <h3>Batching</h3>
+                <div class="method-signature">
+                    <code>void NetworkManager::batchBlockUpdates()</code><br>
+                    Combines multiple block updates into single messages to reduce network overhead.
+                </div>
+
+                <pre><code>// Batch multiple block updates
+struct BatchedBlockUpdate {
+    uint32_t count;
+    struct {
+        glm::ivec3 position;
+        BlockType type;
+    } updates[MAX_BATCH_SIZE];
+};
+
+// Send batched updates every 100ms
+void NetworkManager::flushBatchedUpdates() {
+    if (!m_pendingBlockUpdates.empty()) {
+        BatchedBlockUpdate batch;
+        batch.count = std::min(m_pendingBlockUpdates.size(), MAX_BATCH_SIZE);
+
+        for (size_t i = 0; i &lt; batch.count; i++) {
+            batch.updates[i] = m_pendingBlockUpdates[i];
+        }
+
+        sendMessage(MessageType::BATCHED_BLOCK_UPDATES, &batch, sizeof(batch));
+        m_pendingBlockUpdates.clear();
+    }
+}</code></pre>
+
+                <h2>Error Handling</h2>
+
+                <h3>Connection Recovery</h3>
+                <div class="warning-box">
+                    <strong>Automatic Reconnection:</strong><br>
+                    Client automatically attempts reconnection on connection loss with exponential backoff.
+                </div>
+
+                <pre><code>// Reconnection logic
+void NetworkManager::handleConnectionLoss() {
+    m_connectionState = ConnectionState::RECONNECTING;
+
+    int retryDelay = 1000; // Start with 1 second
+    const int MAX_RETRY_DELAY = 30000; // Max 30 seconds
+
+    for (int attempt = 0; attempt &lt; MAX_RECONNECT_ATTEMPTS; attempt++) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(retryDelay));
+
+        if (attemptReconnection()) {
+            m_connectionState = ConnectionState::CONNECTED;
+            return;
+        }
+
+        retryDelay = std::min(retryDelay * 2, MAX_RETRY_DELAY);
+    }
+
+    // Failed to reconnect
+    m_connectionState = ConnectionState::DISCONNECTED;
+}</code></pre>
+
+                <h3>Timeout Handling</h3>
+                <pre><code>// Network timeouts
+const int HEARTBEAT_INTERVAL = 5000;  // 5 seconds
+const int CONNECTION_TIMEOUT = 15000; // 15 seconds
+
+void NetworkManager::checkConnection() {
+    auto now = std::chrono::steady_clock::now();
+    auto timeSinceLastMessage = now - m_lastMessageTime;
+
+    if (timeSinceLastMessage > std::chrono::milliseconds(CONNECTION_TIMEOUT)) {
+        // Connection timed out
+        handleConnectionLoss();
+    } else if (timeSinceLastMessage > std::chrono::milliseconds(HEARTBEAT_INTERVAL)) {
+        // Send heartbeat
+        sendHeartbeat();
+    }
+}</code></pre>
+
+                <h2>Security Considerations</h2>
+
+                <h3>Basic Validation</h3>
+                <div class="info-box">
+                    All incoming messages are validated before processing to prevent malformed data from causing crashes.
+                </div>
+
+                <pre><code>bool NetworkManager::validateMessage(const NetworkMessage& msg) {
+    // Check message size
+    if (msg.length > MAX_MESSAGE_SIZE) {
+        return false;
+    }
+
+    // Validate message type
+    if (msg.type >= MessageType::MAX_MESSAGE_TYPE) {
+        return false;
+    }
+
+    // Type-specific validation
+    switch (msg.type) {
+        case MessageType::BLOCK_UPDATE:
+            return validateBlockUpdate(msg);
+        case MessageType::PLAYER_MOVE:
+            return validatePlayerMove(msg);
+        // ... other validations
+    }
+
+    return true;
+}</code></pre>
+
+                <h3>Rate Limiting</h3>
+                <pre><code>// Simple rate limiting per client
+class ClientConnection {
+    std::chrono::steady_clock::time_point m_lastMessageTime;
+    int m_messageCount = 0;
+
+public:
+    bool checkRateLimit() {
+        auto now = std::chrono::steady_clock::now();
+        auto elapsed = now - m_lastMessageTime;
+
+        if (elapsed > std::chrono::seconds(1)) {
+            // Reset counter every second
+            m_messageCount = 0;
+            m_lastMessageTime = now;
+        }
+
+        return ++m_messageCount <= MAX_MESSAGES_PER_SECOND;
+    }
+};</code></pre>
+            </section>
+        </main>
+
+        <!-- Right Sidebar - Table of Contents -->
+        <aside class="sidebar-right">
+            <div class="toc">
+                <h4>On This Page</h4>
+                <ul>
+                    <!-- TOC will be dynamically generated -->
+                </ul>
+            </div>
+        </aside>
+    </div>
+
+    <script src="nav.js"></script>
+</body>
+</html>

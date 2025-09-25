@@ -36,6 +36,8 @@ public:
     VkSurfaceKHR getSurface() const { return m_surface; }
     VkQueue getGraphicsQueue() const { return m_graphicsQueue; }
     VkQueue getPresentQueue() const { return m_presentQueue; }
+    VkInstance getInstance() const { return m_instance; }
+    VkPhysicalDevice getPhysicalDevice() const { return m_physicalDevice; }
 
     SwapChainSupportDetails getSwapChainSupport() const { return querySwapChainSupport(m_physicalDevice); }
     uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const;

@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quick Start Guide - Tidal Engine Documentation</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Left Sidebar Navigation -->
+        <nav class="sidebar-left">
+            <h1>Tidal Engine</h1>
+
+            <div class="nav-section">
+                <h3>Getting Started</h3>
+                <ul>
+                    <li><a href="index.html">Overview</a></li>
+                    <li><a href="architecture.html">Architecture</a></li>
+                    <li><a href="quick-start.html" class="active">Quick Start</a></li>
+                </ul>
+            </div>
+
+            <div class="nav-section">
+                <h3>Core Systems</h3>
+                <ul>
+                    <li><a href="rendering.html">Rendering System</a></li>
+                    <li><a href="networking.html">Networking</a></li>
+                    <li><a href="world-system.html">World System</a></li>
+                    <li><a href="input-system.html">Input System</a></li>
+                </ul>
+            </div>
+
+            <div class="nav-section">
+                <h3>Infrastructure</h3>
+                <ul>
+                    <li><a href="vulkan-infrastructure.html">Vulkan Infrastructure</a></li>
+                    <li><a href="threading.html">Threading & Concurrency</a></li>
+                    <li><a href="shaders.html">Shader System</a></li>
+                </ul>
+            </div>
+
+            <div class="nav-section">
+                <h3>Development</h3>
+                <ul>
+                    <li><a href="build-system.html">Build System</a></li>
+                    <li><a href="performance.html">Performance</a></li>
+                    <li><a href="debugging.html">Debugging</a></li>
+                </ul>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="content">
+            <section class="section">
+                <h1>Quick Start Guide</h1>
+
+                <p>Get up and running with the Tidal Engine quickly. This guide covers installation, building, and basic development setup.</p>
+
+                <h2>Prerequisites</h2>
+
+                <h3>System Requirements</h3>
+                <table>
+                    <tr><th>Component</th><th>Minimum</th><th>Recommended</th></tr>
+                    <tr><td>OS</td><td>Linux, Windows 10, macOS 10.15</td><td>Latest versions</td></tr>
+                    <tr><td>CPU</td><td>4-core 64-bit processor</td><td>8-core modern CPU</td></tr>
+                    <tr><td>RAM</td><td>8GB</td><td>16GB+</td></tr>
+                    <tr><td>GPU</td><td>Vulkan 1.3 compatible</td><td>Dedicated GPU with 4GB+ VRAM</td></tr>
+                    <tr><td>Storage</td><td>2GB free space</td><td>SSD with 10GB+ free</td></tr>
+                </table>
+
+                <h3>Development Tools</h3>
+                <ul>
+                    <li><strong>C++23 Compiler:</strong> GCC 13+, Clang 16+, or MSVC 19.35+</li>
+                    <li><strong>CMake:</strong> Version 3.25 or higher</li>
+                    <li><strong>Vulkan SDK:</strong> Latest version from LunarG</li>
+                    <li><strong>Git:</strong> For source control</li>
+                </ul>
+
+                <h2>Installation</h2>
+
+                <h3>Linux (Ubuntu/Debian)</h3>
+                <pre><code># Update package list
+sudo apt update
+
+# Install build essentials
+sudo apt install build-essential cmake ninja-build git
+
+# Install Vulkan SDK
+sudo apt install vulkan-sdk vulkan-validationlayers-dev
+
+# Install dependencies
+sudo apt install libglfw3-dev libglm-dev libstb-dev
+
+# Verify Vulkan installation
+vulkaninfo</code></pre>
+
+                <h3>Linux (Fedora)</h3>
+                <pre><code># Install development tools
+sudo dnf install gcc-c++ cmake ninja-build git
+
+# Install Vulkan SDK
+sudo dnf install vulkan-devel vulkan-validation-layers-devel
+
+# Install dependencies
+sudo dnf install glfw-devel glm-devel stb_image-devel
+
+# Verify installation
+vulkaninfo</code></pre>
+
+                <h3>Windows</h3>
+                <div class="info-box">
+                    <strong>Recommended:</strong> Use Visual Studio 2022 with vcpkg for dependency management.
+                </div>
+
+                <pre><code># Install Visual Studio 2022 with C++ workload
+# Download and install Vulkan SDK from LunarG
+
+# Install vcpkg
+git clone https://github.com/Microsoft/vcpkg.git
+cd vcpkg
+.\bootstrap-vcpkg.bat
+
+# Install dependencies via vcpkg
+.\vcpkg install glfw3:x64-windows
+.\vcpkg install glm:x64-windows
+.\vcpkg install stb:x64-windows</code></pre>
+
+                <h3>macOS</h3>
+                <pre><code># Install Xcode command line tools
+xcode-select --install
+
+# Install Homebrew (if not already installed)
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+# Install dependencies
+brew install cmake ninja git
+brew install molten-vk  # Vulkan on macOS
+brew install glfw glm
+
+# Install Vulkan SDK from LunarG website</code></pre>
+
+                <h2>Building the Engine</h2>
+
+                <h3>Clone the Repository</h3>
+                <pre><code># Clone the source code
+git clone https://github.com/your-username/Tidal-Engine.git
+cd Tidal-Engine
+
+# Check available branches
+git branch -a</code></pre>
+
+                <h3>Configure with CMake</h3>
+
+                <h4>System Dependencies (Linux/macOS)</h4>
+                <pre><code># Create build directory
+mkdir build && cd build
+
+# Configure with system packages
+cmake .. -GNinja -DCMAKE_BUILD_TYPE=Debug
+
+# Or configure for release
+cmake .. -GNinja -DCMAKE_BUILD_TYPE=Release</code></pre>
+
+                <h4>vcpkg Dependencies (Windows/Cross-platform)</h4>
+                <pre><code># Configure with vcpkg toolchain
+cmake .. -GNinja ^
+    -DCMAKE_BUILD_TYPE=Debug ^
+    -DCMAKE_TOOLCHAIN_FILE=C:\path\to\vcpkg\scripts\buildsystems\vcpkg.cmake</code></pre>
+
+                <h3>Build the Project</h3>
+                <pre><code># Build with Ninja (recommended)
+ninja
+
+# Or build with make (if using make generator)
+make -j$(nproc)
+
+# Or build with Visual Studio
+cmake --build . --config Debug</code></pre>
+
+                <h3>Run the Engine</h3>
+                <pre><code># Run the main application
+./TidalEngine
+
+# Run dedicated server
+./TidalEngine --server
+
+# Connect to remote server
+./TidalEngine --client 192.168.1.100</code></pre>
+
+                <h2>Development Setup</h2>
+
+                <h3>Debug Configuration</h3>
+                <div class="warning-box">
+                    <strong>Important:</strong> Always use debug builds during development to enable Vulkan validation layers.
+                </div>
+
+                <pre><code># Debug build with validation layers
+cmake .. -DCMAKE_BUILD_TYPE=Debug -DENABLE_VALIDATION_LAYERS=ON
+
+# Enable additional debugging
+cmake .. -DCMAKE_BUILD_TYPE=Debug \
+    -DENABLE_VALIDATION_LAYERS=ON \
+    -DENABLE_DEBUG_MARKERS=ON</code></pre>
+
+                <h3>IDE Setup</h3>
+
+                <h4>Visual Studio Code</h4>
+                <pre><code># Install recommended extensions
+# - C/C++ Extension Pack
+# - CMake Tools
+# - Vulkan GLSL Syntax
+
+# Open project
+code .</code></pre>
+
+                <h4>Visual Studio 2022</h4>
+                <div class="method-signature">
+                    Open the generated <code>TidalEngine.sln</code> solution file after running CMake configuration.
+                </div>
+
+                <h4>CLion</h4>
+                <pre><code># CLion automatically detects CMake projects
+# Open the root directory containing CMakeLists.txt
+# Configure CMake profiles in Settings -> Build, Execution, Deployment -> CMake</code></pre>
+
+                <h2>First Steps</h2>
+
+                <h3>Verify Installation</h3>
+                <div class="method-signature">
+                    <code>./TidalEngine --version</code><br>
+                    Check that the engine runs and displays version information.
+                </div>
+
+                <h3>Test Rendering</h3>
+                <ol>
+                    <li>Launch the engine: <code>./TidalEngine</code></li>
+                    <li>Navigate through the main menu</li>
+                    <li>Create or select a world</li>
+                    <li>Verify that voxel rendering works correctly</li>
+                    <li>Test basic movement and block interaction</li>
+                </ol>
+
+                <h3>Debug Tools</h3>
+                <table>
+                    <tr><th>Key</th><th>Function</th><th>Purpose</th></tr>
+                    <tr><td>F1</td><td>Debug Window</td><td>Engine internals and statistics</td></tr>
+                    <tr><td>F2</td><td>Performance HUD</td><td>FPS, frame time, memory usage</td></tr>
+                    <tr><td>F3</td><td>Rendering Info</td><td>GPU stats, draw calls, batching</td></tr>
+                    <tr><td>F4</td><td>Chunk Boundaries</td><td>Visualize chunk loading/unloading</td></tr>
+                </table>
+
+                <h2>Project Structure</h2>
+
+                <h3>Directory Layout</h3>
+                <pre><code>Tidal-Engine/
+├── CMakeLists.txt              # Main build configuration
+├── README.md                   # Project overview
+├── docs/                       # Documentation (this site)
+├── src/                        # Source code
+│   ├── MainNew.cpp            # Application entry point
+│   ├── GameClient.cpp         # Client-side logic
+│   ├── GameServer.cpp         # Server-side logic
+│   ├── VulkanRenderer.cpp     # Rendering implementation
+│   └── ...                    # Other source files
+├── include/                    # Header files
+│   ├── GameClient.h
+│   ├── VulkanDevice.h
+│   └── ...
+├── shaders/                    # GLSL shader source
+│   ├── vertex.vert
+│   └── fragment.frag
+├── assets/                     # Game assets
+│   └── texturepacks/
+│       └── default/
+│           └── blocks/         # Block textures
+└── build/                      # Build output (created by you)</code></pre>
+
+                <h3>Key Files to Know</h3>
+                <table>
+                    <tr><th>File</th><th>Purpose</th><th>When to Modify</th></tr>
+                    <tr><td><code>src/GameClient.cpp</code></td><td>Main client logic</td><td>Adding features, fixing bugs</td></tr>
+                    <tr><td><code>src/VulkanRenderer.cpp</code></td><td>Rendering system</td><td>Graphics improvements</td></tr>
+                    <tr><td><code>include/</code></td><td>Public interfaces</td><td>Adding new classes</td></tr>
+                    <tr><td><code>shaders/</code></td><td>GPU programs</td><td>Visual effects, lighting</td></tr>
+                    <tr><td><code>CMakeLists.txt</code></td><td>Build configuration</td><td>Adding dependencies, files</td></tr>
+                </table>
+
+                <h2>Common Issues</h2>
+
+                <h3>Build Problems</h3>
+                <div class="warning-box">
+                    <strong>"Vulkan not found":</strong><br>
+                    • Ensure Vulkan SDK is installed and in PATH<br>
+                    • Check that VK_SDK_PATH environment variable is set<br>
+                    • Verify vulkaninfo command works
+                </div>
+
+                <div class="warning-box">
+                    <strong>"GLFW not found":</strong><br>
+                    • Install GLFW development packages<br>
+                    • Use vcpkg for Windows: <code>vcpkg install glfw3</code><br>
+                    • Check CMake can find the library
+                </div>
+
+                <h3>Runtime Issues</h3>
+                <div class="warning-box">
+                    <strong>"Validation layer error":</strong><br>
+                    • Normal in debug builds - shows API usage issues<br>
+                    • Fix the underlying Vulkan API misuse<br>
+                    • Disable with <code>-DENABLE_VALIDATION_LAYERS=OFF</code> for testing
+                </div>
+
+                <div class="warning-box">
+                    <strong>"Window creation failed":</strong><br>
+                    • Update graphics drivers<br>
+                    • Check display server (X11/Wayland on Linux)<br>
+                    • Verify Vulkan support: <code>vulkaninfo</code>
+                </div>
+
+                <h2>Next Steps</h2>
+
+                <p>Once you have the engine built and running:</p>
+
+                <ol>
+                    <li><strong><a href="architecture.html">Read the Architecture Guide</a></strong> - Understand the overall design</li>
+                    <li><strong><a href="rendering.html">Study the Rendering System</a></strong> - Learn how graphics work</li>
+                    <li><strong><a href="debugging.html">Set up Debugging Tools</a></strong> - Configure your development environment</li>
+                    <li><strong>Experiment with the Code</strong> - Make small changes and see the results</li>
+                    <li><strong>Join the Community</strong> - Connect with other developers</li>
+                </ol>
+
+                <div class="info-box">
+                    <strong>Development Tips:</strong><br>
+                    • Always test changes in debug builds first<br>
+                    • Use the F1-F4 debug keys extensively<br>
+                    • Monitor performance impact of changes<br>
+                    • Read existing code to understand patterns<br>
+                    • Test on multiple platforms when possible
+                </div>
+            </section>
+        </main>
+
+        <!-- Right Sidebar - Table of Contents -->
+        <aside class="sidebar-right">
+            <div class="toc">
+                <h4>On This Page</h4>
+                <ul>
+                    <!-- TOC will be dynamically generated -->
+                </ul>
+            </div>
+        </aside>
+    </div>
+
+    <script src="nav.js"></script>
+</body>
+</html>

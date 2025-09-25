@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Performance & Optimization - Tidal Engine Documentation</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Left Sidebar Navigation -->
+        <nav class="sidebar-left">
+            <h1>Tidal Engine</h1>
+
+            <div class="nav-section">
+                <h3>Getting Started</h3>
+                <ul>
+                    <li><a href="index.html">Overview</a></li>
+                    <li><a href="architecture.html">Architecture</a></li>
+                    <li><a href="quick-start.html">Quick Start</a></li>
+                </ul>
+            </div>
+
+            <div class="nav-section">
+                <h3>Core Systems</h3>
+                <ul>
+                    <li><a href="rendering.html">Rendering System</a></li>
+                    <li><a href="networking.html">Networking</a></li>
+                    <li><a href="world-system.html">World System</a></li>
+                    <li><a href="input-system.html">Input System</a></li>
+                </ul>
+            </div>
+
+            <div class="nav-section">
+                <h3>Infrastructure</h3>
+                <ul>
+                    <li><a href="vulkan-infrastructure.html">Vulkan Infrastructure</a></li>
+                    <li><a href="threading.html">Threading & Concurrency</a></li>
+                    <li><a href="shaders.html">Shader System</a></li>
+                </ul>
+            </div>
+
+            <div class="nav-section">
+                <h3>Development</h3>
+                <ul>
+                    <li><a href="build-system.html">Build System</a></li>
+                    <li><a href="performance.html" class="active">Performance</a></li>
+                    <li><a href="debugging.html">Debugging</a></li>
+                </ul>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="content">
+            <section class="section">
+                <h1>Performance & Optimization</h1>
+
+                <h2>Performance Profiling</h2>
+                <div class="info-box">
+                    Built-in performance monitoring accessible via debug keys F2/F3 for real-time analysis.
+                </div>
+
+                <pre><code>// Performance monitoring (GameClient.cpp)
+void GameClient::renderPerformanceHUD() {
+    ImGui::Text("FPS: %.1f (%.3f ms)",
+                ImGui::GetIO().Framerate, 1000.0f / ImGui::GetIO().Framerate);
+    ImGui::Text("Chunks Loaded: %zu", m_chunkManager->getLoadedChunkCount());
+    ImGui::Text("Vertices: %zu", m_totalVertexCount);
+    ImGui::Text("Draw Calls: %d", m_drawCallCount);
+
+    // GPU memory usage (if available)
+    VkDeviceSize usedMemory = m_device->getUsedMemory();
+    ImGui::Text("GPU Memory: %.1f MB", usedMemory / (1024.0f * 1024.0f));
+}</code></pre>
+
+                <h2>Known Bottlenecks</h2>
+                <div class="warning-box">
+                    <strong>CPU Bottlenecks:</strong><br>
+                    • Chunk mesh generation is single-threaded<br>
+                    • Block raycasting uses simple stepping algorithm<br>
+                    • No spatial indexing for chunk loading<br><br>
+
+                    <strong>GPU Bottlenecks:</strong><br>
+                    • No frustum culling for individual block faces<br>
+                    • Single texture atlas limits block variety<br>
+                    • No instanced rendering for identical chunks<br><br>
+
+                    <strong>Memory Usage:</strong><br>
+                    • Each chunk uses 4KB for block data<br>
+                    • Vulkan buffers not pooled/reused<br>
+                    • No texture compression
+                </div>
+
+                <div class="info-box">
+                    <strong>Coming Soon:</strong> More detailed performance analysis and optimization guides will be added soon.
+                </div>
+            </section>
+        </main>
+
+        <!-- Right Sidebar - Table of Contents -->
+        <aside class="sidebar-right">
+            <div class="toc">
+                <h4>On This Page</h4>
+                <ul>
+                    <!-- TOC will be dynamically generated -->
+                </ul>
+            </div>
+        </aside>
+    </div>
+
+    <script src="nav.js"></script>
+</body>
+</html>

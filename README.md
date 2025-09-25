@@ -1,158 +1,237 @@
-# Tidal Engine - Vulkan Rotating Cube Demo
+# Tidal Engine - Voxel Game Engine
 
-A modern C++23 Vulkan-based demo showcasing a rotating textured cube with real-time camera controls. This project serves as the foundation for the Tidal Engine graphics engine.
+A modern C++23 Vulkan-based voxel game engine with client-server architecture. Features a complete game system with world generation, multiplayer support, and an integrated development environment for voxel-based games.
+
+![Tidal Engine](https://img.shields.io/badge/C%2B%2B-23-blue.svg)
+![Vulkan](https://img.shields.io/badge/Vulkan-1.3-red.svg)
+![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20Windows%20%7C%20macOS-lightgrey.svg)
 
 ## Features
 
-- **Modern Vulkan Rendering**: Uses Vulkan 1.3 for optimal performance
-- **Real-time Rendering**: Rotating textured cube at 60+ FPS
-- **Camera Controls**: Free-look camera with keyboard and mouse input
-- **Advanced Graphics**: Phong lighting with diffuse, ambient, and specular components
-- **Multiple Frames in Flight**: Optimized rendering with 2 frames in flight
-- **Cross-Platform**: Builds on Windows, Linux, and macOS (with MoltenVK)
+### Core Engine
+- **Modern Vulkan Rendering**: Vulkan 1.3 with optimized voxel rendering
+- **Client-Server Architecture**: Supports both single-player and multiplayer
+- **Voxel World System**: Infinite chunk-based world generation
+- **Real-time Lighting**: Dynamic lighting system with texture atlasing
+- **Advanced UI System**: ImGui-based interface with main menu and in-game UI
+
+### Game Features
+- **Main Menu System**: World selection, settings, and multiplayer options
+- **World Management**: Create, load, and save multiple worlds
+- **Block Placement/Breaking**: Interactive voxel manipulation
+- **Loading Screen**: Smooth world loading with animated feedback
+- **In-Game Pause Menu**: ESC menu with save/quit functionality
+- **Debug Tools**: Performance monitoring and rendering debug options
+
+### Technical Features
+- **Chunk System**: Efficient LOD and frustum culling
+- **Network Protocol**: Custom client-server communication
+- **Save System**: World persistence with compression
+- **Texture Management**: Atlas-based texture system
+- **Memory Management**: Complete cleanup and state reset
 
 ## Requirements
 
 ### System Requirements
-- Vulkan 1.3 compatible GPU and drivers
-- C++23 compatible compiler (GCC 13+, Clang 16+, MSVC 19.35+)
-- CMake 3.25+
-- Ninja build system (recommended for faster builds)
+- **GPU**: Vulkan 1.3 compatible graphics card
+- **CPU**: Multi-core processor (4+ cores recommended)
+- **RAM**: 8GB+ recommended
+- **Storage**: 1GB+ free space
 
-### Dependencies (managed via vcpkg)
-- Vulkan SDK
-- GLFW3
-- GLM
-- STB (for image loading)
+### Build Dependencies
+- **C++23 Compiler**: GCC 13+, Clang 16+, or MSVC 19.35+
+- **CMake**: 3.25 or higher
+- **Vulkan SDK**: Latest version from LunarG
+- **Package Manager**: System package manager or vcpkg
 
-## Building
+### Runtime Dependencies
+- GLFW3 (windowing)
+- GLM (mathematics)
+- Dear ImGui (UI - fetched automatically)
+- STB (image loading)
 
-### Using vcpkg with Clang and Ninja (Recommended)
+## Documentation
 
-1. Clone the repository:
+📚 **[View Interactive Documentation](docs/index.html)** - Complete technical documentation with interactive navigation
+
+## Quick Start
+
+### Linux (System Packages)
+
+1. **Install Dependencies**:
+```bash
+# Ubuntu/Debian
+sudo apt update
+sudo apt install build-essential cmake ninja-build
+sudo apt install vulkan-sdk libglfw3-dev libglm-dev libstb-dev
+
+# Fedora
+sudo dnf install gcc-c++ cmake ninja-build
+sudo dnf install vulkan-devel glfw-devel glm-devel stb_image-devel
+
+# Arch Linux
+sudo pacman -S gcc cmake ninja vulkan-devel glfw glm
+```
+
+2. **Build and Run**:
 ```bash
 git clone <repository-url>
 cd Tidal-Engine
+mkdir build && cd build
+cmake .. -GNinja
+ninja
+./TidalEngine
 ```
 
-2. Install vcpkg if not already installed:
+### Alternative: Using vcpkg
+
+1. **Setup vcpkg**:
 ```bash
 git clone https://github.com/Microsoft/vcpkg.git
-./vcpkg/bootstrap-vcpkg.sh  # Linux/macOS
-./vcpkg/bootstrap-vcpkg.bat # Windows
+./vcpkg/bootstrap-vcpkg.sh
 ```
 
-3. Configure and build with Clang and Ninja:
+2. **Build with vcpkg**:
 ```bash
 mkdir build && cd build
-cmake .. -DCMAKE_TOOLCHAIN_FILE=<path-to-vcpkg>/scripts/buildsystems/vcpkg.cmake \
-         -DCMAKE_C_COMPILER=clang \
-         -DCMAKE_CXX_COMPILER=clang++ \
-         -GNinja
+cmake .. -DCMAKE_TOOLCHAIN_FILE=<path-to-vcpkg>/scripts/buildsystems/vcpkg.cmake -GNinja
 ninja
+./TidalEngine
 ```
 
-Alternative build with make:
+## Usage
+
+### Main Menu Navigation
+- **Single Player**: Create or select a world to play
+- **Multiplayer**: Connect to servers (command-line options available)
+- **Settings**: Configure game options (placeholder)
+- **Quit**: Exit the application
+
+### In-Game Controls
+- **Movement**:
+  - `WASD` - Move horizontally (ignores camera pitch)
+  - `Space` - Move up
+  - `Shift` - Move down
+  - `Ctrl` - Speed boost (5x movement)
+- **Camera**:
+  - `Mouse` - Look around (FPS-style)
+  - `Mouse Wheel` - Adjust movement speed
+- **Interaction**:
+  - `Left Click` - Break blocks
+  - `Right Click` - Place blocks
+  - `1-9` - Select hotbar blocks
+- **Interface**:
+  - `ESC` - Pause menu (save/quit options)
+  - `F1` - Toggle debug window
+  - `F2` - Toggle performance HUD
+  - `F3` - Toggle rendering info
+  - `F4` - Toggle chunk boundaries
+
+### Command Line Options
 ```bash
-cmake .. -DCMAKE_TOOLCHAIN_FILE=<path-to-vcpkg>/scripts/buildsystems/vcpkg.cmake \
-         -DCMAKE_C_COMPILER=clang \
-         -DCMAKE_CXX_COMPILER=clang++
-make -j$(nproc)
+./TidalEngine                    # Start with main menu
+./TidalEngine --server           # Run dedicated server
+./TidalEngine --client <host>    # Connect to remote server
 ```
-
-### Manual Dependencies
-
-If you prefer to install dependencies manually:
-
-1. Install Vulkan SDK from LunarG
-2. Install GLFW3, GLM, and STB through your package manager
-3. Build with Clang and Ninja:
-```bash
-mkdir build && cd build
-cmake .. -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -GNinja
-ninja
-```
-
-Or with make:
-```bash
-cmake .. -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
-make -j$(nproc)
-```
-
-## Controls
-
-- **W/A/S/D**: Move camera forward/left/backward/right
-- **Q/E**: Move camera down/up
-- **Mouse**: Look around (cursor is captured)
-- **Mouse Wheel**: Zoom in/out
-- **ESC**: Exit application
 
 ## Project Structure
 
 ```
 Tidal-Engine/
-├── CMakeLists.txt          # Build configuration
-├── vcpkg.json             # Dependency manifest
-├── src/                   # Source files
-│   ├── main.cpp           # Entry point
-│   ├── Application.cpp    # Main application logic
-│   ├── VulkanDevice.cpp   # Vulkan device management
-│   ├── VulkanRenderer.cpp # Core rendering system
-│   ├── VulkanBuffer.cpp   # Buffer management
-│   └── Camera.cpp         # Camera system
-├── include/               # Header files
-├── shaders/               # GLSL shaders
-│   ├── vertex.glsl        # Vertex shader
-│   └── fragment.glsl      # Fragment shader
-└── assets/                # Asset files
-    └── texture.cpp        # Procedural texture generation
+├── CMakeLists.txt              # Build configuration
+├── README.md                   # This file
+├── src/                        # Source files
+│   ├── MainNew.cpp            # Entry point and menu system
+│   ├── GameClient.cpp         # Client-side game logic
+│   ├── GameServer.cpp         # Server-side game logic
+│   ├── VulkanRenderer.cpp     # Core Vulkan rendering
+│   ├── VulkanDevice.cpp       # Vulkan device management
+│   ├── Camera.cpp             # FPS camera system
+│   ├── ChunkManager.cpp       # World chunk management
+│   ├── TextureManager.cpp     # Texture atlas system
+│   ├── SaveSystem.cpp         # World persistence
+│   └── NetworkManager.cpp     # Client-server networking
+├── include/                   # Header files
+├── shaders/                   # GLSL shaders
+│   ├── vertex.vert           # Vertex shader
+│   └── fragment.frag         # Fragment shader
+├── assets/                    # Game assets
+│   └── texturepacks/         # Block textures
+└── docs/                      # Documentation
 ```
 
 ## Architecture
 
-The engine follows modern Vulkan best practices:
+### Client-Server Design
+- **GameClient**: Handles rendering, input, UI, and client-side logic
+- **GameServer**: Manages world state, physics, and multiplayer coordination
+- **NetworkManager**: Handles communication between client and server
+- **Integrated Server**: Single-player uses embedded server for consistency
 
-- **RAII Resource Management**: Automatic cleanup of Vulkan objects
-- **Command Buffer Management**: Efficient recording and submission
-- **Memory Management**: Optimal buffer and image allocation
-- **Synchronization**: Proper use of semaphores and fences
-- **Error Handling**: Comprehensive validation layer support
+### Rendering Pipeline
+1. **Chunk Rendering**: Frustum culling → Vertex/index generation → GPU upload
+2. **Texture Atlas**: Block textures packed into single atlas for efficiency
+3. **Lighting**: Per-vertex lighting with ambient, diffuse, and specular components
+4. **UI Overlay**: ImGui rendering for menus and debug interfaces
 
-## Rendering Pipeline
-
-1. **Vertex Processing**: 3D cube vertices with normals and texture coordinates
-2. **Uniform Buffers**: Model-View-Projection matrices updated per frame
-3. **Texture Sampling**: Procedural checkerboard texture
-4. **Lighting**: Phong shading with push constants for light parameters
-5. **Depth Testing**: Z-buffer for proper depth sorting
-
-## Performance
-
-- Target: 60+ FPS at 800x600 resolution
-- Memory Usage: <200MB including Vulkan overhead
-- GPU Memory: <100MB VRAM usage
-- Multiple frames in flight for optimal GPU utilization
-
-## Validation
-
-Debug builds include comprehensive Vulkan validation layers:
-- Memory allocation tracking
-- API usage validation
-- Performance warnings
-- Synchronization validation
-
-## Future Enhancements
-
-- Model loading (glTF/OBJ support)
-- Advanced lighting models (PBR)
-- Shadow mapping
-- Post-processing effects
-- Multi-threaded command buffer recording
-
-## License
-
-This project is part of the Tidal Engine development and follows the project's licensing terms.
+### World System
+- **Chunk-based**: 16x16x16 voxel chunks for efficient LOD and culling
+- **Infinite Generation**: On-demand chunk loading around player
+- **Save Format**: Compressed world data with metadata
+- **Block System**: Extensible block type system with texture mapping
 
 ## Development
 
-This demo was built following the technical specification in `.agent-os/specs/rotating-cube-demo.md` and serves as a proof-of-concept for the Tidal Engine's Vulkan rendering capabilities.
+### Debug Features
+- **Validation Layers**: Extensive Vulkan debugging in debug builds
+- **Performance Monitoring**: Real-time FPS, frame time, and GPU metrics
+- **Chunk Visualization**: Wireframe chunk boundaries and debug info
+- **Memory Tracking**: Allocation monitoring and leak detection
+
+### Future Roadmap
+- **Mod System**: Dynamic loading of gameplay modifications
+- **Advanced Lighting**: Shadow mapping and global illumination
+- **Physics System**: Block physics and entity simulation
+- **Audio System**: 3D positional audio
+- **Networking**: Optimized multiplayer protocols
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes following the existing code style
+4. Test thoroughly (especially Vulkan validation)
+5. Submit a pull request
+
+## Troubleshooting
+
+### Common Issues
+
+**"Vulkan validation layer error"**
+- Ensure Vulkan SDK is properly installed
+- Check that your GPU drivers support Vulkan 1.3
+
+**"GLFW failed to create window"**
+- Update graphics drivers
+- Check display server compatibility (X11/Wayland)
+
+**"Failed to load world"**
+- Verify write permissions in `~/.tidal-engine/saves/`
+- Check disk space availability
+
+**"Chunks not loading"**
+- Verify server is running (check console output)
+- Check network connectivity for multiplayer
+
+### Performance Issues
+- Enable GPU profiling with F2 key
+- Monitor chunk count and render distance
+- Consider reducing texture resolution for older GPUs
+
+## License
+
+This project is part of the Tidal Engine development. Please refer to the LICENSE file for terms and conditions.
+
+---
+
+**Ready to build voxel worlds? Clone, build, and start creating!**

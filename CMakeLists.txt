@@ -14,6 +14,38 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(GLFW REQUIRED glfw3)
 find_package(glm REQUIRED)
 
+# Dear ImGui - fetch from GitHub
+include(FetchContent)
+FetchContent_Declare(
+    imgui
+    GIT_REPOSITORY https://github.com/ocornut/imgui.git
+    GIT_TAG v1.90.1
+)
+FetchContent_MakeAvailable(imgui)
+
+# Create ImGui library
+add_library(imgui_lib STATIC
+    ${imgui_SOURCE_DIR}/imgui.cpp
+    ${imgui_SOURCE_DIR}/imgui_demo.cpp
+    ${imgui_SOURCE_DIR}/imgui_draw.cpp
+    ${imgui_SOURCE_DIR}/imgui_tables.cpp
+    ${imgui_SOURCE_DIR}/imgui_widgets.cpp
+    ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
+    ${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.cpp
+)
+
+target_include_directories(imgui_lib PUBLIC
+    ${imgui_SOURCE_DIR}
+    ${imgui_SOURCE_DIR}/backends
+    ${Vulkan_INCLUDE_DIRS}
+    ${GLFW_INCLUDE_DIRS}
+)
+
+target_link_libraries(imgui_lib
+    ${Vulkan_LIBRARIES}
+    ${GLFW_LIBRARIES}
+)
+
 # Vulkan validation layers setup for debug builds
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     add_compile_definitions(ENABLE_VALIDATION_LAYERS)
@@ -38,31 +70,72 @@ endfunction()
 
 # Source files
 set(SOURCES
-    src/main.cpp
-    src/Application.cpp
-    src/VulkanDevice.cpp
-    src/VulkanRenderer.cpp
-    src/VulkanBuffer.cpp
-    src/Camera.cpp
+    src/Main.cpp
+    src/vulkan/VulkanDevice.cpp
+    src/vulkan/VulkanRenderer.cpp
+    src/vulkan/VulkanBuffer.cpp
+    src/core/Camera.cpp
+    src/game/Chunk.cpp
+    src/game/ChunkManager.cpp
+    src/graphics/TextureManager.cpp
+    src/system/UserDataManager.cpp
+    src/game/SaveSystem.cpp
+    src/game/GameServer.cpp
+    src/network/NetworkProtocol.cpp
+    src/network/NetworkManager.cpp
+    src/core/ThreadPool.cpp
+    src/game/GameClient.cpp
 )
 
 # Header files
 set(HEADERS
-    include/Application.h
     include/VulkanDevice.h
     include/VulkanRenderer.h
     include/VulkanBuffer.h
     include/Camera.h
+    include/Chunk.h
+    include/ChunkManager.h
+    include/TextureManager.h
+    include/UserDataManager.h
+    include/SaveSystem.h
+    include/GameServer.h
+    include/NetworkProtocol.h
+    include/NetworkManager.h
+    include/ThreadPool.h
+    include/GameClient.h
 )
 
-# Create executable
+# Create client executable
 add_executable(TidalEngine ${SOURCES} ${HEADERS})
+
+# Create server-only sources (no graphics dependencies)
+set(SERVER_SOURCES
+    src/ServerMain.cpp
+    src/game/SaveSystem.cpp
+    src/game/GameServer.cpp
+    src/network/NetworkProtocol.cpp
+    src/core/ThreadPool.cpp
+    src/network/NetworkManager.cpp
+)
+
+set(SERVER_HEADERS
+    include/SaveSystem.h
+    include/GameServer.h
+    include/NetworkProtocol.h
+    include/ThreadPool.h
+    include/NetworkManager.h
+)
+
+# Create headless server executable
+add_executable(TidalServer ${SERVER_SOURCES} ${SERVER_HEADERS})
 
 # Include directories
 target_include_directories(TidalEngine PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${Vulkan_INCLUDE_DIRS}
     ${GLFW_INCLUDE_DIRS}
+    ${imgui_SOURCE_DIR}
+    ${imgui_SOURCE_DIR}/backends
     /usr/include/stb
 )
 
@@ -70,6 +143,19 @@ target_include_directories(TidalEngine PRIVATE
 target_link_libraries(TidalEngine
     ${Vulkan_LIBRARIES}
     ${GLFW_LIBRARIES}
+    glm::glm
+    imgui_lib
+)
+
+# Configure server executable (headless, no graphics)
+target_include_directories(TidalServer PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    /usr/include/stb
+)
+
+target_compile_definitions(TidalServer PRIVATE HEADLESS_SERVER)
+
+target_link_libraries(TidalServer
     glm::glm
 )
 
@@ -101,6 +187,8 @@ endif()
 # Compiler-specific flags
 if(MSVC)
     target_compile_options(TidalEngine PRIVATE /W4)
+    target_compile_options(TidalServer PRIVATE /W4)
 else()
     target_compile_options(TidalEngine PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(TidalServer PRIVATE -Wall -Wextra -Wpedantic)
 endif()

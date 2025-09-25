@@ -297,12 +297,21 @@ VkSurfaceFormatKHR VulkanRenderer::chooseSwapSurfaceFormat(
 
 VkPresentModeKHR VulkanRenderer::chooseSwapPresentMode(
     const std::vector<VkPresentModeKHR>& availablePresentModes) {
+    // For ultra-high FPS, prefer IMMEDIATE mode (no VSync/frame limiting)
+    for (const auto& availablePresentMode : availablePresentModes) {
+        if (availablePresentMode == VK_PRESENT_MODE_IMMEDIATE_KHR) {
+            return availablePresentMode;
+        }
+    }
+
+    // Fallback to MAILBOX mode (triple buffering, less tearing than IMMEDIATE)
     for (const auto& availablePresentMode : availablePresentModes) {
         if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR) {
             return availablePresentMode;
         }
     }
 
+    // Last resort: FIFO mode (VSync enabled, caps to monitor refresh rate)
     return VK_PRESENT_MODE_FIFO_KHR;
 }
 

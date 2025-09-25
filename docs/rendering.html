@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rendering System - Tidal Engine Documentation</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Left Sidebar Navigation -->
+        <nav class="sidebar-left">
+            <h1>Tidal Engine</h1>
+
+            <div class="nav-section">
+                <h3>Getting Started</h3>
+                <ul>
+                    <li><a href="index.html">Overview</a></li>
+                    <li><a href="architecture.html">Architecture</a></li>
+                    <li><a href="quick-start.html">Quick Start</a></li>
+                </ul>
+            </div>
+
+            <div class="nav-section">
+                <h3>Core Systems</h3>
+                <ul>
+                    <li><a href="rendering.html" class="active">Rendering System</a></li>
+                    <li><a href="networking.html">Networking</a></li>
+                    <li><a href="world-system.html">World System</a></li>
+                    <li><a href="input-system.html">Input System</a></li>
+                </ul>
+            </div>
+
+            <div class="nav-section">
+                <h3>Infrastructure</h3>
+                <ul>
+                    <li><a href="vulkan-infrastructure.html">Vulkan Infrastructure</a></li>
+                    <li><a href="threading.html">Threading & Concurrency</a></li>
+                    <li><a href="shaders.html">Shader System</a></li>
+                </ul>
+            </div>
+
+            <div class="nav-section">
+                <h3>Development</h3>
+                <ul>
+                    <li><a href="build-system.html">Build System</a></li>
+                    <li><a href="performance.html">Performance</a></li>
+                    <li><a href="debugging.html">Debugging</a></li>
+                </ul>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="content">
+            <section class="section">
+                <h1>Rendering System</h1>
+
+                <p>The rendering system is built on Vulkan 1.3 with modern graphics techniques optimized for voxel rendering.</p>
+
+                <h2>Vulkan Pipeline</h2>
+                <div class="info-box">
+                    The engine uses a forward rendering pipeline with per-vertex lighting and texture atlasing for optimal voxel performance.
+                </div>
+
+                <h3>Render Pass Structure</h3>
+                <pre><code>VkRenderPass
+├── Color Attachment (RGBA8)
+├── Depth Attachment (D32_SFLOAT)
+└── Subpass Dependencies</code></pre>
+
+                <h3>Graphics Pipeline</h3>
+                <div class="method-signature">
+                    <code>void VulkanRenderer::createGraphicsPipeline()</code><br>
+                    Creates the main voxel rendering pipeline with vertex/fragment shaders.
+                </div>
+
+                <pre><code>// Pipeline stages
+VK_SHADER_STAGE_VERTEX_BIT   → vertex.vert.spv
+VK_SHADER_STAGE_FRAGMENT_BIT → fragment.frag.spv
+
+// Vertex input: Position, Normal, TexCoord
+struct Vertex {
+    glm::vec3 pos;      // World position
+    glm::vec3 normal;   // Surface normal
+    glm::vec2 texCoord; // Texture atlas coordinates
+};</code></pre>
+
+                <h2>Texture Atlas System</h2>
+                <p class="file-path">src/TextureManager.cpp</p>
+
+                <div class="info-box">
+                    Block textures are packed into a single atlas for efficient GPU access. Atlas coordinates are calculated automatically during mesh generation.
+                </div>
+
+                <pre><code>// Texture atlas layout (single row, expandable)
+[Grass][Stone][Dirt][Wood][Sand][Brick][Cobblestone][Snow]
+  0-1    1-2   2-3   3-4   4-5    5-6      6-7        7-8
+
+// UV calculation
+float textureIndex = static_cast&lt;float&gt;(blockType);
+float u = textureIndex / ATLAS_WIDTH;  // X coordinate
+float v = 0.0f;                        // Y coordinate (single row)</code></pre>
+
+                <h3>Texture Loading</h3>
+                <div class="method-signature">
+                    <code>bool TextureManager::loadTexturepack(const std::string& path)</code><br>
+                    Loads block textures and creates atlas automatically.
+                </div>
+
+                <pre><code>// Texture loading process
+1. Scan assets/texturepacks/default/blocks/ directory
+2. Load individual block textures (16x16 PNG files)
+3. Pack into horizontal atlas texture
+4. Upload to GPU as single VkImage
+5. Create texture sampler with appropriate filtering</code></pre>
+
+                <h2>Chunk Rendering</h2>
+                <div class="info-box">
+                    Each chunk generates vertex/index buffers for visible faces only. Frustum culling eliminates off-screen chunks before GPU submission.
+                </div>
+
+                <h3>Mesh Generation</h3>
+                <div class="method-signature">
+                    <code>std::vector&lt;Vertex&gt; generateChunkMesh(const Chunk& chunk)</code><br>
+                    Generates optimized mesh with face culling for interior blocks.
+                </div>
+
+                <pre><code>// Face culling logic
+for (int x = 0; x &lt; 16; x++) {
+    for (int y = 0; y &lt; 16; y++) {
+        for (int z = 0; z &lt; 16; z++) {
+            if (chunk.getBlock(x, y, z) == BlockType::AIR) continue;
+
+            // Only generate faces adjacent to air/transparent blocks
+            if (isTransparent(chunk.getBlock(x+1, y, z)))
+                addFace(FACE_POSITIVE_X);
+            if (isTransparent(chunk.getBlock(x-1, y, z)))
+                addFace(FACE_NEGATIVE_X);
+            // ... other faces
+        }
+    }
+}</code></pre>
+
+                <h3>Frustum Culling</h3>
+                <div class="method-signature">
+                    <code>bool Camera::isAABBInFrustum(const AABB& aabb, const Frustum& frustum)</code><br>
+                    Tests chunk bounding boxes against view frustum for efficient culling.
+                </div>
+
+                <pre><code>// Frustum culling implementation (Camera.cpp:148-165)
+bool Camera::isAABBInFrustum(const AABB& aabb, const Frustum& frustum) const {
+    // For each plane, check if the AABB is completely on the outside
+    for (const auto& plane : frustum.planes) {
+        // Find the positive vertex (furthest along plane normal)
+        glm::vec3 positiveVertex = aabb.min;
+        if (plane.normal.x >= 0) positiveVertex.x = aabb.max.x;
+        if (plane.normal.y >= 0) positiveVertex.y = aabb.max.y;
+        if (plane.normal.z >= 0) positiveVertex.z = aabb.max.z;
+
+        // If positive vertex is on negative side, AABB is outside
+        if (plane.distanceToPoint(positiveVertex) < 0) {
+            return false;
+        }
+    }
+    return true; // AABB is intersecting or inside frustum
+}</code></pre>
+
+                <h2>Lighting System</h2>
+
+                <h3>Lighting Model</h3>
+                <p>The engine uses a simple but effective Phong lighting model with ambient, diffuse, and specular components.</p>
+
+                <pre><code>// Fragment shader lighting (shaders/fragment.frag)
+void main() {
+    vec4 texColor = texture(texSampler, fragTexCoord);
+
+    // Simple Phong lighting
+    vec3 normal = normalize(fragNormal);
+    vec3 lightDir = normalize(ubo.lightPos - fragPos);
+
+    // Ambient + Diffuse
+    float ambient = 0.3;
+    float diff = max(dot(normal, lightDir), 0.0);
+    float lighting = ambient + (1.0 - ambient) * diff;
+
+    outColor = vec4(texColor.rgb * lighting, texColor.a);
+}</code></pre>
+
+                <h3>Light Sources</h3>
+                <table>
+                    <tr><th>Light Type</th><th>Implementation</th><th>Performance</th></tr>
+                    <tr><td>Directional (Sun)</td><td>Single light direction</td><td>Very fast</td></tr>
+                    <tr><td>Point Lights</td><td>Position-based falloff</td><td>Medium</td></tr>
+                    <tr><td>Block Light</td><td>Per-block emission values</td><td>Slow (not implemented)</td></tr>
+                </table>
+
+                <h2>Render Loop</h2>
+
+                <h3>Main Render Function</h3>
+                <div class="method-signature">
+                    <code>void GameClient::render()</code><br>
+                    Main rendering function called every frame.
+                </div>
+
+                <pre><code>void GameClient::render() {
+    // 1. Begin frame
+    m_renderer->beginFrame();
+
+    // 2. Update uniforms
+    updateUniformBuffers();
+
+    // 3. Frustum culling
+    auto frustum = m_camera.calculateFrustum(m_projMatrix, m_viewMatrix);
+
+    // 4. Render visible chunks
+    for (const auto& [pos, chunk] : m_chunkManager->getLoadedChunks()) {
+        if (m_camera.isAABBInFrustum(chunk->getAABB(), frustum)) {
+            m_renderer->renderChunk(chunk);
+        }
+    }
+
+    // 5. Render UI
+    renderUI();
+
+    // 6. End frame and present
+    m_renderer->endFrame();
+}</code></pre>
+
+                <h3>Frame Timing</h3>
+                <div class="info-box">
+                    The engine uses VSync by default but supports configurable frame rate limiting for consistent performance.
+                </div>
+
+                <pre><code>// Frame timing control
+const double TARGET_FRAME_TIME = 1.0 / 60.0; // 60 FPS
+double frameStart = glfwGetTime();
+
+render();
+
+double frameEnd = glfwGetTime();
+double frameTime = frameEnd - frameStart;
+
+if (frameTime < TARGET_FRAME_TIME) {
+    std::this_thread::sleep_for(
+        std::chrono::duration&lt;double&gt;(TARGET_FRAME_TIME - frameTime)
+    );
+}</code></pre>
+
+                <h2>Debug Visualization</h2>
+
+                <h3>Chunk Boundaries</h3>
+                <div class="method-signature">
+                    <code>void VulkanRenderer::renderChunkBoundaries()</code><br>
+                    Renders wireframe outlines around loaded chunks for debugging.
+                </div>
+
+                <pre><code>// Debug wireframe rendering (F4 key)
+if (m_showChunkBoundaries) {
+    // Switch to wireframe pipeline
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                      m_wireframePipeline);
+
+    // Render chunk outlines
+    for (const auto& chunk : visibleChunks) {
+        renderWireframeAABB(chunk->getBounds());
+    }
+}</code></pre>
+
+                <h3>Performance Overlay</h3>
+                <div class="method-signature">
+                    <code>void GameClient::renderPerformanceHUD()</code><br>
+                    Shows real-time rendering metrics via ImGui overlay.
+                </div>
+
+                <pre><code>// Performance HUD (F2 key)
+if (m_showPerformanceHUD) {
+    ImGui::Begin("Performance");
+    ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
+    ImGui::Text("Frame Time: %.3f ms", 1000.0f / ImGui::GetIO().Framerate);
+    ImGui::Text("Chunks Visible: %d", visibleChunkCount);
+    ImGui::Text("Vertices: %d", totalVertexCount);
+    ImGui::Text("Draw Calls: %d", drawCallCount);
+    ImGui::End();
+}</code></pre>
+
+                <h2>Optimization Techniques</h2>
+
+                <h3>Batching</h3>
+                <div class="info-box">
+                    Multiple chunks with similar properties are batched together to reduce draw calls and state changes.
+                </div>
+
+                <h3>Level of Detail (LOD)</h3>
+                <div class="warning-box">
+                    <strong>Future Enhancement:</strong> LOD system not yet implemented but designed for distant chunk simplification.
+                </div>
+
+                <h3>Occlusion Culling</h3>
+                <pre><code>// Potential occlusion culling approach
+bool isChunkOccluded(const Chunk& chunk, const Camera& camera) {
+    // Cast ray from camera to chunk center
+    Ray ray(camera.getPosition(), normalize(chunk.getCenter() - camera.getPosition()));
+
+    // Check if any closer chunks block the view
+    // (Not implemented - would require spatial indexing)
+    return false;
+}</code></pre>
+            </section>
+        </main>
+
+        <!-- Right Sidebar - Table of Contents -->
+        <aside class="sidebar-right">
+            <div class="toc">
+                <h4>On This Page</h4>
+                <ul>
+                    <!-- TOC will be dynamically generated -->
+                </ul>
+            </div>
+        </aside>
+    </div>
+
+    <script src="nav.js"></script>
+</body>
+</html>
