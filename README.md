@@ -292,35 +292,6 @@ Tidal-Engine/
 4. Test thoroughly (especially Vulkan validation)
 5. Submit a pull request
 
-## Troubleshooting
-
-### Common Issues
-
-**"Vulkan validation layer error"**
-- Ensure Vulkan SDK is properly installed
-- Check that your GPU drivers support Vulkan 1.3
-
-**"GLFW failed to create window"**
-- Update graphics drivers
-- Check display server compatibility (X11/Wayland)
-
-**"Failed to load world"**
-- Verify write permissions in `~/.tidal-engine/saves/`
-- Check disk space availability
-
-**"Chunks not loading"**
-- Verify server is running (check console output)
-- Check network connectivity for multiplayer
-
-### Performance Issues
-- Enable GPU profiling with F2 key
-- Monitor chunk count and render distance
-- Consider reducing texture resolution for older GPUs
-
 ## License
 
 This project is part of the Tidal Engine development. Please refer to the LICENSE file for terms and conditions.
-
----
-
-**Ready to build voxel worlds? Clone, build, and start creating!**
