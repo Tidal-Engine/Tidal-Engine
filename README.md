@@ -1,4 +1,4 @@
-# Tidal Engine - Voxel Game Engine
+# 🌊 Tidal Engine - Voxel Game Engine
 
 A modern C++23 Vulkan-based voxel game engine with client-server architecture. Features a complete game system with world generation, multiplayer support, and an integrated development environment for voxel-based games.
 
