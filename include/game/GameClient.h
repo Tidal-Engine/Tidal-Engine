@@ -8,6 +8,7 @@
 #include "core/ThreadPool.h"
 #include "game/Chunk.h"
 #include "game/SaveSystem.h"
+#include "game/ClientChunkManager.h"
 #include "graphics/TextureManager.h"
 #include "system/UserDataManager.h"
 
@@ -31,6 +32,10 @@
 class GameServer;
 class ClientChunkManager;
 class NetworkClient;
+class GameClientRenderer;
+class GameClientInput;
+class GameClientNetwork;
+class GameClientUI;
 
 // Vertex structure for rendering
 struct Vertex {
@@ -103,7 +108,18 @@ struct ClientPlayer {
     bool isLocalPlayer = false;
 };
 
+// Debug information structure
+struct DebugInfo {
+    uint32_t drawCalls = 0;
+    uint32_t renderedVoxels = 0;
+    uint32_t totalVoxels = 0;
+    uint32_t culledVoxels = 0;
+    float frameTime = 0.0f;
+    float fps = 0.0f;
+};
+
 class GameClient {
+    friend class GameClientRenderer; // Allow renderer access to private members
 public:
     GameClient(const ClientConfig& config = ClientConfig{});
     ~GameClient();
@@ -114,13 +130,10 @@ public:
     void shutdown();
 
     // Connection management
-    bool connectToServer(const std::string& address, uint16_t port);
+    // connectToServer now handled by GameClientNetwork
     void connectToLocalServer(GameServer* localServer);
     bool startSingleplayer(const std::string& worldName = "default");
     void disconnect();
-
-    // Game mode transitions
-    void startSingleplayerGame(const std::string& worldName = "default");
 
     // World management
     void initializeSaveDirectory();
@@ -129,6 +142,13 @@ public:
     bool isValidWorld(const std::string& worldPath) const;
     std::string getSaveDirectory() const;
 
+    // Game mode transitions
+    void startSingleplayerGame(const std::string& worldName = "default");
+    void saveAndQuitToTitle();
+
+    // World access for UI
+    const std::vector<std::string>& getAvailableWorlds() const { return m_availableWorlds; }
+
     // Client state
     ClientState getState() const { return m_state; }
     bool isConnected() const { return m_state == ClientState::CONNECTED || m_state == ClientState::IN_GAME; }
@@ -136,22 +156,60 @@ public:
     // Game state
     GameState getGameState() const { return m_gameState; }
     void setGameState(GameState state) { m_gameState = state; }
+    void requestQuit() { m_running = false; }
 
-    // Input handling
-    void processInput(float deltaTime);
-    void handleMouseInput(double xpos, double ypos);
-    void handleKeyInput(int key, int action, int mods);
-    void handleMouseButton(int button, int action, int mods);
+    // Rendering system access
+    GameClientRenderer* getRenderer() { return m_renderer.get(); }
 
-    // Rendering
-    void render(float deltaTime);
+    // Input system access
+    GameClientInput* getInput() { return m_input.get(); }
+
+    // Network system access
+    GameClientNetwork* getNetwork() { return m_network.get(); }
+
+    // UI system access
+    GameClientUI* getUI() { return m_ui.get(); }
+
+
+    // Input-related methods (called by GameClientInput)
+    int getSelectedHotbarSlot() const { return m_selectedHotbarSlot; }
+    void setSelectedHotbarSlot(int slot) { m_selectedHotbarSlot = slot; }
+    // Input handling methods now in GameClientInput
+    void toggleWireframeMode() { m_wireframeMode = !m_wireframeMode; }
+
+    // Network-related methods (called by GameClientNetwork)
+    void setState(ClientState state) { m_state = state; }
+    GameServer* getLocalServer() const { return m_localServer; }
+    PlayerId getLocalPlayerId() const { return m_localPlayerId; }
+    void setLocalPlayerId(PlayerId id) { m_localPlayerId = id; }
+    Camera& getCamera() { return m_camera; }
+    ClientChunkManager* getChunkManager() const { return m_chunkManager.get(); }
+
+    // UI/Debug accessors
+    const DebugInfo& getDebugInfo() const { return m_debugInfo; }
+    bool isWireframeMode() const { return m_wireframeMode; }
+
+    // Hotbar accessors
+    static constexpr int getHotbarSlots() { return HOTBAR_SLOTS; }
+    const BlockType* getHotbarBlocks() const { return m_hotbarBlocks; }
+    TextureManager* getTextureManager() const { return m_textureManager.get(); }
+    void setSelectedHotbarSlotFromUI(int slot) { m_selectedHotbarSlot = slot; }
+
+    // Network message handlers (called by GameClientNetwork)
+    void handlePlayerUpdate(const PlayerUpdateMessage& msg);
+    void handleChunkData(const ChunkDataMessage& msg, const std::vector<uint8_t>& compressedData);
+
+    // Rendering now handled by GameClientRenderer
 
     // Game events
     void onBlockPlace(const glm::ivec3& position, BlockType blockType);
     void onBlockBreak(const glm::ivec3& position);
     void onPlayerMove();
 
-    // Network message handling
+    // Raycast helper for block interaction
+    BlockHitResult raycastVoxelsClient(const Ray& ray, ClientChunkManager* chunkManager, float maxDistance);
+
+    // Network message handling (delegated to network system)
     void processServerMessage(const NetworkPacket& packet);
     void handleNetworkMessage(const NetworkPacket& packet) { processServerMessage(packet); }
 
@@ -167,36 +225,22 @@ private:
     // Vulkan/Graphics
     GLFWwindow* m_window = nullptr;
     std::unique_ptr<VulkanDevice> m_device;
-    std::unique_ptr<VulkanRenderer> m_renderer;
 
-    // Rendering pipeline
-    VkRenderPass m_renderPass = VK_NULL_HANDLE;
-    VkDescriptorSetLayout m_descriptorSetLayout = VK_NULL_HANDLE;
-    VkPipelineLayout m_pipelineLayout = VK_NULL_HANDLE;
-    VkPipeline m_graphicsPipeline = VK_NULL_HANDLE;
-    VkPipeline m_wireframePipeline = VK_NULL_HANDLE;
-    VkCommandPool m_commandPool = VK_NULL_HANDLE;
+    // Rendering (delegated to GameClientRenderer)
+    std::unique_ptr<GameClientRenderer> m_renderer;
 
-    // Vertex data
-    std::vector<Vertex> m_vertices;
-    std::vector<uint32_t> m_indices;
-    std::unique_ptr<VulkanBuffer> m_vertexBuffer;
-    std::unique_ptr<VulkanBuffer> m_indexBuffer;
+    // Input system (delegated to GameClientInput)
+    std::unique_ptr<GameClientInput> m_input;
 
-    // Uniform buffers
-    static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
-    std::vector<std::unique_ptr<VulkanBuffer>> m_uniformBuffers;
-    VkDescriptorPool m_descriptorPool = VK_NULL_HANDLE;
-    std::vector<VkDescriptorSet> m_descriptorSets;
-    std::vector<VkCommandBuffer> m_commandBuffers;
+    // Network system (delegated to GameClientNetwork)
+    std::unique_ptr<GameClientNetwork> m_network;
 
-    // Camera and input
+    // UI system (delegated to GameClientUI)
+    std::unique_ptr<GameClientUI> m_ui;
+
+
+    // Camera
     Camera m_camera;
-    float m_lastX = 0.0f;
-    float m_lastY = 0.0f;
-    bool m_firstMouse = true;
-    bool m_keys[1024] = {};
-    bool m_mouseCaptured = true;
 
     // Timing
     float m_lastFrameTime = 0.0f;
@@ -217,42 +261,23 @@ private:
     };
 
     // Debug info
-    struct DebugInfo {
-        uint32_t drawCalls = 0;
-        uint32_t renderedVoxels = 0;
-        uint32_t totalVoxels = 0;
-        uint32_t culledVoxels = 0;
-        float frameTime = 0.0f;
-        float fps = 0.0f;
-    } m_debugInfo;
+    DebugInfo m_debugInfo;
 
-    // ImGui
-    VkDescriptorPool m_imguiDescriptorPool = VK_NULL_HANDLE;
-    VkDescriptorSet m_atlasTextureDescriptor = VK_NULL_HANDLE;
-    bool m_showDebugWindow = false;
-    bool m_showPerformanceHUD = false;
-    bool m_showRenderingHUD = false;
-    bool m_showCameraHUD = false;
+    // UI state (wireframe mode kept in GameClient for renderer access)
     bool m_wireframeMode = false;
-    bool m_showChunkBoundaries = false;
 
-    // Networking
+    // Networking (managed by GameClientNetwork)
     GameServer* m_localServer = nullptr;  // For singleplayer mode
     std::unique_ptr<GameServer> m_integratedServer;  // Integrated server for singleplayer
-    std::unique_ptr<NetworkClient> m_networkClient;
-    MessageQueue<NetworkPacket> m_incomingMessages;
-    MessageQueue<NetworkPacket> m_outgoingMessages;
 
     // Threading
     std::unique_ptr<std::thread> m_networkThread;
     std::atomic<bool> m_running{false};
     std::atomic<bool> m_cleanedUp{false};
 
-    // World management
+    // World management (UI state moved to GameClientUI)
     std::vector<std::string> m_availableWorlds;
     std::string m_saveDirectory;
-    char m_newWorldName[64] = {};
-    bool m_showCreateWorldDialog = false;
 
     // Texture and user data management
     std::unique_ptr<UserDataManager> m_userDataManager;
@@ -261,180 +286,25 @@ private:
     // Initialization methods
     void initWindow();
     void initVulkan();
-    void initImGui();
-    void createRenderPass();
-    void createDescriptorSetLayout();
-    void createGraphicsPipeline();
-    void createWireframePipeline();
-    void recreateGraphicsPipeline();
-    void createFramebuffers();
-    void createCommandPool();
-    void createVertexBuffer();
-    void createIndexBuffer();
-    void createUniformBuffers();
-    void createDescriptorPool();
-    void createDescriptorSets();
-    void createCommandBuffers();
-    void createAtlasTextureDescriptor();
 
-    // Utility methods
-    VkShaderModule createShaderModule(const std::vector<char>& code);
-    void recreateSwapChain();
-    void cleanupSwapChain();
-
-    // Rendering methods
-    void drawFrame();
-    void updateUniformBuffer(uint32_t currentImage);
-    void renderImGui(VkCommandBuffer commandBuffer);
-    void renderMainMenu();
-    void renderWorldSelection();
-    void renderLoadingScreen();
-    void renderPauseMenu();
-    void renderDebugWindow();
-    void renderPerformanceHUD();
-    void renderRenderingHUD();
-    void renderCameraHUD();
-    void renderCrosshair();
-    void renderHotbar();
+    // Rendering methods (delegated to GameClientRenderer)
+    // Rendering methods now in GameClientRenderer and GameClientUI
 
     // Input methods
     void updateTransforms(float deltaTime);
-    void handleBlockInteraction(bool isBreaking);
     void loadChunksAroundPlayer();
 
-    // Raycast helper for ClientChunkManager
-    BlockHitResult raycastVoxelsClient(const Ray& ray, ClientChunkManager* chunkManager, float maxDistance);
-
-    // Network methods
-    void sendToServer(const NetworkPacket& packet);
-    void processIncomingMessages();
-    void networkThreadFunc();
 
     // Message handlers
-    void handleServerHello(const ServerHelloMessage& msg);
-    void handlePlayerUpdate(const PlayerUpdateMessage& msg);
     void handleBlockUpdate(const BlockUpdateMessage& msg);
-    void handleChunkData(const ChunkDataMessage& msg, const std::vector<uint8_t>& packetPayload);
 
     // Cleanup
-    void cleanupImGui();
     void cleanupVulkan();
 
     // Static callbacks
     static void framebufferResizeCallback(GLFWwindow* window, int width, int height);
-    static void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
-    static void mouseCallback(GLFWwindow* window, double xpos, double ypos);
-    static void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
-    static void scrollCallback(GLFWwindow* window, double xoffset, double yoffset);
 };
 
-// Client-side chunk manager (only handles rendering)
-class ClientChunkManager {
-public:
-    ClientChunkManager(VulkanDevice& device, TextureManager* textureManager = nullptr);
-    ~ClientChunkManager() = default;
+// ClientChunkManager is now in separate files
 
-    // Chunk rendering
-    size_t renderVisibleChunks(VkCommandBuffer commandBuffer, const Frustum& frustum);
-    void renderChunkBoundaries(VkCommandBuffer commandBuffer, VkPipeline wireframePipeline, const glm::vec3& playerPosition, VkPipelineLayout pipelineLayout, VkDescriptorSet descriptorSet);
-
-    // Chunk data from server
-    void setChunkData(const ChunkPos& pos, const ChunkData& data);
-    void removeChunk(const ChunkPos& pos);
-
-    // Block updates from server
-    void updateBlock(const glm::ivec3& worldPos, BlockType blockType);
-
-    // Utility
-    size_t getLoadedChunkCount() const;
-    size_t getTotalVertexCount() const;
-    size_t getTotalFaceCount() const;
-    bool hasChunk(const ChunkPos& pos) const;
-    bool isVoxelSolidAtWorldPosition(int worldX, int worldY, int worldZ) const;
-
-    // Internal lock-free version for use when mutex is already held
-    bool isVoxelSolidAtWorldPositionUnsafe(int worldX, int worldY, int worldZ) const;
-    std::vector<ChunkPos> getLoadedChunkPositions() const;
-    void updateDirtyMeshes();
-    void updateDirtyMeshesSafe(); // Process deferred mesh updates safely between frames
-
-    // Frame state tracking for safe mesh updates
-    void setFrameInProgress(bool inProgress) { m_isFrameInProgress = inProgress; }
-
-private:
-    VulkanDevice& m_device;
-    TextureManager* m_textureManager;
-    std::unordered_map<ChunkPos, std::unique_ptr<class ClientChunk>> m_chunks;
-    mutable std::mutex m_chunkMutex;
-
-    // Deferred mesh update system
-    std::vector<ChunkPos> m_deferredMeshUpdates;
-    bool m_isFrameInProgress = false;
-
-    // Debug wireframe rendering
-    std::unique_ptr<VulkanBuffer> m_wireframeVertexBuffer;
-    std::unique_ptr<VulkanBuffer> m_wireframeIndexBuffer;
-    std::vector<ChunkVertex> m_wireframeVertices;
-    std::vector<uint32_t> m_wireframeIndices;
-    bool m_wireframeDirty = true;
-
-    // Helper functions
-    void generateWireframeMesh(const glm::vec3& playerPosition);
-    void createWireframeBuffers();
-    void invalidateNeighboringChunks(const ChunkPos& chunkPos, int localX, int localY, int localZ);
-    bool isAABBInFrustum(const AABB& aabb, const Frustum& frustum) const;
-    bool isChunkCompletelyOccluded(const ChunkPos& pos) const;
-};
-
-// Client-side chunk (rendering only)
-class ClientChunk {
-public:
-    ClientChunk(const ChunkPos& position, VulkanDevice& device, TextureManager* textureManager = nullptr, ClientChunkManager* chunkManager = nullptr);
-    ~ClientChunk() = default;
-
-    // Rendering
-    void render(VkCommandBuffer commandBuffer);
-    bool isEmpty() const { return m_vertices.empty(); }
-    size_t getVertexCount() const { return m_vertices.size(); }
-    size_t getIndexCount() const { return m_indices.size(); }
-
-    // Data management
-    void setChunkData(const ChunkData& data);
-    void updateBlock(int x, int y, int z, BlockType blockType);
-    void regenerateMesh();
-    bool isMeshDirty() const { return m_meshDirty; }
-
-    // Position
-    const ChunkPos& getPosition() const { return m_position; }
-
-    // Voxel access
-    bool isVoxelSolid(int x, int y, int z) const;
-    BlockType getVoxelType(int x, int y, int z) const;
-
-    // Modification tracking for occlusion culling
-    bool isModified() const { return m_modified; }
-    void markAsModified() { m_modified = true; }
-
-private:
-    ChunkPos m_position;
-    VulkanDevice& m_device;
-    TextureManager* m_textureManager;
-    ClientChunkManager* m_chunkManager;
-
-    // Rendering data only (no game logic)
-    std::vector<ChunkVertex> m_vertices;
-    std::vector<uint32_t> m_indices;
-    std::unique_ptr<VulkanBuffer> m_vertexBuffer;
-    std::unique_ptr<VulkanBuffer> m_indexBuffer;
-    bool m_meshDirty = true;
-    bool m_modified = false;  // Track if chunk has been modified by player
-
-    // Voxel data for mesh generation
-    BlockType m_voxels[CHUNK_SIZE][CHUNK_SIZE][CHUNK_SIZE];
-
-    // Mesh generation
-    void generateMesh();
-    void addVoxelFace(int x, int y, int z, int faceDir, BlockType blockType);
-    bool shouldRenderFace(int x, int y, int z, int faceDir) const;
-    void createBuffers();
-};
+// ClientChunk is now in separate files

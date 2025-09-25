@@ -55,7 +55,23 @@
             <section class="section">
                 <h1>Networking System</h1>
 
-                <p>TCP-based client-server networking with custom protocol for reliable voxel world synchronization.</p>
+                <p>TCP-based client-server networking with custom protocol for reliable voxel world synchronization. Client networking is handled by the dedicated GameClientNetwork subsystem.</p>
+
+                <h2>GameClientNetwork Architecture</h2>
+                <p class="file-path">src/game/GameClientNetwork.cpp</p>
+                <div class="info-box">
+                    Dedicated networking subsystem that handles all client-side network operations, message processing, and server communication. Integrates with GameClient for game state updates.
+                </div>
+
+                <h3>Initialization</h3>
+                <pre><code>// GameClient initializes network subsystem
+m_network = std::make_unique&lt;GameClientNetwork&gt;(*this);
+
+// Network subsystem manages its own NetworkClient instance
+bool GameClientNetwork::connectToServer(const std::string& address, uint16_t port) {
+    m_networkClient = std::make_unique&lt;NetworkClient&gt;();
+    return m_networkClient->connect(address, port);
+}</code></pre>
 
                 <h2>Protocol Design</h2>
                 <div class="info-box">
@@ -81,19 +97,36 @@ enum MessageType {
 };</code></pre>
 
                 <h2>Connection Management</h2>
-                <p class="file-path">src/NetworkManager.cpp</p>
+                <p class="file-path">src/game/GameClientNetwork.cpp</p>
 
                 <div class="method-signature">
-                    <code>bool NetworkManager::connectToServer(const std::string& host, int port)</code><br>
-                    Establishes TCP connection with error handling and timeout support.
+                    <code>bool GameClientNetwork::connectToServer(const std::string& address, uint16_t port)</code><br>
+                    Establishes TCP connection through NetworkClient with error handling and timeout support.
                 </div>
 
-                <pre><code>// Client connection flow
-1. Create TCP socket
-2. Connect with timeout
-3. Send handshake message
-4. Receive server acknowledgment
-5. Start message processing loop</code></pre>
+                <h3>Network Thread Management</h3>
+                <pre><code>// GameClientNetwork manages its own network thread
+void GameClientNetwork::startNetworkThread() {
+    m_running = true;
+    m_networkThread = std::make_unique&lt;std::thread&gt;(&GameClientNetwork::networkThreadFunc, this);
+}
+
+// Network thread processes incoming messages
+void GameClientNetwork::networkThreadFunc() {
+    while (m_running && m_networkClient && m_networkClient->isConnected()) {
+        // Process incoming messages from server
+        processIncomingMessages();
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+}</code></pre>
+
+                <h3>Client Connection Flow</h3>
+                <pre><code>// Updated connection flow with subsystem
+1. GameClient calls m_network->connectToServer(address, port)
+2. GameClientNetwork creates NetworkClient instance
+3. NetworkClient establishes TCP connection
+4. GameClientNetwork starts background network thread
+5. Network thread processes messages and updates GameClient</code></pre>
 
                 <h3>Connection States</h3>
                 <table>
@@ -140,49 +173,106 @@ for (int dx = -NETWORK_RANGE; dx <= NETWORK_RANGE; dx++) {
 
                 <h2>Message Processing</h2>
 
-                <h3>Async Message Handling</h3>
-                <p class="file-path">src/NetworkManager.cpp:45-120</p>
+                <h3>GameClientNetwork Message Handling</h3>
+                <p class="file-path">src/game/GameClientNetwork.cpp</p>
 
-                <pre><code>// Network thread processes messages
-void NetworkManager::processMessages() {
-    while (m_running) {
-        NetworkMessage msg;
-        if (receiveMessage(msg)) {
-            switch (msg.type) {
-                case MessageType::CHUNK_DATA:
-                    handleChunkData(msg);
-                    break;
-                case MessageType::BLOCK_UPDATE:
-                    handleBlockUpdate(msg);
-                    break;
-                case MessageType::PLAYER_MOVE:
-                    handlePlayerMove(msg);
-                    break;
+                <pre><code>// GameClientNetwork processes messages and delegates to GameClient
+void GameClientNetwork::processServerMessage(const NetworkPacket& packet) {
+    switch (packet.messageType) {
+        case MessageType::SERVER_HELLO: {
+            ServerHelloMessage msg;
+            std::memcpy(&msg, packet.payload.data(), sizeof(msg));
+            handleServerHello(msg);
+            break;
+        }
+        case MessageType::CHUNK_DATA: {
+            if (packet.payload.size() >= sizeof(ChunkDataMessage)) {
+                ChunkDataMessage msg;
+                std::memcpy(&msg, packet.payload.data(), sizeof(msg));
+                handleChunkData(msg, packet.payload);
             }
+            break;
+        }
+        case MessageType::BLOCK_UPDATE: {
+            BlockUpdateMessage msg;
+            std::memcpy(&msg, packet.payload.data(), sizeof(msg));
+            handleBlockUpdate(msg);
+            break;
+        }
+        case MessageType::PLAYER_UPDATE: {
+            PlayerUpdateMessage msg;
+            std::memcpy(&msg, packet.payload.data(), sizeof(msg));
+            handlePlayerUpdate(msg);
+            break;
         }
     }
 }</code></pre>
 
+                <h3>Integration with GameClient</h3>
+                <pre><code>// GameClientNetwork delegates to GameClient for game logic
+void GameClientNetwork::handleChunkData(const ChunkDataMessage& msg, const std::vector&lt;uint8_t&gt;& packetPayload) {
+    // Extract compressed chunk data from packet
+    size_t dataOffset = sizeof(ChunkDataMessage);
+    std::vector&lt;uint8_t&gt; compressedData(packetPayload.begin() + dataOffset, packetPayload.end());
+
+    // Delegate to GameClient for world state update
+    m_gameClient.handleChunkData(msg, compressedData);
+}</code></pre>
+
                 <h3>Thread Safety</h3>
                 <div class="warning-box">
-                    <strong>Critical Sections:</strong><br>
-                    • Message queues protected by mutexes<br>
-                    • Chunk data updates synchronized with game thread<br>
-                    • Player position updates atomic where possible
+                    <strong>GameClientNetwork Thread Safety:</strong><br>
+                    • Network thread processes incoming messages<br>
+                    • Main thread processes outgoing messages<br>
+                    • Message queues protected by MessageQueue template<br>
+                    • GameClient integration through atomic state updates
                 </div>
 
-                <pre><code>// Thread-safe message queue
-class NetworkManager {
-    std::queue&lt;NetworkMessage&gt; m_incomingMessages;
-    std::queue&lt;NetworkMessage&gt; m_outgoingMessages;
-    std::mutex m_incomingMutex;
-    std::mutex m_outgoingMutex;
+                <pre><code>// GameClientNetwork thread-safe message handling
+class GameClientNetwork {
+    MessageQueue&lt;NetworkPacket&gt; m_incomingMessages;
+    MessageQueue&lt;NetworkPacket&gt; m_outgoingMessages;
+    std::atomic&lt;bool&gt; m_running{false};
+    std::unique_ptr&lt;std::thread&gt; m_networkThread;
 
 public:
-    void queueMessage(const NetworkMessage& msg) {
-        std::lock_guard&lt;std::mutex&gt; lock(m_outgoingMutex);
-        m_outgoingMessages.push(msg);
+    // Called from main thread
+    void processIncomingMessages() {
+        NetworkPacket packet;
+        while (m_incomingMessages.tryPop(packet)) {
+            processServerMessage(packet);
+        }
     }
+
+    // Called from network thread
+    void sendToServer(const NetworkPacket& packet) {
+        m_outgoingMessages.push(packet);
+    }
+};</code></pre>
+
+                <h2>Subsystem API Summary</h2>
+                <div class="info-box">
+                    GameClientNetwork provides a clean API for network operations, hiding low-level networking details from GameClient.
+                </div>
+
+                <h3>Public Interface</h3>
+                <pre><code>class GameClientNetwork {
+public:
+    // Connection management
+    bool connectToServer(const std::string& address, uint16_t port);
+    void disconnect();
+
+    // Message handling
+    void sendToServer(const NetworkPacket& packet);
+    void processIncomingMessages();
+
+    // Network state
+    bool isConnected() const;
+    NetworkClient* getNetworkClient() const;
+
+    // Thread management
+    void startNetworkThread();
+    void stopNetworkThread();
 };</code></pre>
 
                 <h2>Server Architecture</h2>

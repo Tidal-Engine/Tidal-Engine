@@ -1,4 +1,5 @@
 #include "game/GameClient.h"
+#include "game/GameClientNetwork.h"
 #include "game/GameServer.h"
 #include <iostream>
 #include <thread>
@@ -49,7 +50,7 @@ void runMultiplayerClient(const std::string& serverAddress) {
     }
 
     // Connect to remote server
-    if (!client.connectToServer(serverAddress, config.serverPort)) {
+    if (!client.getNetwork()->connectToServer(serverAddress, config.serverPort)) {
         std::cerr << "Failed to connect to server!" << std::endl;
         return;
     }

@@ -60,33 +60,102 @@
                 <h2>Core Components</h2>
 
                 <div class="info-box">
-                    <strong>GameClient</strong> <span class="file-path">src/GameClient.cpp</span><br>
-                    Main client-side class handling rendering, input, UI, and client game logic.
+                    <strong>GameClient</strong> <span class="file-path">src/game/GameClient.cpp</span><br>
+                    Main client coordinator that orchestrates all client subsystems. Handles initialization, state management, and integration between subsystems.
                 </div>
 
                 <div class="info-box">
-                    <strong>GameServer</strong> <span class="file-path">src/GameServer.cpp</span><br>
+                    <strong>GameServer</strong> <span class="file-path">src/game/GameServer.cpp</span><br>
                     Server-side game logic, world state management, and multiplayer coordination.
                 </div>
 
                 <div class="info-box">
-                    <strong>NetworkManager</strong> <span class="file-path">src/NetworkManager.cpp</span><br>
+                    <strong>NetworkManager</strong> <span class="file-path">src/network/NetworkManager.cpp</span><br>
                     TCP-based networking for reliable client-server communication.
                 </div>
 
+                <h2>Client Subsystems</h2>
+
+                <p>The GameClient has been refactored into specialized subsystems for better separation of concerns:</p>
+
+                <div class="info-box">
+                    <strong>GameClientRenderer</strong> <span class="file-path">src/game/GameClientRenderer.cpp</span><br>
+                    Handles all rendering operations, Vulkan pipeline management, and frame rendering logic.
+                </div>
+
+                <div class="info-box">
+                    <strong>GameClientInput</strong> <span class="file-path">src/game/GameClientInput.cpp</span><br>
+                    Processes keyboard, mouse, and gamepad input. Handles GLFW callbacks and input state management.
+                </div>
+
+                <div class="info-box">
+                    <strong>GameClientNetwork</strong> <span class="file-path">src/game/GameClientNetwork.cpp</span><br>
+                    Manages client-side networking, message handling, and server communication.
+                </div>
+
+                <div class="info-box">
+                    <strong>GameClientUI</strong> <span class="file-path">src/game/GameClientUI.cpp</span><br>
+                    Handles ImGui-based user interface, menus, HUD, and debug windows.
+                </div>
+
+                <div class="info-box">
+                    <strong>ClientChunkManager</strong> <span class="file-path">src/game/ClientChunkManager.cpp</span><br>
+                    Manages client-side chunk loading, rendering, and mesh generation for the voxel world.
+                </div>
+
+                <div class="info-box">
+                    <strong>ClientChunk</strong> <span class="file-path">src/game/ClientChunk.cpp</span><br>
+                    Represents individual chunks on the client with mesh data and rendering capabilities.
+                </div>
+
                 <h2>Data Flow</h2>
-                <pre><code>Player Input → GameClient → NetworkManager → GameServer
-                    ↓                                            ↓
-                UI/Rendering ← ChunkManager ← World State ← Game Logic</code></pre>
+                <pre><code>Player Input → GameClientInput → GameClient → GameClientNetwork → GameServer
+                    ↓                            ↓                                   ↓
+              Key/Mouse      GameClientRenderer   GameClientUI      World State ← Game Logic
+                 Events           ↓                  ↓                    ↓
+                              Vulkan API        ImGui Interface    ClientChunkManager
+                                 ↓                  ↓                    ↓
+                              Graphics Card      UI Elements        ClientChunk Meshes</code></pre>
+
+                <h2>Subsystem Integration</h2>
+                <p>GameClient acts as the main coordinator, initializing and orchestrating communication between subsystems:</p>
+                <pre><code>GameClient::initialize() {
+    // Initialize subsystems in dependency order
+    m_renderer = std::make_unique&lt;GameClientRenderer&gt;(*this, m_device);
+    m_input = std::make_unique&lt;GameClientInput&gt;(*this, m_window, m_camera);
+    m_network = std::make_unique&lt;GameClientNetwork&gt;(*this);
+    m_ui = std::make_unique&lt;GameClientUI&gt;(*this, m_window, m_device);
+    m_chunkManager = std::make_unique&lt;ClientChunkManager&gt;(m_device, m_textureManager);
+}</code></pre>
 
                 <h2>Threading Model</h2>
                 <table>
                     <tr><th>Thread</th><th>Responsibility</th><th>Implementation</th></tr>
-                    <tr><td>Main Thread</td><td>Rendering, UI, Input</td><td><code>GameClient::run()</code></td></tr>
+                    <tr><td>Main Thread</td><td>Rendering, UI, Input</td><td><code>GameClient::run()</code> + subsystems</td></tr>
                     <tr><td>Server Thread</td><td>Game Logic, Physics</td><td><code>GameServer::run()</code></td></tr>
-                    <tr><td>Network Thread</td><td>I/O Operations</td><td><code>NetworkManager</code></td></tr>
-                    <tr><td>Worker Pool</td><td>Chunk Generation, I/O</td><td><code>ThreadPool</code></td></tr>
+                    <tr><td>Network Thread</td><td>Client Networking I/O</td><td><code>GameClientNetwork</code></td></tr>
+                    <tr><td>Worker Pool</td><td>Chunk Generation, Mesh Updates</td><td><code>ClientChunkManager</code></td></tr>
                 </table>
+
+                <h3>Main Thread Subsystem Coordination</h3>
+                <pre><code>// Main game loop with subsystem delegation
+while (m_running && !glfwWindowShouldClose(m_window)) {
+    // Input processing
+    if (m_input) {
+        m_input->processInput(deltaTime);
+    }
+
+    // Network message processing
+    if (m_gameState != GameState::MAIN_MENU && m_network) {
+        m_network->processIncomingMessages();
+    }
+
+    // Rendering
+    if (m_renderer) {
+        updateTransforms(deltaTime);
+        m_renderer->drawFrame();
+    }
+}</code></pre>
 
                 <h2>Component Interaction</h2>
 
@@ -103,9 +172,18 @@ client.connectToLocalServer(localServer);</code></pre>
                 <h3>Multiplayer Mode</h3>
                 <p>Multiplayer simply connects clients to a remote server instance:</p>
 
-                <pre><code>// Multiplayer client
+                <pre><code>// Multiplayer client (updated for subsystem architecture)
 GameClient client;
-client.connectToServer("192.168.1.100", 7777);
+if (!client.initialize()) {
+    // Handle initialization error
+}
+
+// Connect through network subsystem
+if (!client.getNetwork()->connectToServer("192.168.1.100", 7777)) {
+    // Handle connection error
+}
+
+client.run();
 
 // Dedicated server
 GameServer server;
@@ -160,25 +238,35 @@ void GameClient::setState(GameState newState) {
                 </div>
 
                 <pre><code>class GameClient {
-    std::unique_ptr&lt;VulkanDevice&gt; m_device;        // Auto-cleanup
-    std::unique_ptr&lt;ChunkManager&gt; m_chunkManager; // Auto-cleanup
-    std::unique_ptr&lt;TextureManager&gt; m_textureManager; // Auto-cleanup
+    std::unique_ptr&lt;VulkanDevice&gt; m_device;              // Core Vulkan device
+    std::unique_ptr&lt;TextureManager&gt; m_textureManager;    // Texture management
+    std::unique_ptr&lt;ClientChunkManager&gt; m_chunkManager;  // Client chunk system
+
+    // Subsystem components (initialized after core systems)
+    std::unique_ptr&lt;GameClientRenderer&gt; m_renderer;      // Rendering subsystem
+    std::unique_ptr&lt;GameClientInput&gt; m_input;           // Input subsystem
+    std::unique_ptr&lt;GameClientNetwork&gt; m_network;       // Network subsystem
+    std::unique_ptr&lt;GameClientUI&gt; m_ui;                // UI subsystem
 
     // Proper destruction order ensured by member order
     ~GameClient() {
-        // m_textureManager destroyed first (depends on m_device)
-        // m_chunkManager destroyed next
-        // m_device destroyed last
+        // Subsystems destroyed first (depend on core systems)
+        // m_ui, m_network, m_input, m_renderer destroyed
+        // Core systems destroyed last
+        // m_chunkManager, m_textureManager, m_device
     }
 };</code></pre>
 
                 <h3>Resource Lifecycles</h3>
                 <table>
                     <tr><th>Resource Type</th><th>Lifecycle</th><th>Managed By</th></tr>
-                    <tr><td>Vulkan Buffers</td><td>Frame-based</td><td>VulkanDevice</td></tr>
-                    <tr><td>Chunk Data</td><td>Distance-based</td><td>ChunkManager</td></tr>
+                    <tr><td>Vulkan Buffers</td><td>Frame-based</td><td>GameClientRenderer</td></tr>
+                    <tr><td>Chunk Data</td><td>Distance-based</td><td>ClientChunkManager</td></tr>
+                    <tr><td>Chunk Meshes</td><td>Distance-based</td><td>ClientChunk</td></tr>
                     <tr><td>Textures</td><td>Application lifetime</td><td>TextureManager</td></tr>
-                    <tr><td>Network Connections</td><td>Session-based</td><td>NetworkManager</td></tr>
+                    <tr><td>Network Connections</td><td>Session-based</td><td>GameClientNetwork</td></tr>
+                    <tr><td>Input State</td><td>Frame-based</td><td>GameClientInput</td></tr>
+                    <tr><td>UI Elements</td><td>State-based</td><td>GameClientUI</td></tr>
                 </table>
 
                 <h2>Error Handling</h2>
@@ -209,6 +297,81 @@ bool NetworkManager::sendMessage(const NetworkMessage& msg) {
         return false;
     }
 }</code></pre>
+
+                <h2>Subsystem APIs</h2>
+
+                <p>Each subsystem provides a clean public interface for GameClient integration:</p>
+
+                <h3>GameClientRenderer API</h3>
+                <pre><code>class GameClientRenderer {
+public:
+    // Lifecycle
+    bool initialize();
+    void shutdown();
+
+    // Frame rendering
+    void drawFrame();
+    void recreateSwapchain();
+
+    // Resource management
+    VulkanRenderer* getRenderer() const;
+    VkDescriptorSet getDescriptorSet(uint32_t frameIndex) const;
+};</code></pre>
+
+                <h3>GameClientInput API</h3>
+                <pre><code>class GameClientInput {
+public:
+    // Input processing
+    void processInput(float deltaTime);
+
+    // Mouse control
+    void setMouseCaptured(bool captured);
+    bool isMouseCaptured() const;
+
+    // Static GLFW callbacks
+    static void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
+    static void mouseCallback(GLFWwindow* window, double xpos, double ypos);
+    static void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
+    static void scrollCallback(GLFWwindow* window, double xoffset, double yoffset);
+};</code></pre>
+
+                <h3>GameClientUI API</h3>
+                <pre><code>class GameClientUI {
+public:
+    // Rendering
+    void renderImGui(VkCommandBuffer commandBuffer);
+
+    // UI state management
+    void toggleDebugWindow();
+    bool isShowingDebugWindow() const;
+    void setShowChunkBoundaries(bool show);
+    bool isShowingChunkBoundaries() const;
+
+    // Atlas texture management
+    VkDescriptorSet getAtlasTextureDescriptor() const;
+};</code></pre>
+
+                <h3>ClientChunkManager API</h3>
+                <pre><code>class ClientChunkManager {
+public:
+    // Chunk management
+    void setChunkData(const ChunkPos& pos, const ChunkData& data);
+    void removeChunk(const ChunkPos& pos);
+    void updateBlock(const glm::ivec3& worldPos, BlockType blockType);
+
+    // Rendering
+    size_t renderVisibleChunks(VkCommandBuffer commandBuffer, const Frustum& frustum);
+    void renderChunkBoundaries(VkCommandBuffer commandBuffer, VkPipeline wireframePipeline,
+                              const glm::vec3& playerPosition, VkPipelineLayout pipelineLayout,
+                              VkDescriptorSet descriptorSet);
+
+    // Statistics
+    size_t getLoadedChunkCount() const;
+    size_t getTotalVertexCount() const;
+
+    // Voxel queries
+    bool isVoxelSolidAtWorldPosition(int worldX, int worldY, int worldZ) const;
+};</code></pre>
 
                 <h2>Configuration System</h2>
 

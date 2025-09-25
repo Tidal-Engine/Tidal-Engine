@@ -85,24 +85,36 @@ set(SOURCES
     src/network/NetworkManager.cpp
     src/core/ThreadPool.cpp
     src/game/GameClient.cpp
+    src/game/GameClientRenderer.cpp
+    src/game/GameClientInput.cpp
+    src/game/GameClientNetwork.cpp
+    src/game/GameClientUI.cpp
+    src/game/ClientChunkManager.cpp
+    src/game/ClientChunk.cpp
 )
 
 # Header files
 set(HEADERS
-    include/VulkanDevice.h
-    include/VulkanRenderer.h
-    include/VulkanBuffer.h
-    include/Camera.h
-    include/Chunk.h
-    include/ChunkManager.h
-    include/TextureManager.h
-    include/UserDataManager.h
-    include/SaveSystem.h
-    include/GameServer.h
-    include/NetworkProtocol.h
-    include/NetworkManager.h
-    include/ThreadPool.h
-    include/GameClient.h
+    include/vulkan/VulkanDevice.h
+    include/vulkan/VulkanRenderer.h
+    include/vulkan/VulkanBuffer.h
+    include/core/Camera.h
+    include/game/Chunk.h
+    include/game/ChunkManager.h
+    include/graphics/TextureManager.h
+    include/system/UserDataManager.h
+    include/game/SaveSystem.h
+    include/game/GameServer.h
+    include/network/NetworkProtocol.h
+    include/network/NetworkManager.h
+    include/core/ThreadPool.h
+    include/game/GameClient.h
+    include/game/GameClientRenderer.h
+    include/game/GameClientInput.h
+    include/game/GameClientNetwork.h
+    include/game/GameClientUI.h
+    include/game/ClientChunkManager.h
+    include/game/ClientChunk.h
 )
 
 # Create client executable
@@ -119,11 +131,11 @@ set(SERVER_SOURCES
 )
 
 set(SERVER_HEADERS
-    include/SaveSystem.h
-    include/GameServer.h
-    include/NetworkProtocol.h
-    include/ThreadPool.h
-    include/NetworkManager.h
+    include/game/SaveSystem.h
+    include/game/GameServer.h
+    include/network/NetworkProtocol.h
+    include/core/ThreadPool.h
+    include/network/NetworkManager.h
 )
 
 # Create headless server executable

@@ -55,23 +55,34 @@
             <section class="section">
                 <h1>Input System</h1>
 
-                <h2>GLFW Integration</h2>
-                <p class="file-path">src/GameClient.cpp</p>
+                <h2>GameClientInput Architecture</h2>
+                <p class="file-path">src/game/GameClientInput.cpp</p>
                 <div class="info-box">
-                    Input handling through GLFW callbacks and polling. State-dependent input processing.
+                    Dedicated input subsystem handling GLFW callbacks and state-dependent input processing.
+                    Integrates with GameClient for game logic and world interaction.
                 </div>
 
-                <pre><code>// Input callbacks setup
-glfwSetKeyCallback(m_window, keyCallback);
-glfwSetCursorPosCallback(m_window, mouseCallback);
-glfwSetMouseButtonCallback(m_window, mouseButtonCallback);
-glfwSetScrollCallback(m_window, scrollCallback);
+                <h3>Initialization</h3>
+                <pre><code>// GameClient initializes input subsystem
+m_input = std::make_unique&lt;GameClientInput&gt;(*this, m_window, m_camera);
 
-// Mouse capture control
-if (m_gameState == GameState::IN_GAME) {
-    glfwSetInputMode(m_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-} else {
-    glfwSetInputMode(m_window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+// GameClientInput sets up GLFW callbacks
+glfwSetKeyCallback(m_window, GameClientInput::keyCallback);
+glfwSetCursorPosCallback(m_window, GameClientInput::mouseCallback);
+glfwSetMouseButtonCallback(m_window, GameClientInput::mouseButtonCallback);
+glfwSetScrollCallback(m_window, GameClientInput::scrollCallback);</code></pre>
+
+                <h3>Input Processing</h3>
+                <pre><code>// Main loop calls input processing
+if (m_input) {
+    m_input->processInput(deltaTime);
+}
+
+// Mouse capture control in GameClientInput
+void GameClientInput::setMouseCaptured(bool captured) {
+    m_mouseCaptured = captured;
+    glfwSetInputMode(m_window, GLFW_CURSOR,
+        captured ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
 }</code></pre>
 
                 <h2>Movement Controls</h2>
@@ -96,38 +107,84 @@ if (direction == CameraMovement::UP)
 
                 <h2>Block Interaction</h2>
                 <div class="method-signature">
-                    <code>void GameClient::handleMouseClick(int button, int action)</code><br>
-                    Handles block placement/breaking via raycasting. Left click breaks, right click places.
+                    <code>void GameClientInput::handleBlockInteraction(bool isBreaking)</code><br>
+                    Handles block placement/breaking via raycasting. Delegates to GameClient for game logic.
                 </div>
 
-                <pre><code>// Ray casting for block interaction (Camera.cpp:171-219)
-BlockHitResult result = m_camera.raycastVoxels(ray, m_chunkManager.get(), 10.0f);
-if (result.hit) {
-    if (button == GLFW_MOUSE_BUTTON_LEFT) {
-        // Break block
-        m_chunkManager->setVoxel(result.blockPosition, BlockType::AIR);
-    } else if (button == GLFW_MOUSE_BUTTON_RIGHT) {
-        // Place block adjacent to hit face
-        glm::ivec3 placePos = result.blockPosition + result.normal;
-        m_chunkManager->setVoxel(placePos, m_selectedBlockType);
+                <pre><code>// Block interaction in GameClientInput (updated architecture)
+void GameClientInput::handleBlockInteraction(bool isBreaking) {
+    if (m_gameClient.getGameState() != GameState::IN_GAME) return;
+
+    // Create ray from camera
+    const auto& camera = m_gameClient.getCamera();
+    Ray ray(camera.getPosition(), camera.getFront());
+
+    // Raycast through GameClient's public API
+    auto chunkManager = m_gameClient.getChunkManager();
+    BlockHitResult hit = m_gameClient.raycastVoxelsClient(ray, chunkManager, 5.0f);
+
+    if (hit.hit) {
+        if (isBreaking) {
+            m_gameClient.onBlockBreak(hit.blockPosition);
+        } else {
+            glm::ivec3 placePosition = hit.blockPosition + glm::ivec3(hit.normal);
+            BlockType selectedBlock = m_gameClient.getHotbarBlocks()[m_gameClient.getSelectedHotbarSlot()];
+            m_gameClient.onBlockPlace(placePosition, selectedBlock);
+        }
+    }
+}</code></pre>
+
+                <h3>Input-to-GameClient Integration</h3>
+                <pre><code>// Mouse button callback (static GLFW callback)
+void GameClientInput::mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
+    auto* input = static_cast&lt;GameClientInput*&gt;(glfwGetWindowUserPointer(window));
+    if (action == GLFW_PRESS) {
+        if (button == GLFW_MOUSE_BUTTON_LEFT) {
+            input->handleBlockInteraction(true);  // Break block
+        } else if (button == GLFW_MOUSE_BUTTON_RIGHT) {
+            input->handleBlockInteraction(false); // Place block
+        }
     }
 }</code></pre>
 
                 <h2>UI Input States</h2>
                 <div class="info-box">
-                    Input behavior changes based on game state to prevent conflicts between game controls and UI interaction.
+                    GameClientInput adapts behavior based on GameClient state to prevent conflicts between game controls and UI interaction.
                 </div>
-                <pre><code>switch (m_gameState) {
-    case GameState::MAIN_MENU:
-        // Only UI interactions, no camera movement
-        break;
-    case GameState::IN_GAME:
-        // Full FPS controls, mouse captured
-        processKeyboard(); processMouseMovement();
-        break;
-    case GameState::PAUSED:
-        // UI only, mouse free for menu interaction
-        break;
+                <pre><code>// State-dependent input handling in GameClientInput
+void GameClientInput::processInput(float deltaTime) {
+    auto gameState = m_gameClient.getGameState();
+
+    switch (gameState) {
+        case GameState::MAIN_MENU:
+        case GameState::PAUSED:
+            // Mouse free for UI interaction, no camera movement
+            if (m_mouseCaptured) setMouseCaptured(false);
+            break;
+
+        case GameState::IN_GAME:
+            // Full FPS controls, mouse captured for camera movement
+            if (!m_mouseCaptured) setMouseCaptured(true);
+            processKeyboardInput(deltaTime);
+            // Mouse movement handled by callbacks
+            break;
+
+        case GameState::LOADING:
+            // Minimal input processing during world load
+            break;
+    }
+}
+
+// ESC key toggles between IN_GAME and PAUSED
+if (m_keys[GLFW_KEY_ESCAPE]) {
+    auto currentState = m_gameClient.getGameState();
+    if (currentState == GameState::IN_GAME) {
+        m_gameClient.setGameState(GameState::PAUSED);
+        setMouseCaptured(false);
+    } else if (currentState == GameState::PAUSED) {
+        m_gameClient.setGameState(GameState::IN_GAME);
+        setMouseCaptured(true);
+    }
 }</code></pre>
             </section>
         </main>
