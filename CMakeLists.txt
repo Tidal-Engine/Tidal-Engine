@@ -9,10 +9,17 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # Find Vulkan SDK
 find_package(Vulkan REQUIRED)
 
-# System package integration
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(GLFW REQUIRED glfw3)
-find_package(glm REQUIRED)
+# Find packages (cross-platform)
+if(WIN32)
+    # Windows with vcpkg
+    find_package(glfw3 REQUIRED)
+    find_package(glm REQUIRED)
+else()
+    # Linux/Unix with pkg-config
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(GLFW REQUIRED glfw3)
+    find_package(glm REQUIRED)
+endif()
 
 # Dear ImGui - fetch from GitHub
 include(FetchContent)
@@ -56,17 +63,32 @@ add_library(imgui_lib STATIC
     ${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.cpp
 )
 
-target_include_directories(imgui_lib PUBLIC
-    ${imgui_SOURCE_DIR}
-    ${imgui_SOURCE_DIR}/backends
-    ${Vulkan_INCLUDE_DIRS}
-    ${GLFW_INCLUDE_DIRS}
-)
+if(WIN32)
+    target_include_directories(imgui_lib PUBLIC
+        ${imgui_SOURCE_DIR}
+        ${imgui_SOURCE_DIR}/backends
+        ${Vulkan_INCLUDE_DIRS}
+    )
+else()
+    target_include_directories(imgui_lib PUBLIC
+        ${imgui_SOURCE_DIR}
+        ${imgui_SOURCE_DIR}/backends
+        ${Vulkan_INCLUDE_DIRS}
+        ${GLFW_INCLUDE_DIRS}
+    )
+endif()
 
-target_link_libraries(imgui_lib
-    ${Vulkan_LIBRARIES}
-    ${GLFW_LIBRARIES}
-)
+if(WIN32)
+    target_link_libraries(imgui_lib
+        ${Vulkan_LIBRARIES}
+        glfw
+    )
+else()
+    target_link_libraries(imgui_lib
+        ${Vulkan_LIBRARIES}
+        ${GLFW_LIBRARIES}
+    )
+endif()
 
 # Vulkan validation layers setup for debug builds
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
@@ -164,28 +186,52 @@ set(SERVER_HEADERS
 add_executable(TidalServer ${SERVER_SOURCES} ${SERVER_HEADERS})
 
 # Include directories
-target_include_directories(TidalEngine PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${Vulkan_INCLUDE_DIRS}
-    ${GLFW_INCLUDE_DIRS}
-    ${imgui_SOURCE_DIR}
-    ${imgui_SOURCE_DIR}/backends
-    /usr/include/stb
-)
+if(WIN32)
+    target_include_directories(TidalEngine PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${Vulkan_INCLUDE_DIRS}
+        ${imgui_SOURCE_DIR}
+        ${imgui_SOURCE_DIR}/backends
+    )
+else()
+    target_include_directories(TidalEngine PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${Vulkan_INCLUDE_DIRS}
+        ${GLFW_INCLUDE_DIRS}
+        ${imgui_SOURCE_DIR}
+        ${imgui_SOURCE_DIR}/backends
+        /usr/include/stb
+    )
+endif()
 
 # Link libraries
-target_link_libraries(TidalEngine
-    ${Vulkan_LIBRARIES}
-    ${GLFW_LIBRARIES}
-    glm::glm
-    imgui_lib
-)
+if(WIN32)
+    target_link_libraries(TidalEngine
+        ${Vulkan_LIBRARIES}
+        glfw
+        glm::glm
+        imgui_lib
+    )
+else()
+    target_link_libraries(TidalEngine
+        ${Vulkan_LIBRARIES}
+        ${GLFW_LIBRARIES}
+        glm::glm
+        imgui_lib
+    )
+endif()
 
 # Configure server executable (headless, no graphics)
-target_include_directories(TidalServer PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
-    /usr/include/stb
-)
+if(WIN32)
+    target_include_directories(TidalServer PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+    )
+else()
+    target_include_directories(TidalServer PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        /usr/include/stb
+    )
+endif()
 
 target_compile_definitions(TidalServer PRIVATE HEADLESS_SERVER)
 

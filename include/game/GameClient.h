@@ -664,7 +664,6 @@ private:
     static void framebufferResizeCallback(GLFWwindow* window, int width, int height);
     /// @}
 };
-};
 
 /// @note ClientChunkManager is now in separate files
 

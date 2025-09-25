@@ -213,4 +213,3 @@ private:
     std::unique_ptr<VulkanBuffer> m_indexBuffer;    ///< GPU index buffer
     /// @}
 };
-};

@@ -348,4 +348,3 @@ private:
     bool deserializeWorldData(const std::vector<uint8_t>& buffer, WorldData& data);
     /// @}
 };
-};

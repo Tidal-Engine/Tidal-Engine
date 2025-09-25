@@ -255,4 +255,3 @@ private:
     std::unique_ptr<VulkanBuffer> m_wireframeIndexBuffer;   ///< GPU wireframe index buffer
     /// @}
 };
-};

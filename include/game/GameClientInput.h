@@ -193,4 +193,3 @@ private:
     void handleBlockInteraction(bool isBreaking);
     /// @}
 };
-};

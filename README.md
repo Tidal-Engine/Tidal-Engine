@@ -248,44 +248,6 @@ vulkaninfo
 ./TidalEngine --client <host>    # Connect to remote server
 ```
 
-## Project Structure
-
-```
-Tidal-Engine/
-├── CMakeLists.txt              # Build configuration
-├── README.md                   # This file
-├── src/                        # Source files
-│   ├── Main.cpp               # Entry point and menu system
-│   ├── ServerMain.cpp         # Dedicated server entry point
-│   ├── core/                  # Core engine systems
-│   │   ├── Camera.cpp         # FPS camera system
-│   │   └── ThreadPool.cpp     # Multi-threading utilities
-│   ├── game/                  # Game logic
-│   │   ├── GameClient.cpp     # Client-side game logic
-│   │   ├── GameServer.cpp     # Server-side game logic
-│   │   ├── ChunkManager.cpp   # World chunk management
-│   │   ├── Chunk.cpp          # Individual chunk logic
-│   │   └── SaveSystem.cpp     # World persistence
-│   ├── graphics/              # Graphics and rendering
-│   │   └── TextureManager.cpp # Texture atlas system
-│   ├── network/               # Networking systems
-│   │   ├── NetworkManager.cpp # Client-server networking
-│   │   └── NetworkProtocol.cpp# Network protocol implementation
-│   ├── system/                # System utilities
-│   │   └── UserDataManager.cpp# User settings and data
-│   └── vulkan/                # Vulkan rendering backend
-│       ├── VulkanRenderer.cpp # Core Vulkan rendering
-│       ├── VulkanDevice.cpp   # Vulkan device management
-│       └── VulkanBuffer.cpp   # Buffer management
-├── include/                   # Header files
-├── shaders/                   # GLSL shaders
-│   ├── vertex.vert           # Vertex shader
-│   └── fragment.frag         # Fragment shader
-├── assets/                    # Game assets
-│   └── texturepacks/         # Block textures
-└── docs/                      # Interactive documentation
-```
-
 ## Architecture
 
 ### Client-Server Design
