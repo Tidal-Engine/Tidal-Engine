@@ -52,7 +52,33 @@ A modern C++23 Vulkan-based voxel game engine with client-server architecture. F
 
 ## Documentation
 
-📚 **[View Interactive Documentation](docs/index.html)** - Complete technical documentation with interactive navigation
+📚 **Interactive Documentation** - Complete technical documentation with interactive navigation
+
+The documentation uses a multi-page HTML structure that requires a local web server to view properly.
+
+### Viewing Documentation
+
+**Option 1: Python Built-in Server (Easiest)**
+```bash
+cd docs
+python3 -m http.server 8000
+# Then open http://localhost:8000 in your browser
+```
+
+**Option 2: Node.js http-server**
+```bash
+npm install -g http-server
+cd docs
+http-server -p 8000
+# Open http://localhost:8000
+```
+
+**Option 3: VS Code Live Server**
+- Install the "Live Server" extension in VS Code
+- Right-click on `docs/index.html`
+- Select "Open with Live Server"
+
+The documentation covers architecture, rendering systems, networking, build system, and development guides.
 
 ## Quick Start
 
