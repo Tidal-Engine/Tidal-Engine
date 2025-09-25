@@ -1,11 +1,26 @@
 {
   "name": "tidal-engine",
   "version": "1.0.0",
+  "description": "A modern C++23 Vulkan-based voxel game engine with client-server architecture",
   "dependencies": [
-    "vulkan",
+    {
+      "name": "vulkan",
+      "features": ["tools"]
+    },
     "glfw3",
     "glm",
     "stb"
   ],
-  "builtin-baseline": "29ff5b8131d0c6c8fcb8fbaef35992f0d507cd7c"
+  "features": {
+    "tools": {
+      "description": "Include development tools and validation layers",
+      "dependencies": [
+        {
+          "name": "vulkan",
+          "features": ["tools"]
+        }
+      ]
+    }
+  },
+  "builtin-baseline": "c8696863d371ab7f46e213d8f5ca923c4aef2a00"
 }

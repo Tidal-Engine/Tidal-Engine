@@ -3,13 +3,13 @@
 A modern C++23 Vulkan-based voxel game engine with client-server architecture. Features a complete game system with world generation, multiplayer support, and an integrated development environment for voxel-based games.
 
 ![Tidal Engine](https://img.shields.io/badge/C%2B%2B-23-blue.svg)
-![Vulkan](https://img.shields.io/badge/Vulkan-1.3-red.svg)
+![Vulkan](https://img.shields.io/badge/Vulkan-1.4-red.svg)
 ![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20Windows%20%7C%20macOS-lightgrey.svg)
 
 ## Features
 
 ### Core Engine
-- **Modern Vulkan Rendering**: Vulkan 1.3 with optimized voxel rendering
+- **Modern Vulkan Rendering**: Vulkan 1.4 with optimized voxel rendering
 - **Client-Server Architecture**: Supports both single-player and multiplayer
 - **Voxel World System**: Infinite chunk-based world generation
 - **Real-time Lighting**: Dynamic lighting system with texture atlasing
@@ -33,7 +33,7 @@ A modern C++23 Vulkan-based voxel game engine with client-server architecture. F
 ## Requirements
 
 ### System Requirements
-- **GPU**: Vulkan 1.3 compatible graphics card
+- **GPU**: Vulkan 1.4 compatible graphics card
 - **CPU**: Multi-core processor (4+ cores recommended)
 - **RAM**: 8GB+ recommended
 - **Storage**: 1GB+ free space
