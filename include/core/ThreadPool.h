@@ -1,3 +1,10 @@
+/**
+ * @file ThreadPool.h
+ * @brief High-performance thread pool with priority scheduling and lock-free queues
+ * @author Tidal Engine Team
+ * @version 1.0
+ */
+
 #pragma once
 
 #include <thread>
@@ -10,12 +17,27 @@
 #include <atomic>
 #include <type_traits>
 
-// Lock-free queue for high-performance inter-thread communication
+/**
+ * @brief Lock-free queue for high-performance inter-thread communication
+ *
+ * Implements a Michael & Scott lock-free queue algorithm for thread-safe
+ * operations without mutex contention. Suitable for producer-consumer patterns
+ * in high-throughput scenarios.
+ *
+ * @tparam T Type of elements to store in the queue
+ * @warning This is a lock-free data structure - use with care in concurrent environments
+ */
 template<typename T>
 class LockFreeQueue {
 public:
+    /**
+     * @brief Construct empty lock-free queue
+     */
     LockFreeQueue() : head_(new Node), tail_(head_.load()) {}
 
+    /**
+     * @brief Destructor - cleans up remaining nodes
+     */
     ~LockFreeQueue() {
         while (Node* old_head = head_.load()) {
             head_.store(old_head->next);
@@ -23,6 +45,10 @@ public:
         }
     }
 
+    /**
+     * @brief Add item to the back of the queue (thread-safe)
+     * @param item Item to enqueue
+     */
     void enqueue(T item) {
         Node* new_node = new Node;
         new_node->data = std::move(item);
@@ -30,6 +56,11 @@ public:
         prev_tail->next = new_node;
     }
 
+    /**
+     * @brief Remove item from front of queue (thread-safe)
+     * @param result Reference to store dequeued item
+     * @return True if item was dequeued, false if queue was empty
+     */
     bool dequeue(T& result) {
         Node* head = head_.load();
         Node* next = head->next;
@@ -42,45 +73,83 @@ public:
         return true;
     }
 
+    /**
+     * @brief Check if queue is empty (thread-safe)
+     * @return True if queue contains no elements
+     */
     bool empty() const {
         Node* head = head_.load();
         return head->next == nullptr;
     }
 
 private:
+    /**
+     * @brief Internal node structure for linked list
+     */
     struct Node {
-        std::atomic<Node*> next{nullptr};
-        T data;
+        std::atomic<Node*> next{nullptr};   ///< Atomic pointer to next node
+        T data;                             ///< Stored data
     };
 
-    std::atomic<Node*> head_;
-    std::atomic<Node*> tail_;
+    std::atomic<Node*> head_;   ///< Atomic head pointer
+    std::atomic<Node*> tail_;   ///< Atomic tail pointer
 };
 
-// Task types for the thread pool
+/**
+ * @brief Task priority levels for thread pool scheduling
+ */
 enum class TaskPriority {
-    LOW = 0,
-    NORMAL = 1,
-    HIGH = 2,
-    CRITICAL = 3
+    LOW = 0,        ///< Background tasks (I/O, cleanup)
+    NORMAL = 1,     ///< Standard game logic tasks
+    HIGH = 2,       ///< Time-critical tasks (input, networking)
+    CRITICAL = 3    ///< System-critical tasks (must run immediately)
 };
 
+/**
+ * @brief Task wrapper for thread pool execution
+ */
 struct Task {
-    std::function<void()> function;
-    TaskPriority priority = TaskPriority::NORMAL;
-    std::string name; // For debugging/profiling
+    std::function<void()> function;         ///< Function to execute
+    TaskPriority priority = TaskPriority::NORMAL;  ///< Task priority level
+    std::string name;                       ///< Task name for debugging/profiling
 
+    /**
+     * @brief Default constructor
+     */
     Task() = default;
+
+    /**
+     * @brief Construct task with function and optional priority/name
+     * @param func Function to execute
+     * @param prio Task priority level
+     * @param task_name Task name for debugging
+     */
     Task(std::function<void()> func, TaskPriority prio = TaskPriority::NORMAL, const std::string& task_name = "")
         : function(std::move(func)), priority(prio), name(task_name) {}
 
-    // For priority queue (higher priority = higher value)
+    /**
+     * @brief Comparison operator for priority queue (higher priority = higher value)
+     * @param other Other task to compare against
+     * @return True if this task has lower priority than other
+     */
     bool operator<(const Task& other) const {
         return static_cast<int>(priority) < static_cast<int>(other.priority);
     }
 };
 
-// High-performance thread pool for async operations
+/**
+ * @brief High-performance thread pool with priority scheduling
+ *
+ * Provides a thread pool implementation with the following features:
+ * - Priority-based task scheduling
+ * - Configurable number of worker threads
+ * - Future-based return value handling
+ * - Statistics tracking for monitoring
+ * - Graceful shutdown with task completion
+ *
+ * @note Uses std::priority_queue for task ordering
+ * @see ServerTaskManager for specialized server task management
+ */
 class ThreadPool {
 public:
     explicit ThreadPool(size_t num_threads = std::thread::hardware_concurrency());

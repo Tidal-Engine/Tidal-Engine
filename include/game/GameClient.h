@@ -1,3 +1,10 @@
+/**
+ * @file GameClient.h
+ * @brief Main game client with Vulkan rendering, networking, and UI systems
+ * @author Tidal Engine Team
+ * @version 1.0
+ */
+
 #pragma once
 
 #include "vulkan/VulkanDevice.h"
@@ -37,274 +44,628 @@ class GameClientInput;
 class GameClientNetwork;
 class GameClientUI;
 
-// Vertex structure for rendering
+/**
+ * @brief Vertex data structure for rendering pipeline
+ */
 struct Vertex {
-    glm::vec3 pos;
-    glm::vec3 normal;
-    glm::vec2 texCoord;
+    glm::vec3 pos;      ///< Vertex position in 3D space
+    glm::vec3 normal;   ///< Vertex normal for lighting
+    glm::vec2 texCoord; ///< Texture coordinates
 
+    /**
+     * @brief Get Vulkan vertex input binding description
+     * @return Binding description for vertex buffer
+     */
     static VkVertexInputBindingDescription getBindingDescription();
+
+    /**
+     * @brief Get Vulkan vertex attribute descriptions
+     * @return Array of attribute descriptions for position, normal, texcoord
+     */
     static std::array<VkVertexInputAttributeDescription, 3> getAttributeDescriptions();
 };
 
-// Uniform Buffer Object for shaders
+/**
+ * @brief Uniform buffer object for shader transformations
+ */
 struct UniformBufferObject {
-    alignas(16) glm::mat4 model;
-    alignas(16) glm::mat4 view;
-    alignas(16) glm::mat4 proj;
+    alignas(16) glm::mat4 model;    ///< Model transformation matrix
+    alignas(16) glm::mat4 view;     ///< View transformation matrix
+    alignas(16) glm::mat4 proj;     ///< Projection transformation matrix
 };
 
-// Push constants for shaders
+/**
+ * @brief Push constants for shader lighting calculations
+ */
 struct PushConstants {
-    alignas(16) glm::vec3 lightPos;
-    alignas(16) glm::vec3 lightColor;
-    alignas(16) glm::vec3 viewPos;
-    alignas(16) glm::vec3 voxelPosition;
-    alignas(16) glm::vec3 voxelColor;
+    alignas(16) glm::vec3 lightPos;     ///< Light source position
+    alignas(16) glm::vec3 lightColor;   ///< Light color and intensity
+    alignas(16) glm::vec3 viewPos;      ///< Camera/view position
+    alignas(16) glm::vec3 voxelPosition;///< Current voxel position
+    alignas(16) glm::vec3 voxelColor;   ///< Voxel color tint
 };
 
-// Client configuration
+/**
+ * @brief Client configuration settings
+ */
 struct ClientConfig {
-    std::string serverAddress = "localhost";
-    uint16_t serverPort = 25565;
-    std::string playerName = "Player";
-    uint32_t renderDistance = 8;
-    bool vsync = false;  // Disable VSync for maximum performance
-    bool fullscreen = false;
-    uint32_t windowWidth = 1200;
-    uint32_t windowHeight = 800;
-    float mouseSensitivity = 0.1f;
-    float movementSpeed = 2.5f;
+    std::string serverAddress = "localhost";   ///< Server hostname or IP
+    uint16_t serverPort = 25565;               ///< Server port number
+    std::string playerName = "Player";         ///< Player display name
+    uint32_t renderDistance = 8;               ///< Chunk render distance
+    bool vsync = false;                        ///< Enable VSync (disabled for performance)
+    bool fullscreen = false;                   ///< Fullscreen mode toggle
+    uint32_t windowWidth = 1200;               ///< Window width in pixels
+    uint32_t windowHeight = 800;               ///< Window height in pixels
+    float mouseSensitivity = 0.1f;             ///< Mouse look sensitivity
+    float movementSpeed = 2.5f;                ///< Player movement speed
 };
 
-// Client state for networking
+/**
+ * @brief Network connection states
+ */
 enum class ClientState {
-    DISCONNECTED,
-    CONNECTING,
-    CONNECTED,
-    IN_GAME,
-    DISCONNECTING
+    DISCONNECTED,   ///< Not connected to any server
+    CONNECTING,     ///< Attempting to connect
+    CONNECTED,      ///< Connected but not in game
+    IN_GAME,        ///< Actively playing in world
+    DISCONNECTING   ///< Disconnecting from server
 };
 
-// Game state for menu system
+/**
+ * @brief UI and game flow states
+ */
 enum class GameState {
-    MAIN_MENU,
-    WORLD_SELECTION,
-    CONNECTING,
-    LOADING,
-    IN_GAME,
-    PAUSED,
-    SETTINGS,
-    QUIT
+    MAIN_MENU,      ///< Main menu screen
+    WORLD_SELECTION,///< World selection screen
+    CONNECTING,     ///< Connecting to server screen
+    LOADING,        ///< Loading world data
+    IN_GAME,        ///< Active gameplay
+    PAUSED,         ///< Game paused (ESC menu)
+    SETTINGS,       ///< Settings/options menu
+    QUIT            ///< Quitting application
 };
 
-// Client-side player representation
+/**
+ * @brief Client-side player representation
+ */
 struct ClientPlayer {
-    PlayerId id;
-    std::string name;
-    glm::vec3 position;
-    float yaw;
-    float pitch;
-    bool isLocalPlayer = false;
+    PlayerId id;                ///< Unique player identifier
+    std::string name;           ///< Player display name
+    glm::vec3 position;         ///< Player world position
+    float yaw;                  ///< Player yaw rotation
+    float pitch;                ///< Player pitch rotation
+    bool isLocalPlayer = false; ///< True if this is the local player
 };
 
-// Debug information structure
+/**
+ * @brief Performance and debug statistics
+ */
 struct DebugInfo {
-    uint32_t drawCalls = 0;
-    uint32_t renderedVoxels = 0;
-    uint32_t totalVoxels = 0;
-    uint32_t culledVoxels = 0;
-    float frameTime = 0.0f;
-    float fps = 0.0f;
+    uint32_t drawCalls = 0;         ///< Number of draw calls per frame
+    uint32_t renderedVoxels = 0;    ///< Voxels rendered this frame
+    uint32_t totalVoxels = 0;       ///< Total voxels in loaded chunks
+    uint32_t culledVoxels = 0;      ///< Voxels culled by frustum
+    float frameTime = 0.0f;         ///< Frame time in milliseconds
+    float fps = 0.0f;               ///< Frames per second
 };
 
+/**
+ * @brief Main game client class coordinating all game systems
+ *
+ * GameClient is the central coordinator for the client-side game application.
+ * It manages and integrates multiple subsystems:
+ *
+ * Core Systems:
+ * - Vulkan rendering pipeline with modern graphics features
+ * - Input handling for keyboard, mouse, and UI interactions
+ * - Network communication with game servers
+ * - User interface rendering with ImGui integration
+ * - World persistence and save system integration
+ *
+ * Game Features:
+ * - Single-player and multiplayer support
+ * - Real-time voxel world rendering with frustum culling
+ * - Block placement and destruction mechanics
+ * - Player movement and camera controls
+ * - Debug overlays and performance monitoring
+ *
+ * Architecture:
+ * - Modular design with specialized subsystem classes
+ * - Thread-safe operations for network and rendering
+ * - Event-driven input and UI system
+ * - Configuration-driven graphics and gameplay settings
+ *
+ * @see GameClientRenderer for rendering system
+ * @see GameClientInput for input handling
+ * @see GameClientNetwork for networking
+ * @see GameClientUI for user interface
+ * @see ClientChunkManager for world management
+ */
 class GameClient {
-    friend class GameClientRenderer; // Allow renderer access to private members
+    friend class GameClientRenderer; ///< Allow renderer access to private members
 public:
+    /**
+     * @brief Construct game client with configuration
+     * @param config Client configuration settings
+     */
     GameClient(const ClientConfig& config = ClientConfig{});
+    /**
+     * @brief Destructor - cleanup all systems
+     */
     ~GameClient();
 
-    // Client lifecycle
+    /// @name Client Lifecycle
+    /// @{
+    /**
+     * @brief Initialize all client systems
+     * @return True if initialization successful
+     */
     bool initialize();
+
+    /**
+     * @brief Run the main game loop
+     */
     void run();
+
+    /**
+     * @brief Shutdown and cleanup all systems
+     */
     void shutdown();
+    /// @}
 
-    // Connection management
-    // connectToServer now handled by GameClientNetwork
+    /// @name Connection Management
+    /// @{
+    /**
+     * @brief Connect to integrated local server (singleplayer)
+     * @param localServer Pointer to local server instance
+     * @note Network connections handled by GameClientNetwork
+     */
     void connectToLocalServer(GameServer* localServer);
+
+    /**
+     * @brief Start singleplayer game with integrated server
+     * @param worldName Name of world to load/create
+     * @return True if singleplayer started successfully
+     */
     bool startSingleplayer(const std::string& worldName = "default");
+
+    /**
+     * @brief Disconnect from current server
+     */
     void disconnect();
+    /// @}
 
-    // World management
+    /// @name World Management
+    /// @{
+    /**
+     * @brief Initialize save directory structure
+     */
     void initializeSaveDirectory();
+
+    /**
+     * @brief Scan for available worlds in save directory
+     */
     void scanForWorlds();
+
+    /**
+     * @brief Create new world with default settings
+     * @param worldName Name for the new world
+     * @return True if world created successfully
+     */
     bool createNewWorld(const std::string& worldName);
+
+    /**
+     * @brief Validate world directory structure
+     * @param worldPath Path to world directory
+     * @return True if world is valid
+     */
     bool isValidWorld(const std::string& worldPath) const;
+
+    /**
+     * @brief Get save directory path
+     * @return Absolute path to save directory
+     */
     std::string getSaveDirectory() const;
+    /// @}
 
-    // Game mode transitions
+    /// @name Game Mode Transitions
+    /// @{
+    /**
+     * @brief Transition to singleplayer game mode
+     * @param worldName World to load for singleplayer
+     */
     void startSingleplayerGame(const std::string& worldName = "default");
+
+    /**
+     * @brief Save current state and return to main menu
+     */
     void saveAndQuitToTitle();
+    /// @}
 
-    // World access for UI
+    /// @name World Access for UI
+    /// @{
+    /**
+     * @brief Get list of available worlds for UI display
+     * @return Reference to available worlds vector
+     */
     const std::vector<std::string>& getAvailableWorlds() const { return m_availableWorlds; }
+    /// @}
 
-    // Client state
+    /// @name Client State
+    /// @{
+    /**
+     * @brief Get current network connection state
+     * @return Current client state
+     */
     ClientState getState() const { return m_state; }
+
+    /**
+     * @brief Check if client is connected to server
+     * @return True if connected or in-game
+     */
     bool isConnected() const { return m_state == ClientState::CONNECTED || m_state == ClientState::IN_GAME; }
+    /// @}
 
-    // Game state
+    /// @name Game State
+    /// @{
+    /**
+     * @brief Get current game flow state
+     * @return Current game state
+     */
     GameState getGameState() const { return m_gameState; }
-    void setGameState(GameState state) { m_gameState = state; }
-    void requestQuit() { m_running = false; }
 
-    // Rendering system access
+    /**
+     * @brief Set game flow state
+     * @param state New game state to set
+     */
+    void setGameState(GameState state) { m_gameState = state; }
+
+    /**
+     * @brief Request application shutdown
+     */
+    void requestQuit() { m_running = false; }
+    /// @}
+
+    /// @name System Access
+    /// @{
+    /**
+     * @brief Get rendering system instance
+     * @return Pointer to renderer system
+     */
     GameClientRenderer* getRenderer() { return m_renderer.get(); }
 
-    // Input system access
+    /**
+     * @brief Get input system instance
+     * @return Pointer to input system
+     */
     GameClientInput* getInput() { return m_input.get(); }
 
-    // Network system access
+    /**
+     * @brief Get network system instance
+     * @return Pointer to network system
+     */
     GameClientNetwork* getNetwork() { return m_network.get(); }
 
-    // UI system access
+    /**
+     * @brief Get UI system instance
+     * @return Pointer to UI system
+     */
     GameClientUI* getUI() { return m_ui.get(); }
+    /// @}
 
 
-    // Input-related methods (called by GameClientInput)
+    /// @name Input Interface (called by GameClientInput)
+    /// @{
+    /**
+     * @brief Get currently selected hotbar slot
+     * @return Selected hotbar slot index
+     */
     int getSelectedHotbarSlot() const { return m_selectedHotbarSlot; }
+
+    /**
+     * @brief Set selected hotbar slot
+     * @param slot Hotbar slot index to select
+     */
     void setSelectedHotbarSlot(int slot) { m_selectedHotbarSlot = slot; }
-    // Input handling methods now in GameClientInput
+
+    /**
+     * @brief Toggle wireframe rendering mode
+     */
     void toggleWireframeMode() { m_wireframeMode = !m_wireframeMode; }
+    /// @}
 
-    // Network-related methods (called by GameClientNetwork)
+    /// @name Network Interface (called by GameClientNetwork)
+    /// @{
+    /**
+     * @brief Set client network state
+     * @param state New client state
+     */
     void setState(ClientState state) { m_state = state; }
+
+    /**
+     * @brief Get local server instance for singleplayer
+     * @return Pointer to local server or nullptr
+     */
     GameServer* getLocalServer() const { return m_localServer; }
+
+    /**
+     * @brief Get local player's unique identifier
+     * @return Local player ID
+     */
     PlayerId getLocalPlayerId() const { return m_localPlayerId; }
+
+    /**
+     * @brief Set local player's unique identifier
+     * @param id Player ID to set
+     */
     void setLocalPlayerId(PlayerId id) { m_localPlayerId = id; }
+
+    /**
+     * @brief Get camera reference for movement and rendering
+     * @return Reference to main camera
+     */
     Camera& getCamera() { return m_camera; }
+
+    /**
+     * @brief Get chunk manager for world data access
+     * @return Pointer to chunk manager
+     */
     ClientChunkManager* getChunkManager() const { return m_chunkManager.get(); }
+    /// @}
 
-    // UI/Debug accessors
+    /// @name UI and Debug Accessors
+    /// @{
+    /**
+     * @brief Get current debug and performance information
+     * @return Reference to debug info structure
+     */
     const DebugInfo& getDebugInfo() const { return m_debugInfo; }
+
+    /**
+     * @brief Check if wireframe rendering mode is active
+     * @return True if wireframe mode enabled
+     */
     bool isWireframeMode() const { return m_wireframeMode; }
+    /// @}
 
-    // Hotbar accessors
+    /// @name Hotbar Interface
+    /// @{
+    /**
+     * @brief Get number of available hotbar slots
+     * @return Number of hotbar slots
+     */
     static constexpr int getHotbarSlots() { return HOTBAR_SLOTS; }
+
+    /**
+     * @brief Get array of block types in hotbar
+     * @return Pointer to hotbar block array
+     */
     const BlockType* getHotbarBlocks() const { return m_hotbarBlocks; }
+
+    /**
+     * @brief Get texture manager for rendering
+     * @return Pointer to texture manager
+     */
     TextureManager* getTextureManager() const { return m_textureManager.get(); }
+
+    /**
+     * @brief Set selected hotbar slot from UI interaction
+     * @param slot Slot index to select
+     */
     void setSelectedHotbarSlotFromUI(int slot) { m_selectedHotbarSlot = slot; }
+    /// @}
 
-    // Network message handlers (called by GameClientNetwork)
+    /// @name Network Message Handlers (called by GameClientNetwork)
+    /// @{
+    /**
+     * @brief Handle player position/rotation update from server
+     * @param msg Player update message
+     */
     void handlePlayerUpdate(const PlayerUpdateMessage& msg);
+
+    /**
+     * @brief Handle chunk data received from server
+     * @param msg Chunk data message header
+     * @param compressedData Compressed chunk voxel data
+     */
     void handleChunkData(const ChunkDataMessage& msg, const std::vector<uint8_t>& compressedData);
+    /// @}
 
-    // Rendering now handled by GameClientRenderer
+    /// @note Rendering operations handled by GameClientRenderer
 
-    // Game events
+    /// @name Game Events
+    /// @{
+    /**
+     * @brief Handle block placement event
+     * @param position World position of block placement
+     * @param blockType Type of block being placed
+     */
     void onBlockPlace(const glm::ivec3& position, BlockType blockType);
+
+    /**
+     * @brief Handle block destruction event
+     * @param position World position of block being broken
+     */
     void onBlockBreak(const glm::ivec3& position);
+
+    /**
+     * @brief Handle player movement event
+     */
     void onPlayerMove();
+    /// @}
 
-    // Raycast helper for block interaction
+    /// @name Interaction Helpers
+    /// @{
+    /**
+     * @brief Cast ray through voxel world for block interaction
+     * @param ray Ray to cast from camera
+     * @param chunkManager Chunk manager to query
+     * @param maxDistance Maximum raycast distance
+     * @return Hit result with block information
+     */
     BlockHitResult raycastVoxelsClient(const Ray& ray, ClientChunkManager* chunkManager, float maxDistance);
+    /// @}
 
-    // Network message handling (delegated to network system)
+    /// @name Network Message Processing (delegated to GameClientNetwork)
+    /// @{
+    /**
+     * @brief Process incoming server message
+     * @param packet Network packet to process
+     */
     void processServerMessage(const NetworkPacket& packet);
-    void handleNetworkMessage(const NetworkPacket& packet) { processServerMessage(packet); }
 
-    // Configuration
+    /**
+     * @brief Handle network message (compatibility wrapper)
+     * @param packet Network packet to handle
+     */
+    void handleNetworkMessage(const NetworkPacket& packet) { processServerMessage(packet); }
+    /// @}
+
+    /// @name Configuration
+    /// @{
+    /**
+     * @brief Get current client configuration
+     * @return Reference to client configuration
+     */
     const ClientConfig& getConfig() const { return m_config; }
+
+    /**
+     * @brief Update client configuration settings
+     * @param config New configuration to apply
+     */
     void setConfig(const ClientConfig& config) { m_config = config; }
+    /// @}
 
 private:
-    ClientConfig m_config;
-    std::atomic<ClientState> m_state{ClientState::DISCONNECTED};
-    std::atomic<GameState> m_gameState{GameState::MAIN_MENU};
+    ClientConfig m_config;                                  ///< Client configuration settings
+    std::atomic<ClientState> m_state{ClientState::DISCONNECTED};   ///< Current network state
+    std::atomic<GameState> m_gameState{GameState::MAIN_MENU};      ///< Current game flow state
 
-    // Vulkan/Graphics
-    GLFWwindow* m_window = nullptr;
-    std::unique_ptr<VulkanDevice> m_device;
+    /// @name Vulkan/Graphics
+    /// @{
+    GLFWwindow* m_window = nullptr;         ///< GLFW window handle
+    std::unique_ptr<VulkanDevice> m_device; ///< Vulkan device wrapper
+    /// @}
 
-    // Rendering (delegated to GameClientRenderer)
-    std::unique_ptr<GameClientRenderer> m_renderer;
+    /// @name Subsystems (delegated to specialized classes)
+    /// @{
+    std::unique_ptr<GameClientRenderer> m_renderer;     ///< Rendering subsystem
 
-    // Input system (delegated to GameClientInput)
-    std::unique_ptr<GameClientInput> m_input;
+    std::unique_ptr<GameClientInput> m_input;           ///< Input handling subsystem
 
-    // Network system (delegated to GameClientNetwork)
-    std::unique_ptr<GameClientNetwork> m_network;
+    std::unique_ptr<GameClientNetwork> m_network;       ///< Network communication subsystem
 
-    // UI system (delegated to GameClientUI)
-    std::unique_ptr<GameClientUI> m_ui;
+    std::unique_ptr<GameClientUI> m_ui;                 ///< User interface subsystem
+    /// @}
 
 
-    // Camera
-    Camera m_camera;
+    /// @name Core Game Components
+    /// @{
+    Camera m_camera;                                    ///< Main camera for rendering and movement
 
-    // Timing
-    float m_lastFrameTime = 0.0f;
-    float m_deltaTime = 0.0f;
+    /// @name Timing
+    /// @{
+    float m_lastFrameTime = 0.0f;                       ///< Previous frame timestamp
+    float m_deltaTime = 0.0f;                           ///< Time between frames
+    /// @}
 
-    // Game state
-    std::unique_ptr<ClientChunkManager> m_chunkManager;
-    std::unordered_map<PlayerId, ClientPlayer> m_players;
-    PlayerId m_localPlayerId = INVALID_PLAYER_ID;
-    mutable std::mutex m_playerMutex;
+    /// @name World and Player State
+    /// @{
+    std::unique_ptr<ClientChunkManager> m_chunkManager; ///< World chunk management
+    std::unordered_map<PlayerId, ClientPlayer> m_players;  ///< Connected player data
+    PlayerId m_localPlayerId = INVALID_PLAYER_ID;       ///< Local player identifier
+    mutable std::mutex m_playerMutex;                    ///< Thread-safe player access
+    /// @}
 
-    // UI state
-    int m_selectedHotbarSlot = 0;
-    static constexpr int HOTBAR_SLOTS = 8;
-    BlockType m_hotbarBlocks[HOTBAR_SLOTS] = {
+    /// @name UI and Interaction State
+    /// @{
+    int m_selectedHotbarSlot = 0;                       ///< Currently selected hotbar slot
+    static constexpr int HOTBAR_SLOTS = 8;              ///< Number of hotbar slots
+    BlockType m_hotbarBlocks[HOTBAR_SLOTS] = {          ///< Block types in hotbar
         BlockType::STONE, BlockType::DIRT, BlockType::GRASS, BlockType::WOOD,
         BlockType::SAND, BlockType::BRICK, BlockType::COBBLESTONE, BlockType::SNOW
     };
 
-    // Debug info
-    DebugInfo m_debugInfo;
+    DebugInfo m_debugInfo;                              ///< Performance and debug statistics
 
-    // UI state (wireframe mode kept in GameClient for renderer access)
-    bool m_wireframeMode = false;
+    bool m_wireframeMode = false;                       ///< Wireframe rendering toggle
+    /// @}
 
-    // Networking (managed by GameClientNetwork)
-    GameServer* m_localServer = nullptr;  // For singleplayer mode
-    std::unique_ptr<GameServer> m_integratedServer;  // Integrated server for singleplayer
+    /// @name Networking (managed by GameClientNetwork)
+    /// @{
+    GameServer* m_localServer = nullptr;                ///< Local server for singleplayer
+    std::unique_ptr<GameServer> m_integratedServer;     ///< Integrated server instance
+    /// @}
 
-    // Threading
-    std::unique_ptr<std::thread> m_networkThread;
-    std::atomic<bool> m_running{false};
-    std::atomic<bool> m_cleanedUp{false};
+    /// @name Threading
+    /// @{
+    std::unique_ptr<std::thread> m_networkThread;       ///< Network processing thread
+    std::atomic<bool> m_running{false};                 ///< Main loop running flag
+    std::atomic<bool> m_cleanedUp{false};               ///< Cleanup completion flag
+    /// @}
 
-    // World management (UI state moved to GameClientUI)
-    std::vector<std::string> m_availableWorlds;
-    std::string m_saveDirectory;
+    /// @name World Management
+    /// @{
+    std::vector<std::string> m_availableWorlds;         ///< List of available world names
+    std::string m_saveDirectory;                        ///< Save directory path
+    /// @}
 
-    // Texture and user data management
-    std::unique_ptr<UserDataManager> m_userDataManager;
-    std::unique_ptr<TextureManager> m_textureManager;
+    /// @name Resource Management
+    /// @{
+    std::unique_ptr<UserDataManager> m_userDataManager; ///< User preferences and settings
+    std::unique_ptr<TextureManager> m_textureManager;   ///< Texture atlas and management
+    /// @}
+    /// @}
 
-    // Initialization methods
+    /// @name Private Implementation
+    /// @{
+    /**
+     * @brief Initialize GLFW window
+     */
     void initWindow();
+
+    /**
+     * @brief Initialize Vulkan graphics system
+     */
     void initVulkan();
 
-    // Rendering methods (delegated to GameClientRenderer)
-    // Rendering methods now in GameClientRenderer and GameClientUI
+    /// @note Rendering methods delegated to GameClientRenderer and GameClientUI
 
-    // Input methods
+    /**
+     * @brief Update camera transforms and movement
+     * @param deltaTime Time since last frame
+     */
     void updateTransforms(float deltaTime);
+
+    /**
+     * @brief Load chunks around player position
+     */
     void loadChunksAroundPlayer();
 
 
-    // Message handlers
+    /**
+     * @brief Handle block update message from server
+     * @param msg Block update message
+     */
     void handleBlockUpdate(const BlockUpdateMessage& msg);
 
-    // Cleanup
+    /**
+     * @brief Cleanup Vulkan resources
+     */
     void cleanupVulkan();
 
-    // Static callbacks
+    /**
+     * @brief GLFW framebuffer resize callback
+     * @param window GLFW window handle
+     * @param width New window width
+     * @param height New window height
+     */
     static void framebufferResizeCallback(GLFWwindow* window, int width, int height);
+    /// @}
+};
 };
 
-// ClientChunkManager is now in separate files
+/// @note ClientChunkManager is now in separate files
 
-// ClientChunk is now in separate files
+/// @note ClientChunk is now in separate files

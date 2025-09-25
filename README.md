@@ -80,6 +80,43 @@ http-server -p 8000
 
 The documentation covers architecture, rendering systems, networking, build system, and development guides.
 
+### API Documentation
+
+📖 **API Reference Documentation** - Complete C++ API reference from source code
+
+The project includes comprehensive Doxygen documentation for all classes and functions across the entire codebase.
+
+**Prerequisites:**
+```bash
+# Ubuntu/Debian
+sudo apt install doxygen graphviz
+
+# Fedora
+sudo dnf install doxygen graphviz
+
+# macOS
+brew install doxygen graphviz
+
+# Windows
+# Download from https://www.doxygen.nl/download.html
+```
+
+**Generate Documentation:**
+```bash
+cd docs
+doxygen Doxyfile.in
+# Open docs/api-reference.html in your browser
+```
+
+The API documentation provides detailed reference for:
+- **Core Systems**: Camera, ThreadPool, and engine utilities
+- **Game Logic**: Client/Server architecture, chunk management, save system
+- **Networking**: Client-server communication and protocol definitions
+- **Graphics**: Vulkan rendering pipeline and texture management
+- **System**: Cross-platform user data and settings management
+
+All public APIs include parameter documentation, return values, usage examples, and cross-references.
+
 ## Quick Start
 
 ### Windows

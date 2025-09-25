@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Reference - Tidal Engine Documentation</title>
+    <link rel="stylesheet" href="assets/styles.css">
+</head>
+
+<body>
+    <div class="container">
+        <!-- Left Sidebar Navigation -->
+        <nav class="sidebar-left">
+            <h1>Tidal Engine</h1>
+
+            <div class="nav-section">
+                <h3>Getting Started</h3>
+                <ul>
+                    <li><a href="index.html">Overview</a></li>
+                    <li><a href="development/architecture.html">Architecture</a></li>
+                    <li><a href="getting-started/quick-start.html">Quick Start</a></li>
+                </ul>
+            </div>
+
+            <div class="nav-section">
+                <h3>Core Systems</h3>
+                <ul>
+                    <li><a href="technical/rendering.html">Rendering System</a></li>
+                    <li><a href="technical/networking.html">Networking</a></li>
+                    <li><a href="technical/world-system.html">World System</a></li>
+                    <li><a href="technical/input-system.html">Input System</a></li>
+                </ul>
+            </div>
+
+            <div class="nav-section">
+                <h3>Infrastructure</h3>
+                <ul>
+                    <li><a href="technical/vulkan-infrastructure.html">Vulkan Infrastructure</a></li>
+                    <li><a href="technical/threading.html">Threading & Concurrency</a></li>
+                    <li><a href="technical/shaders.html">Shader System</a></li>
+                </ul>
+            </div>
+
+            <div class="nav-section">
+                <h3>Development</h3>
+                <ul>
+                    <li><a href="getting-started/build-system.html">Build System</a></li>
+                    <li><a href="development/performance.html">Performance</a></li>
+                    <li><a href="development/debugging.html">Debugging</a></li>
+                </ul>
+            </div>
+
+            <div class="nav-section">
+                <h3>Reference</h3>
+                <ul>
+                    <li><a href="api-reference.html" class="active">API Reference</a></li>
+                </ul>
+            </div>
+        </nav>
+
+        <!-- Main Content Area -->
+        <main class="content">
+            <div class="content-header">
+                <h1>API Reference</h1>
+                <p class="content-subtitle">Complete API documentation generated from source code</p>
+            </div>
+
+            <div class="content-body">
+                <!-- Introduction Section -->
+                <section>
+                    <h2>About the API Documentation</h2>
+                    <p>
+                        The Tidal Engine API reference is automatically generated from the source code using
+                        <strong>Doxygen</strong>. This ensures that the documentation is always up-to-date
+                        with the latest code changes and provides comprehensive coverage of all public APIs.
+                    </p>
+
+                    <div class="info-box">
+                        <h4>🚀 Quick Start</h4>
+                        <p>
+                            To generate the latest API documentation on your local machine:
+                        </p>
+                        <pre><code>cd build
+cmake --build . --target doc</code></pre>
+                        <p>
+                            The generated documentation will be available at <code>build/docs/html/index.html</code>
+                        </p>
+                    </div>
+                </section>
+
+                <!-- API Documentation Links -->
+                <section>
+                    <h2>API Documentation</h2>
+
+                    <div id="api-status" class="warning-box">
+                        <h4>⚠️ Documentation Status</h4>
+                        <p>
+                            API documentation is generated automatically during build.
+                            <span id="local-docs-message">
+                                If you've built the project with Doxygen installed, the documentation should be
+                                available below.
+                            </span>
+                        </p>
+                    </div>
+
+                    <div class="api-links">
+                        <div class="api-link-card">
+                            <h3>📚 Complete API Reference</h3>
+                            <p>Browse the complete API documentation with class hierarchies, detailed method
+                                descriptions, and code examples.</p>
+                            <div class="api-buttons">
+                                <a href="../build/docs/html/index.html" class="btn-primary" id="local-api-link">
+                                    View Local API Docs
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Module Quick Access -->
+                <section id="module-quick-access">
+                    <h2>Quick Module Access</h2>
+                    <p>Direct links to major engine modules (available when documentation is generated):</p>
+
+                    <div class="module-grid">
+                        <div class="module-card">
+                            <h4>🎥 Core Systems</h4>
+                            <ul class="module-links">
+                                <li><a href="../build/docs/html/classCamera.html">Camera Class</a></li>
+                                <li><a href="../build/docs/html/classThreadPool.html">ThreadPool Class</a></li>
+                                <li><a href="../build/docs/html/core_2_camera_8h.html">Camera.h Header</a></li>
+                                <li><a href="../build/docs/html/core_2_thread_pool_8h.html">ThreadPool.h Header</a></li>
+                            </ul>
+                        </div>
+
+                        <div class="module-card">
+                            <h4>🎮 Game Systems</h4>
+                            <ul class="module-links">
+                                <li><a href="../build/docs/html/classGameClient.html">GameClient Class</a></li>
+                                <li><a href="../build/docs/html/classGameServer.html">GameServer Class</a></li>
+                                <li><a href="../build/docs/html/classChunkManager.html">ChunkManager Class</a></li>
+                                <li><a href="../build/docs/html/game_2_chunk_8h.html">Chunk.h Header</a></li>
+                            </ul>
+                        </div>
+
+                        <div class="module-card">
+                            <h4>🔗 Networking</h4>
+                            <ul class="module-links">
+                                <li><a href="../build/docs/html/classNetworkManager.html">NetworkManager Class</a></li>
+                                <li><a href="../build/docs/html/network_2_network_protocol_8h.html">NetworkProtocol.h
+                                        Header</a></li>
+                                <li><a href="../build/docs/html/structNetworkPacket.html">NetworkPacket Struct</a></li>
+                            </ul>
+                        </div>
+
+                        <div class="module-card">
+                            <h4>🎨 Graphics/Vulkan</h4>
+                            <ul class="module-links">
+                                <li><a href="../build/docs/html/classVulkanDevice.html">VulkanDevice Class</a></li>
+                                <li><a href="../build/docs/html/classVulkanRenderer.html">VulkanRenderer Class</a></li>
+                                <li><a href="../build/docs/html/classGameClientRenderer.html">GameClientRenderer
+                                        Class</a></li>
+                                <li><a href="../build/docs/html/classTextureManager.html">TextureManager Class</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Documentation Features -->
+                <section>
+                    <h2>Documentation Features</h2>
+                    <div class="features-grid">
+                        <div class="feature-item">
+                            <h4>🔍 Search Functionality</h4>
+                            <p>Full-text search across all API documentation</p>
+                        </div>
+                        <div class="feature-item">
+                            <h4>📊 Class Diagrams</h4>
+                            <p>Visual inheritance and collaboration diagrams</p>
+                        </div>
+                        <div class="feature-item">
+                            <h4>📝 Source Code Links</h4>
+                            <p>Direct links to source code for every API element</p>
+                        </div>
+                        <div class="feature-item">
+                            <h4>📖 Cross-References</h4>
+                            <p>Automatic linking between related classes and functions</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Build Instructions -->
+                <section>
+                    <h2>Building Documentation Locally</h2>
+                    <div class="code-section">
+                        <h4>Prerequisites</h4>
+                        <p>Install Doxygen on your system:</p>
+                        <pre><code># Ubuntu/Debian
+sudo apt install doxygen graphviz
+
+# macOS (with Homebrew)
+brew install doxygen graphviz
+
+# Windows (with Chocolatey)
+choco install doxygen.install graphviz</code></pre>
+
+                        <h4>Generate Documentation</h4>
+                        <pre><code># Configure build (if not done already)
+cmake -B build
+
+# Generate documentation
+cmake --build build --target doc
+
+# Open generated docs
+# The documentation will be in: build/docs/html/index.html</code></pre>
+                    </div>
+                </section>
+            </div>
+        </main>
+
+        <!-- Right Sidebar - Table of Contents -->
+        <aside class="sidebar-right">
+            <div class="toc">
+                <h4>On This Page</h4>
+                <ul>
+                    <!-- TOC will be dynamically generated -->
+                </ul>
+            </div>
+        </aside>
+    </div>
+
+    <script>
+        // Check if local API documentation exists
+        function checkLocalApiDocs() {
+            const localApiLink = document.getElementById('local-api-link');
+            const statusBox = document.getElementById('api-status');
+            const statusMessage = document.getElementById('local-docs-message');
+
+            // Try to detect if docs exist (this is a simple check)
+            localApiLink.addEventListener('click', function (e) {
+                // Let the browser try to navigate first, then handle if it fails
+                setTimeout(() => {
+                    // If still on this page after a short delay, docs might not exist
+                    statusBox.className = 'warning-box';
+                    statusMessage.textContent = 'Local API documentation not found. Please build the documentation first using the instructions below.';
+                }, 100);
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', checkLocalApiDocs);
+    </script>
+    <script src="assets/nav.js"></script>
+</body>
+
+</html>

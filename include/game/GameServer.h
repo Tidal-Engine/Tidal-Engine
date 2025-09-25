@@ -1,3 +1,10 @@
+/**
+ * @file GameServer.h
+ * @brief Multiplayer game server with networking and world management
+ * @author Tidal Engine Team
+ * @version 1.0
+ */
+
 #pragma once
 
 #include "network/NetworkProtocol.h"
@@ -22,7 +29,9 @@ class NetworkServer;
 class ServerChunkManager;
 class ServerChunk;
 
-// Server configuration
+/**
+ * @brief Server configuration parameters
+ */
 struct ServerConfig {
     std::string worldName = "default_world";
     std::string serverName = "Tidal Engine Server";

@@ -1,82 +1,123 @@
 # Tidal Engine Documentation
 
-This documentation uses a multi-page HTML structure that requires a web server to view properly.
+This directory contains the complete documentation for Tidal Engine, including both high-level guides and detailed API reference.
 
-## Viewing the Documentation
+## Documentation Structure
 
-### Option 1: Python Built-in Server (Easiest)
+### 📚 Manual Documentation (`/docs`)
+- **High-level architecture guides** - System overviews and design decisions
+- **Getting started tutorials** - Build instructions and quick start guides
+- **Development guides** - Performance, debugging, and development workflows
+- **Technical deep-dives** - Detailed explanations of core systems
+
+### 🔍 API Reference (Generated)
+- **Doxygen-generated API docs** - Complete class and function reference
+- **Code examples** - Inline examples from source code comments
+- **Class diagrams** - Visual inheritance and collaboration diagrams
+- **Cross-references** - Automatic linking between related APIs
+
+## Building the Documentation
+
+### Prerequisites
+Install Doxygen and Graphviz for generating API documentation:
 
 ```bash
-# Navigate to the docs directory
-cd /path/to/Tidal-Engine/docs
+# Ubuntu/Debian
+sudo apt install doxygen graphviz
 
-# Python 3
+# macOS (with Homebrew)
+brew install doxygen graphviz
+
+# Windows (with Chocolatey)
+choco install doxygen.install graphviz
+```
+
+### Generate API Documentation
+```bash
+# From project root directory
+cmake -B build
+cmake --build build --target doc
+```
+
+The generated API documentation will be available at `build/docs/html/index.html`.
+
+## Viewing Documentation
+
+### Local Development
+1. **Manual docs**: Open `docs/index.html` in your browser
+2. **API reference**: After building, open `build/docs/html/index.html`
+3. **Integrated view**: Use `docs/api-reference.html` for unified access
+
+### Web Hosting Options
+The entire `/docs` directory can be hosted as a static website:
+
+#### Option 1: Python Built-in Server
+```bash
+cd docs
 python3 -m http.server 8000
-
-# Python 2 (if python3 not available)
-python -m SimpleHTTPServer 8000
-
-# Then open in browser:
-# http://localhost:8000
+# Open http://localhost:8000
 ```
 
-### Option 2: Node.js http-server
-
+#### Option 2: Node.js http-server
 ```bash
-# Install http-server globally
 npm install -g http-server
-
-# Navigate to docs directory
-cd /path/to/Tidal-Engine/docs
-
-# Start server
+cd docs
 http-server -p 8000
-
-# Open http://localhost:8000
 ```
 
-### Option 3: PHP Built-in Server
-
-```bash
-# Navigate to docs directory
-cd /path/to/Tidal-Engine/docs
-
-# Start PHP server
-php -S localhost:8000
-
-# Open http://localhost:8000
-```
-
-### Option 4: VS Code Live Server Extension
-
-If you use VS Code:
+#### Option 3: VS Code Live Server Extension
 1. Install the "Live Server" extension
 2. Right-click on `index.html`
 3. Select "Open with Live Server"
 
-## File Structure
+## Documentation Style Guide
+
+### Doxygen Comments
+We use Doxygen-style comments in header files:
+
+```cpp
+/**
+ * @brief Brief description of the class/function
+ *
+ * Detailed description with usage examples and important notes.
+ *
+ * @param paramName Description of parameter
+ * @return Description of return value
+ * @see RelatedClass for related functionality
+ * @warning Important warnings about usage
+ * @note Additional notes
+ */
+```
+
+### Manual Documentation
+- Use clear, concise language
+- Include code examples where helpful
+- Link to related API documentation
+- Keep technical depth appropriate for the target audience
+
+## Contributing to Documentation
+
+1. **API docs**: Add/update Doxygen comments in header files
+2. **Manual docs**: Edit HTML files in `/docs` directory
+3. **Build system**: Update `CMakeLists.txt` if adding new documentation features
+4. **Integration**: Update navigation in `docs/index.html` and related files
+
+## File Organization
 
 ```
 docs/
-├── index.html              # Main overview page
-├── architecture.html       # Architecture documentation
-├── rendering.html          # Rendering system details
-├── quick-start.html        # Getting started guide
-├── styles.css             # Shared styles
-├── nav.js                 # Navigation functionality
-└── README.md              # This file
+├── index.html                 # Main documentation entry point
+├── api-reference.html         # API documentation integration page
+├── assets/                    # CSS, JavaScript, images
+├── getting-started/           # Tutorials and setup guides
+├── technical/                 # Deep technical documentation
+├── development/               # Development workflows and tools
+├── Doxyfile.in               # Doxygen configuration template
+└── README.md                  # This file
 ```
 
-## Adding New Pages
-
-To add a new documentation page:
-
-1. Create a new HTML file (e.g., `networking.html`)
-2. Copy the structure from an existing page
-3. Update the navigation to mark the correct page as active
-4. Add your content in the main section
-5. The TOC will be generated automatically
-
-## Development
-
-The documentation uses plain HTML/CSS/JS with no build process required. Just edit the files and refresh your browser to see changes.
+The documentation system is designed to be:
+- **Portable** - Works offline and online
+- **Maintainable** - Minimal manual sync required
+- **Comprehensive** - Covers both high-level concepts and detailed APIs
+- **Developer-friendly** - Easy to build and contribute to

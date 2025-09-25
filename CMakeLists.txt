@@ -23,6 +23,28 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(imgui)
 
+# Doxygen documentation support
+find_package(Doxygen)
+if(DOXYGEN_FOUND)
+    set(DOXYGEN_IN ${CMAKE_CURRENT_SOURCE_DIR}/docs/Doxyfile.in)
+    set(DOXYGEN_OUT ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile)
+
+    # Configure Doxyfile with CMake variables
+    configure_file(${DOXYGEN_IN} ${DOXYGEN_OUT} @ONLY)
+
+    # Add documentation target
+    add_custom_target(doc
+        COMMAND ${DOXYGEN_EXECUTABLE} ${DOXYGEN_OUT}
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+        COMMENT "Generating API documentation with Doxygen"
+        VERBATIM)
+
+    message(STATUS "Doxygen found: ${DOXYGEN_EXECUTABLE}")
+    message(STATUS "Documentation can be built with 'make doc' or 'cmake --build . --target doc'")
+else()
+    message(WARNING "Doxygen not found - documentation target not available")
+endif()
+
 # Create ImGui library
 add_library(imgui_lib STATIC
     ${imgui_SOURCE_DIR}/imgui.cpp

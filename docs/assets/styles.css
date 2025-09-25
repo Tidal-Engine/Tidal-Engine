@@ -84,7 +84,7 @@ body {
     border-left-color: #79b8ff;
 }
 
-/* Main Content */
+/* Main Content - Two sidebars */
 .content {
     flex: 1;
     margin-left: 280px;
@@ -93,6 +93,19 @@ body {
     background: #fff;
     min-height: 100vh;
     max-width: calc(100vw - 560px); /* Total sidebar width */
+    box-sizing: border-box;
+    overflow-x: hidden;
+}
+
+/* Main Content - Single sidebar (left only) */
+.content-main-single {
+    flex: 1;
+    margin-left: 280px;
+    margin-right: 0;
+    padding: 40px;
+    background: #fff;
+    min-height: 100vh;
+    max-width: calc(100vw - 280px); /* Only left sidebar */
     box-sizing: border-box;
     overflow-x: hidden;
 }
