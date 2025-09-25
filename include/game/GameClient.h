@@ -1,15 +1,15 @@
 #pragma once
 
-#include "VulkanDevice.h"
-#include "VulkanRenderer.h"
-#include "VulkanBuffer.h"
-#include "Camera.h"
-#include "NetworkProtocol.h"
-#include "ThreadPool.h"
-#include "Chunk.h"
-#include "SaveSystem.h"
-#include "TextureManager.h"
-#include "UserDataManager.h"
+#include "vulkan/VulkanDevice.h"
+#include "vulkan/VulkanRenderer.h"
+#include "vulkan/VulkanBuffer.h"
+#include "core/Camera.h"
+#include "network/NetworkProtocol.h"
+#include "core/ThreadPool.h"
+#include "game/Chunk.h"
+#include "game/SaveSystem.h"
+#include "graphics/TextureManager.h"
+#include "system/UserDataManager.h"
 
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>

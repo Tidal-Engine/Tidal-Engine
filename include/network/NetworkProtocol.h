@@ -6,7 +6,7 @@
 #include <vector>
 
 #ifndef HEADLESS_SERVER
-#include "Chunk.h"
+#include "game/Chunk.h"
 #else
 // Forward declarations for headless server
 struct ChunkPos {

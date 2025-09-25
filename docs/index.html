@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tidal Engine - Developer Documentation</title>
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="assets/styles.css">
 </head>
 <body>
     <div class="container">
@@ -16,36 +16,36 @@
                 <h3>Getting Started</h3>
                 <ul>
                     <li><a href="index.html" class="active">Overview</a></li>
-                    <li><a href="architecture.html">Architecture</a></li>
-                    <li><a href="quick-start.html">Quick Start</a></li>
+                    <li><a href="development/architecture.html">Architecture</a></li>
+                    <li><a href="getting-started/quick-start.html">Quick Start</a></li>
                 </ul>
             </div>
 
             <div class="nav-section">
                 <h3>Core Systems</h3>
                 <ul>
-                    <li><a href="rendering.html">Rendering System</a></li>
-                    <li><a href="networking.html">Networking</a></li>
-                    <li><a href="world-system.html">World System</a></li>
-                    <li><a href="input-system.html">Input System</a></li>
+                    <li><a href="technical/rendering.html">Rendering System</a></li>
+                    <li><a href="technical/networking.html">Networking</a></li>
+                    <li><a href="technical/world-system.html">World System</a></li>
+                    <li><a href="technical/input-system.html">Input System</a></li>
                 </ul>
             </div>
 
             <div class="nav-section">
                 <h3>Infrastructure</h3>
                 <ul>
-                    <li><a href="vulkan-infrastructure.html">Vulkan Infrastructure</a></li>
-                    <li><a href="threading.html">Threading & Concurrency</a></li>
-                    <li><a href="shaders.html">Shader System</a></li>
+                    <li><a href="technical/vulkan-infrastructure.html">Vulkan Infrastructure</a></li>
+                    <li><a href="technical/threading.html">Threading & Concurrency</a></li>
+                    <li><a href="technical/shaders.html">Shader System</a></li>
                 </ul>
             </div>
 
             <div class="nav-section">
                 <h3>Development</h3>
                 <ul>
-                    <li><a href="build-system.html">Build System</a></li>
-                    <li><a href="performance.html">Performance</a></li>
-                    <li><a href="debugging.html">Debugging</a></li>
+                    <li><a href="getting-started/build-system.html">Build System</a></li>
+                    <li><a href="development/performance.html">Performance</a></li>
+                    <li><a href="development/debugging.html">Debugging</a></li>
                 </ul>
             </div>
         </nav>
@@ -71,7 +71,7 @@
 
                 <div class="doc-grid">
                     <div class="doc-card">
-                        <h3><a href="architecture.html">Architecture Overview</a></h3>
+                        <h3><a href="development/architecture.html">Architecture Overview</a></h3>
                         <p>Understanding the client-server design, threading model, and core components of the engine.</p>
                         <div class="card-tags">
                             <span>GameClient</span>
@@ -81,7 +81,7 @@
                     </div>
 
                     <div class="doc-card">
-                        <h3><a href="quick-start.html">Quick Start Guide</a></h3>
+                        <h3><a href="getting-started/quick-start.html">Quick Start Guide</a></h3>
                         <p>Get up and running with building, debugging, and developing on the Tidal Engine.</p>
                         <div class="card-tags">
                             <span>CMake</span>
@@ -91,7 +91,7 @@
                     </div>
 
                     <div class="doc-card">
-                        <h3><a href="rendering.html">Rendering System</a></h3>
+                        <h3><a href="technical/rendering.html">Rendering System</a></h3>
                         <p>Vulkan 1.3 rendering pipeline, texture atlas system, and chunk-based voxel rendering.</p>
                         <div class="card-tags">
                             <span>Vulkan</span>
@@ -101,7 +101,7 @@
                     </div>
 
                     <div class="doc-card">
-                        <h3><a href="networking.html">Networking System</a></h3>
+                        <h3><a href="technical/networking.html">Networking System</a></h3>
                         <p>TCP-based client-server communication with custom protocol for voxel world synchronization.</p>
                         <div class="card-tags">
                             <span>TCP</span>
@@ -111,7 +111,7 @@
                     </div>
 
                     <div class="doc-card">
-                        <h3><a href="world-system.html">World System</a></h3>
+                        <h3><a href="technical/world-system.html">World System</a></h3>
                         <p>Infinite voxel worlds with chunk-based streaming, save system, and block management.</p>
                         <div class="card-tags">
                             <span>Chunks</span>
@@ -121,7 +121,7 @@
                     </div>
 
                     <div class="doc-card">
-                        <h3><a href="input-system.html">Input System</a></h3>
+                        <h3><a href="technical/input-system.html">Input System</a></h3>
                         <p>GLFW integration, movement controls, and block interaction via raycasting.</p>
                         <div class="card-tags">
                             <span>GLFW</span>
@@ -131,7 +131,7 @@
                     </div>
 
                     <div class="doc-card">
-                        <h3><a href="vulkan-infrastructure.html">Vulkan Infrastructure</a></h3>
+                        <h3><a href="technical/vulkan-infrastructure.html">Vulkan Infrastructure</a></h3>
                         <p>Low-level Vulkan device management, buffer allocation, and memory management patterns.</p>
                         <div class="card-tags">
                             <span>VulkanDevice</span>
@@ -141,7 +141,7 @@
                     </div>
 
                     <div class="doc-card">
-                        <h3><a href="threading.html">Threading & Concurrency</a></h3>
+                        <h3><a href="technical/threading.html">Threading & Concurrency</a></h3>
                         <p>Thread pool implementation, mutex hierarchies, and thread-safe patterns used throughout the engine.</p>
                         <div class="card-tags">
                             <span>ThreadPool</span>
@@ -151,7 +151,7 @@
                     </div>
 
                     <div class="doc-card">
-                        <h3><a href="shaders.html">Shader System</a></h3>
+                        <h3><a href="technical/shaders.html">Shader System</a></h3>
                         <p>GLSL to SPIR-V compilation pipeline, vertex/fragment shaders, and uniform buffer management.</p>
                         <div class="card-tags">
                             <span>GLSL</span>
@@ -161,7 +161,7 @@
                     </div>
 
                     <div class="doc-card">
-                        <h3><a href="build-system.html">Build System</a></h3>
+                        <h3><a href="getting-started/build-system.html">Build System</a></h3>
                         <p>CMake configuration, dependency management, cross-platform building, and shader compilation.</p>
                         <div class="card-tags">
                             <span>CMake</span>
@@ -171,7 +171,7 @@
                     </div>
 
                     <div class="doc-card">
-                        <h3><a href="performance.html">Performance & Optimization</a></h3>
+                        <h3><a href="development/performance.html">Performance & Optimization</a></h3>
                         <p>Profiling tools, known bottlenecks, optimization opportunities, and performance best practices.</p>
                         <div class="card-tags">
                             <span>Profiling</span>
@@ -181,7 +181,7 @@
                     </div>
 
                     <div class="doc-card">
-                        <h3><a href="debugging.html">Debugging & Development</a></h3>
+                        <h3><a href="development/debugging.html">Debugging & Development</a></h3>
                         <p>Debug tools, Vulkan validation, development workflow, and common troubleshooting tips.</p>
                         <div class="card-tags">
                             <span>Debugging</span>
@@ -233,6 +233,6 @@
         </aside>
     </div>
 
-    <script src="nav.js"></script>
+    <script src="assets/nav.js"></script>
 </body>
 </html>

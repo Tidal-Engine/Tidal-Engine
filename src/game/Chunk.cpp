@@ -1,6 +1,6 @@
-#include "Chunk.h"
-#include "ChunkManager.h"
-#include "TextureManager.h"
+#include "game/Chunk.h"
+#include "game/ChunkManager.h"
+#include "graphics/TextureManager.h"
 #include <cstring>
 #include <array>
 

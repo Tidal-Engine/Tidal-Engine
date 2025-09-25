@@ -1,11 +1,11 @@
 #pragma once
 
-#include "NetworkProtocol.h"
-#include "SaveSystem.h"
+#include "network/NetworkProtocol.h"
+#include "game/SaveSystem.h"
 #ifndef HEADLESS_SERVER
-#include "Chunk.h"
+#include "game/Chunk.h"
 #endif
-#include "ThreadPool.h"
+#include "core/ThreadPool.h"
 #include <memory>
 #include <unordered_map>
 #include <thread>

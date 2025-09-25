@@ -115,7 +115,7 @@ function createPageTemplate(title, activeNavItem, content, tocItems = []) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${title} - Tidal Engine Documentation</title>
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="assets/styles.css">
 </head>
 <body>
     <div class="container">
@@ -127,36 +127,36 @@ function createPageTemplate(title, activeNavItem, content, tocItems = []) {
                 <h3>Getting Started</h3>
                 <ul>
                     <li><a href="index.html"${activeNavItem === 'index' ? ' class="active"' : ''}>Overview</a></li>
-                    <li><a href="architecture.html"${activeNavItem === 'architecture' ? ' class="active"' : ''}>Architecture</a></li>
-                    <li><a href="quick-start.html"${activeNavItem === 'quick-start' ? ' class="active"' : ''}>Quick Start</a></li>
+                    <li><a href="development/architecture.html"${activeNavItem === 'architecture' ? ' class="active"' : ''}>Architecture</a></li>
+                    <li><a href="getting-started/quick-start.html"${activeNavItem === 'quick-start' ? ' class="active"' : ''}>Quick Start</a></li>
                 </ul>
             </div>
 
             <div class="nav-section">
                 <h3>Core Systems</h3>
                 <ul>
-                    <li><a href="rendering.html"${activeNavItem === 'rendering' ? ' class="active"' : ''}>Rendering System</a></li>
-                    <li><a href="networking.html"${activeNavItem === 'networking' ? ' class="active"' : ''}>Networking</a></li>
-                    <li><a href="world-system.html"${activeNavItem === 'world-system' ? ' class="active"' : ''}>World System</a></li>
-                    <li><a href="input-system.html"${activeNavItem === 'input-system' ? ' class="active"' : ''}>Input System</a></li>
+                    <li><a href="technical/rendering.html"${activeNavItem === 'rendering' ? ' class="active"' : ''}>Rendering System</a></li>
+                    <li><a href="technical/networking.html"${activeNavItem === 'networking' ? ' class="active"' : ''}>Networking</a></li>
+                    <li><a href="technical/world-system.html"${activeNavItem === 'world-system' ? ' class="active"' : ''}>World System</a></li>
+                    <li><a href="technical/input-system.html"${activeNavItem === 'input-system' ? ' class="active"' : ''}>Input System</a></li>
                 </ul>
             </div>
 
             <div class="nav-section">
                 <h3>Infrastructure</h3>
                 <ul>
-                    <li><a href="vulkan-infrastructure.html"${activeNavItem === 'vulkan-infrastructure' ? ' class="active"' : ''}>Vulkan Infrastructure</a></li>
-                    <li><a href="threading.html"${activeNavItem === 'threading' ? ' class="active"' : ''}>Threading & Concurrency</a></li>
-                    <li><a href="shaders.html"${activeNavItem === 'shaders' ? ' class="active"' : ''}>Shader System</a></li>
+                    <li><a href="technical/vulkan-infrastructure.html"${activeNavItem === 'vulkan-infrastructure' ? ' class="active"' : ''}>Vulkan Infrastructure</a></li>
+                    <li><a href="technical/threading.html"${activeNavItem === 'threading' ? ' class="active"' : ''}>Threading & Concurrency</a></li>
+                    <li><a href="technical/shaders.html"${activeNavItem === 'shaders' ? ' class="active"' : ''}>Shader System</a></li>
                 </ul>
             </div>
 
             <div class="nav-section">
                 <h3>Development</h3>
                 <ul>
-                    <li><a href="build-system.html"${activeNavItem === 'build-system' ? ' class="active"' : ''}>Build System</a></li>
-                    <li><a href="performance.html"${activeNavItem === 'performance' ? ' class="active"' : ''}>Performance</a></li>
-                    <li><a href="debugging.html"${activeNavItem === 'debugging' ? ' class="active"' : ''}>Debugging</a></li>
+                    <li><a href="getting-started/build-system.html"${activeNavItem === 'build-system' ? ' class="active"' : ''}>Build System</a></li>
+                    <li><a href="development/performance.html"${activeNavItem === 'performance' ? ' class="active"' : ''}>Performance</a></li>
+                    <li><a href="development/debugging.html"${activeNavItem === 'debugging' ? ' class="active"' : ''}>Debugging</a></li>
                 </ul>
             </div>
         </nav>
@@ -177,7 +177,7 @@ function createPageTemplate(title, activeNavItem, content, tocItems = []) {
         </aside>
     </div>
 
-    <script src="nav.js"></script>
+    <script src="assets/nav.js"></script>
 </body>
 </html>`;
 }

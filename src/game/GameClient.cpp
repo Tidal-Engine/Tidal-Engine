@@ -1,7 +1,7 @@
-#include "GameClient.h"
-#include "GameServer.h"
-#include "NetworkManager.h"
-#include "NetworkProtocol.h"
+#include "game/GameClient.h"
+#include "game/GameServer.h"
+#include "network/NetworkManager.h"
+#include "network/NetworkProtocol.h"
 #include <iostream>
 #include <fstream>
 #include <chrono>

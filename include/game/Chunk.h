@@ -1,8 +1,8 @@
 #pragma once
 
-#include "VulkanBuffer.h"
-#include "VulkanDevice.h"
-#include "Camera.h"
+#include "vulkan/VulkanBuffer.h"
+#include "vulkan/VulkanDevice.h"
+#include "core/Camera.h"
 #include <glm/glm.hpp>
 #include <vector>
 #include <memory>

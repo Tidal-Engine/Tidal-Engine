@@ -1,5 +1,5 @@
-#include "TextureManager.h"
-#include "UserDataManager.h"
+#include "graphics/TextureManager.h"
+#include "system/UserDataManager.h"
 #include <iostream>
 #include <filesystem>
 #include <algorithm>

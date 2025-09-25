@@ -1,6 +1,6 @@
-#include "GameServer.h"
-#include "NetworkManager.h"
-#include "NetworkProtocol.h"
+#include "game/GameServer.h"
+#include "network/NetworkManager.h"
+#include "network/NetworkProtocol.h"
 #include <iostream>
 #include <sstream>
 #include <chrono>

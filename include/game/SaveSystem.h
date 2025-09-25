@@ -7,8 +7,8 @@
 #include <cstdint>
 
 #ifndef HEADLESS_SERVER
-#include "Chunk.h"
-#include "Camera.h"
+#include "game/Chunk.h"
+#include "core/Camera.h"
 #else
 // Forward declarations for headless server
 class Camera;
@@ -17,7 +17,7 @@ class Chunk;
 #endif
 
 // Include NetworkProtocol for shared types like ChunkPos and BlockType
-#include "NetworkProtocol.h"
+#include "network/NetworkProtocol.h"
 
 // Forward declarations
 class ChunkManager;

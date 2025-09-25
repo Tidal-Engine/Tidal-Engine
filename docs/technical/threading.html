@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Shader System - Tidal Engine Documentation</title>
-    <link rel="stylesheet" href="styles.css">
+    <title>Threading & Concurrency - Tidal Engine Documentation</title>
+    <link rel="stylesheet" href="../assets/styles.css">
 </head>
 <body>
     <div class="container">
@@ -15,9 +15,9 @@
             <div class="nav-section">
                 <h3>Getting Started</h3>
                 <ul>
-                    <li><a href="index.html">Overview</a></li>
-                    <li><a href="architecture.html">Architecture</a></li>
-                    <li><a href="quick-start.html">Quick Start</a></li>
+                    <li><a href="../index.html">Overview</a></li>
+                    <li><a href="../development/architecture.html">Architecture</a></li>
+                    <li><a href="../getting-started/quick-start.html">Quick Start</a></li>
                 </ul>
             </div>
 
@@ -35,17 +35,17 @@
                 <h3>Infrastructure</h3>
                 <ul>
                     <li><a href="vulkan-infrastructure.html">Vulkan Infrastructure</a></li>
-                    <li><a href="threading.html">Threading & Concurrency</a></li>
-                    <li><a href="shaders.html" class="active">Shader System</a></li>
+                    <li><a href="threading.html" class="active">Threading & Concurrency</a></li>
+                    <li><a href="shaders.html">Shader System</a></li>
                 </ul>
             </div>
 
             <div class="nav-section">
                 <h3>Development</h3>
                 <ul>
-                    <li><a href="build-system.html">Build System</a></li>
-                    <li><a href="performance.html">Performance</a></li>
-                    <li><a href="debugging.html">Debugging</a></li>
+                    <li><a href="../getting-started/build-system.html">Build System</a></li>
+                    <li><a href="../development/performance.html">Performance</a></li>
+                    <li><a href="../development/debugging.html">Debugging</a></li>
                 </ul>
             </div>
         </nav>
@@ -53,29 +53,27 @@
         <!-- Main Content -->
         <main class="content">
             <section class="section">
-                <h1>Shader System</h1>
+                <h1>Threading & Concurrency</h1>
 
-                <h2>GLSL to SPIR-V Pipeline</h2>
-                <p class="file-path">shaders/</p>
+                <h2>ThreadPool Implementation</h2>
+                <p class="file-path">include/ThreadPool.h</p>
                 <div class="info-box">
-                    Shaders are automatically compiled from GLSL to SPIR-V at build time using CMake custom commands.
+                    Work-stealing thread pool for parallel chunk processing, file I/O, and mesh generation.
                 </div>
 
-                <pre><code># Shader compilation in CMake
-foreach(SHADER ${SHADER_FILES})
-    get_filename_component(SHADER_NAME ${SHADER} NAME)
-    set(SPIRV "${CMAKE_BINARY_DIR}/shaders/${SHADER_NAME}.spv")
+                <pre><code>class ThreadPool {
+    std::vector&lt;std::thread&gt; workers;
+    std::queue&lt;std::function&lt;void()&gt;&gt; tasks;
+    std::mutex queueMutex;
+    std::condition_variable condition;
 
-    add_custom_command(
-        OUTPUT ${SPIRV}
-        COMMAND ${Vulkan_GLSLC_EXECUTABLE} ${SHADER} -o ${SPIRV}
-        DEPENDS ${SHADER}
-        COMMENT "Compiling ${SHADER_NAME} to SPIR-V"
-    )
-endforeach()</code></pre>
+public:
+    template&lt;class F, class... Args&gt;
+    auto enqueue(F&& f, Args&&... args) -> std::future&lt;typename std::result_of&lt;F(Args...)&gt;::type>;
+};</code></pre>
 
                 <div class="warning-box">
-                    <strong>Coming Soon:</strong> This page is under construction. More detailed shader documentation will be added soon.
+                    <strong>Coming Soon:</strong> This page is under construction. More detailed threading documentation will be added soon.
                 </div>
             </section>
         </main>
@@ -91,6 +89,6 @@ endforeach()</code></pre>
         </aside>
     </div>
 
-    <script src="nav.js"></script>
+    <script src="../assets/nav.js"></script>
 </body>
 </html>

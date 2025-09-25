@@ -1,5 +1,5 @@
-#include "GameClient.h"
-#include "GameServer.h"
+#include "game/GameClient.h"
+#include "game/GameServer.h"
 #include <iostream>
 #include <thread>
 #include <memory>

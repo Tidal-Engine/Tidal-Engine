@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Chunk.h"
+#include "game/Chunk.h"
 #include <unordered_map>
 #include <vector>
 #include <memory>

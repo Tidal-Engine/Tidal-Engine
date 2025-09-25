@@ -1,7 +1,7 @@
 #pragma once
 
-#include "NetworkProtocol.h"
-#include "ThreadPool.h"
+#include "network/NetworkProtocol.h"
+#include "core/ThreadPool.h"
 #include <memory>
 #include <thread>
 #include <mutex>

@@ -1,7 +1,7 @@
-#include "NetworkManager.h"
-#include "GameServer.h"
+#include "network/NetworkManager.h"
+#include "game/GameServer.h"
 #ifndef HEADLESS_SERVER
-#include "GameClient.h"
+#include "game/GameClient.h"
 #endif
 #include <iostream>
 #include <algorithm>

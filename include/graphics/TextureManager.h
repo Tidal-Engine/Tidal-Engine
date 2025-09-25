@@ -1,7 +1,7 @@
 #pragma once
 
-#include "VulkanDevice.h"
-#include "Chunk.h"
+#include "vulkan/VulkanDevice.h"
+#include "game/Chunk.h"
 #include <glm/glm.hpp>
 #include <vulkan/vulkan.h>
 #include <string>

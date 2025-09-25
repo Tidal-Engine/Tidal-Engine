@@ -1,4 +1,4 @@
-#include "NetworkProtocol.h"
+#include "network/NetworkProtocol.h"
 #include <cstring>
 
 NetworkPacket::NetworkPacket(MessageType type, const void* data, size_t size) {

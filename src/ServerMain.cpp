@@ -1,5 +1,5 @@
-#include "GameServer.h"
-#include "NetworkManager.h"
+#include "game/GameServer.h"
+#include "network/NetworkManager.h"
 #include <iostream>
 #include <csignal>
 #include <atomic>
