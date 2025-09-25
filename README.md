@@ -96,16 +96,26 @@ sudo dnf install doxygen graphviz
 
 # macOS
 brew install doxygen graphviz
-
-# Windows
-# Download from https://www.doxygen.nl/download.html
 ```
 
+**Windows:**
+1. Install [Doxygen](https://www.doxygen.nl/download.html)
+2. Install [Graphviz](https://graphviz.org/download/) (required for dependency diagrams)
+
 **Generate Documentation:**
+
+**Linux/macOS:**
 ```bash
 cd docs
 doxygen Doxyfile.in
 # Open docs/api-reference.html in your browser
+```
+
+**Windows (via CMake - recommended):**
+```cmd
+cd build
+cmake --build . --target doc
+# Open build\docs\html\index.html in your browser
 ```
 
 The API documentation provides detailed reference for:
@@ -125,13 +135,15 @@ All public APIs include parameter documentation, return values, usage examples, 
    - **Visual Studio 2022** with C++ workload
    - **Vulkan SDK** from [LunarG](https://vulkan.lunarg.com/sdk/home)
    - **Git** for Windows
+   - **Doxygen** from [doxygen.nl](https://www.doxygen.nl/download.html) (for documentation)
+   - **Graphviz** from [graphviz.org](https://graphviz.org/download/) (for documentation graphs)
 
-2. **Setup vcpkg** (recommended for dependency management):
+2. **Setup vcpkg**:
 ```cmd
-git clone https://github.com/Microsoft/vcpkg.git
+git clone https://github.com/Microsoft/vcpkg.git <anywhere>
 cd vcpkg
 .\bootstrap-vcpkg.bat
-.\vcpkg install glfw3:x64-windows glm:x64-windows stb:x64-windows
+.\vcpkg install
 ```
 
 3. **Build and Run**:
@@ -139,9 +151,15 @@ cd vcpkg
 git clone <repository-url>
 cd Tidal-Engine
 mkdir build && cd build
-cmake .. -DCMAKE_TOOLCHAIN_FILE=C:\path\to\vcpkg\scripts\buildsystems\vcpkg.cmake
+cmake .. -DCMAKE_TOOLCHAIN_FILE=<INSERT VCPKG PATH HERE>\vcpkg\scripts\buildsystems\vcpkg.cmake
 cmake --build . --config Release
 .\Release\TidalEngine.exe
+```
+
+4. **Generate Documentation** (optional):
+```cmd
+cmake --build . --target doc
+# Open build\docs\html\index.html in your browser
 ```
 
 ### macOS

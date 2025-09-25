@@ -124,16 +124,16 @@ Frustum Camera::calculateFrustum(const glm::mat4& projectionMatrix, const glm::m
     frustum.planes[Frustum::TOP].distance = clip[3][3] - clip[3][1];
 
     // Near plane
-    frustum.planes[Frustum::NEAR].normal.x = clip[0][3] + clip[0][2];
-    frustum.planes[Frustum::NEAR].normal.y = clip[1][3] + clip[1][2];
-    frustum.planes[Frustum::NEAR].normal.z = clip[2][3] + clip[2][2];
-    frustum.planes[Frustum::NEAR].distance = clip[3][3] + clip[3][2];
+    frustum.planes[Frustum::NEAR_PLANE].normal.x = clip[0][3] + clip[0][2];
+    frustum.planes[Frustum::NEAR_PLANE].normal.y = clip[1][3] + clip[1][2];
+    frustum.planes[Frustum::NEAR_PLANE].normal.z = clip[2][3] + clip[2][2];
+    frustum.planes[Frustum::NEAR_PLANE].distance = clip[3][3] + clip[3][2];
 
     // Far plane
-    frustum.planes[Frustum::FAR].normal.x = clip[0][3] - clip[0][2];
-    frustum.planes[Frustum::FAR].normal.y = clip[1][3] - clip[1][2];
-    frustum.planes[Frustum::FAR].normal.z = clip[2][3] - clip[2][2];
-    frustum.planes[Frustum::FAR].distance = clip[3][3] - clip[3][2];
+    frustum.planes[Frustum::FAR_PLANE].normal.x = clip[0][3] - clip[0][2];
+    frustum.planes[Frustum::FAR_PLANE].normal.y = clip[1][3] - clip[1][2];
+    frustum.planes[Frustum::FAR_PLANE].normal.z = clip[2][3] - clip[2][2];
+    frustum.planes[Frustum::FAR_PLANE].distance = clip[3][3] - clip[3][2];
 
     // Normalize all planes
     for (int i = 0; i < 6; i++) {

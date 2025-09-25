@@ -59,7 +59,7 @@ struct Frustum {
      * @brief Plane indices for frustum array
      */
     enum PlaneIndex {
-        LEFT = 0, RIGHT, BOTTOM, TOP, NEAR, FAR
+        LEFT = 0, RIGHT, BOTTOM, TOP, NEAR_PLANE, FAR_PLANE
     };
 };
 
