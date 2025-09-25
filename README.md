@@ -56,21 +56,74 @@ A modern C++23 Vulkan-based voxel game engine with client-server architecture. F
 
 ## Quick Start
 
-### Linux (System Packages)
+### Windows
+
+1. **Install Prerequisites**:
+   - **Visual Studio 2022** with C++ workload
+   - **Vulkan SDK** from [LunarG](https://vulkan.lunarg.com/sdk/home)
+   - **Git** for Windows
+
+2. **Setup vcpkg** (recommended for dependency management):
+```cmd
+git clone https://github.com/Microsoft/vcpkg.git
+cd vcpkg
+.\bootstrap-vcpkg.bat
+.\vcpkg install glfw3:x64-windows glm:x64-windows stb:x64-windows
+```
+
+3. **Build and Run**:
+```cmd
+git clone <repository-url>
+cd Tidal-Engine
+mkdir build && cd build
+cmake .. -DCMAKE_TOOLCHAIN_FILE=C:\path\to\vcpkg\scripts\buildsystems\vcpkg.cmake
+cmake --build . --config Release
+.\Release\TidalEngine.exe
+```
+
+### macOS
+
+1. **Install Prerequisites**:
+```bash
+# Install Xcode command line tools
+xcode-select --install
+
+# Install Homebrew (if not already installed)
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+# Install dependencies
+brew install cmake ninja git molten-vk glfw glm
+```
+
+2. **Install Vulkan SDK**:
+   - Download from [LunarG](https://vulkan.lunarg.com/sdk/home)
+   - Follow macOS installation instructions
+
+3. **Build and Run**:
+```bash
+git clone <repository-url>
+cd Tidal-Engine
+mkdir build && cd build
+cmake .. -GNinja -DCMAKE_BUILD_TYPE=Release
+ninja
+./TidalEngine
+```
+
+### Linux
 
 1. **Install Dependencies**:
 ```bash
 # Ubuntu/Debian
 sudo apt update
-sudo apt install build-essential cmake ninja-build
+sudo apt install build-essential cmake ninja-build git
 sudo apt install vulkan-sdk libglfw3-dev libglm-dev libstb-dev
 
 # Fedora
-sudo dnf install gcc-c++ cmake ninja-build
+sudo dnf install gcc-c++ cmake ninja-build git
 sudo dnf install vulkan-devel glfw-devel glm-devel stb_image-devel
 
 # Arch Linux
-sudo pacman -S gcc cmake ninja vulkan-devel glfw glm
+sudo pacman -S gcc cmake ninja git vulkan-devel glfw glm
 ```
 
 2. **Build and Run**:
@@ -78,25 +131,23 @@ sudo pacman -S gcc cmake ninja vulkan-devel glfw glm
 git clone <repository-url>
 cd Tidal-Engine
 mkdir build && cd build
-cmake .. -GNinja
+cmake .. -GNinja -DCMAKE_BUILD_TYPE=Release
 ninja
 ./TidalEngine
 ```
 
-### Alternative: Using vcpkg
+### Verify Installation
 
-1. **Setup vcpkg**:
+After building, verify everything works:
 ```bash
-git clone https://github.com/Microsoft/vcpkg.git
-./vcpkg/bootstrap-vcpkg.sh
-```
+# Check Vulkan support
+vulkaninfo
 
-2. **Build with vcpkg**:
-```bash
-mkdir build && cd build
-cmake .. -DCMAKE_TOOLCHAIN_FILE=<path-to-vcpkg>/scripts/buildsystems/vcpkg.cmake -GNinja
-ninja
+# Test the engine (should show main menu)
 ./TidalEngine
+
+# Test dedicated server
+./TidalEngine --server
 ```
 
 ## Usage
@@ -141,23 +192,35 @@ Tidal-Engine/
 ├── CMakeLists.txt              # Build configuration
 ├── README.md                   # This file
 ├── src/                        # Source files
-│   ├── MainNew.cpp            # Entry point and menu system
-│   ├── GameClient.cpp         # Client-side game logic
-│   ├── GameServer.cpp         # Server-side game logic
-│   ├── VulkanRenderer.cpp     # Core Vulkan rendering
-│   ├── VulkanDevice.cpp       # Vulkan device management
-│   ├── Camera.cpp             # FPS camera system
-│   ├── ChunkManager.cpp       # World chunk management
-│   ├── TextureManager.cpp     # Texture atlas system
-│   ├── SaveSystem.cpp         # World persistence
-│   └── NetworkManager.cpp     # Client-server networking
+│   ├── Main.cpp               # Entry point and menu system
+│   ├── ServerMain.cpp         # Dedicated server entry point
+│   ├── core/                  # Core engine systems
+│   │   ├── Camera.cpp         # FPS camera system
+│   │   └── ThreadPool.cpp     # Multi-threading utilities
+│   ├── game/                  # Game logic
+│   │   ├── GameClient.cpp     # Client-side game logic
+│   │   ├── GameServer.cpp     # Server-side game logic
+│   │   ├── ChunkManager.cpp   # World chunk management
+│   │   ├── Chunk.cpp          # Individual chunk logic
+│   │   └── SaveSystem.cpp     # World persistence
+│   ├── graphics/              # Graphics and rendering
+│   │   └── TextureManager.cpp # Texture atlas system
+│   ├── network/               # Networking systems
+│   │   ├── NetworkManager.cpp # Client-server networking
+│   │   └── NetworkProtocol.cpp# Network protocol implementation
+│   ├── system/                # System utilities
+│   │   └── UserDataManager.cpp# User settings and data
+│   └── vulkan/                # Vulkan rendering backend
+│       ├── VulkanRenderer.cpp # Core Vulkan rendering
+│       ├── VulkanDevice.cpp   # Vulkan device management
+│       └── VulkanBuffer.cpp   # Buffer management
 ├── include/                   # Header files
 ├── shaders/                   # GLSL shaders
 │   ├── vertex.vert           # Vertex shader
 │   └── fragment.frag         # Fragment shader
 ├── assets/                    # Game assets
 │   └── texturepacks/         # Block textures
-└── docs/                      # Documentation
+└── docs/                      # Interactive documentation
 ```
 
 ## Architecture
