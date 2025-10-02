@@ -1,4 +1,4 @@
-# Tidal Engine
+# 🌊 Tidal Engine
 
 A modern C++ voxel engine built with Vulkan, featuring a modular architecture and comprehensive logging system.
 
@@ -64,9 +64,8 @@ sudo dnf install clang cmake ninja-build vulkan-tools vulkan-loader-devel \
 #### Visual Studio Code
 
 1. **Install Extensions**:
-   - C/C++ Extension Pack (Microsoft)
+   - clangd (LLVM) - for C++ language support
    - CMake Tools (Microsoft)
-   - clangd (LLVM) - optional but recommended
 
 2. **Configure CMake**:
    - Open the project folder in VSCode
