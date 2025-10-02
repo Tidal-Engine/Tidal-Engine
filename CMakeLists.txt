@@ -16,6 +16,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Export compile commands for clangd
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# Option to enable Vulkan validation layers
+option(ENABLE_VALIDATION_LAYERS "Enable Vulkan validation layers for debugging" ON)
+
 # Find Vulkan
 find_package(Vulkan REQUIRED)
 
@@ -96,11 +99,13 @@ target_link_libraries(imgui PUBLIC
 # Add executable
 add_executable(TidalEngine
     src/Main.cpp
+    src/core/ResourceManager.cpp
     src/vulkan/VulkanEngine.cpp
     src/vulkan/VulkanBuffer.cpp
     src/vulkan/VulkanSwapchain.cpp
     src/vulkan/VulkanPipeline.cpp
     src/vulkan/VulkanRenderer.cpp
+    src/vulkan/CubeGeometry.cpp
 )
 
 # Include directories
@@ -118,3 +123,8 @@ target_link_libraries(TidalEngine
     glm::glm
     imgui
 )
+
+# Pass validation layer option to code
+if(ENABLE_VALIDATION_LAYERS)
+    target_compile_definitions(TidalEngine PRIVATE ENABLE_VALIDATION_LAYERS)
+endif()

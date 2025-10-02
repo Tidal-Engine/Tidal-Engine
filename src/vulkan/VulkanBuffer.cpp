@@ -23,7 +23,12 @@ void VulkanBuffer::createVertexBuffer(const void* data, VkDeviceSize size,
 
     // Copy data to staging buffer
     void* mappedData = nullptr;
-    vkMapMemory(device, stagingBufferMemory, 0, size, 0, &mappedData);
+    if (vkMapMemory(device, stagingBufferMemory, 0, size, 0, &mappedData) != VK_SUCCESS) {
+        vkDestroyBuffer(device, stagingBuffer, nullptr);
+        vkFreeMemory(device, stagingBufferMemory, nullptr);
+        LOG_ERROR("Failed to map vertex staging buffer memory");
+        throw std::runtime_error("Failed to map vertex staging buffer memory");
+    }
     memcpy(mappedData, data, static_cast<size_t>(size));
     vkUnmapMemory(device, stagingBufferMemory);
 
@@ -55,7 +60,12 @@ void VulkanBuffer::createIndexBuffer(const void* data, VkDeviceSize size,
 
     // Copy data to staging buffer
     void* mappedData = nullptr;
-    vkMapMemory(device, stagingBufferMemory, 0, size, 0, &mappedData);
+    if (vkMapMemory(device, stagingBufferMemory, 0, size, 0, &mappedData) != VK_SUCCESS) {
+        vkDestroyBuffer(device, stagingBuffer, nullptr);
+        vkFreeMemory(device, stagingBufferMemory, nullptr);
+        LOG_ERROR("Failed to map index staging buffer memory");
+        throw std::runtime_error("Failed to map index staging buffer memory");
+    }
     memcpy(mappedData, data, static_cast<size_t>(size));
     vkUnmapMemory(device, stagingBufferMemory);
 
@@ -86,7 +96,10 @@ void VulkanBuffer::createUniformBuffers(uint32_t count, VkDeviceSize bufferSize)
                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
                     uniformBuffers[i], uniformBuffersMemory[i]);
 
-        vkMapMemory(device, uniformBuffersMemory[i], 0, bufferSize, 0, &uniformBuffersMapped[i]);
+        if (vkMapMemory(device, uniformBuffersMemory[i], 0, bufferSize, 0, &uniformBuffersMapped[i]) != VK_SUCCESS) {
+            LOG_ERROR("Failed to map uniform buffer {} memory", i);
+            throw std::runtime_error("Failed to map uniform buffer memory");
+        }
     }
 
     LOG_DEBUG("Uniform buffers created successfully");
@@ -138,7 +151,12 @@ void VulkanBuffer::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage,
         throw std::runtime_error("Failed to allocate buffer memory");
     }
 
-    vkBindBufferMemory(device, buffer, bufferMemory, 0);
+    if (vkBindBufferMemory(device, buffer, bufferMemory, 0) != VK_SUCCESS) {
+        vkDestroyBuffer(device, buffer, nullptr);
+        vkFreeMemory(device, bufferMemory, nullptr);
+        LOG_ERROR("Failed to bind buffer memory");
+        throw std::runtime_error("Failed to bind buffer memory");
+    }
 }
 
 void VulkanBuffer::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size,
@@ -150,27 +168,45 @@ void VulkanBuffer::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSi
     allocInfo.commandBufferCount = 1;
 
     VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
-    vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer);
+    if (vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer) != VK_SUCCESS) {
+        LOG_ERROR("Failed to allocate command buffer for buffer copy");
+        throw std::runtime_error("Failed to allocate command buffer for buffer copy");
+    }
 
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
-    vkBeginCommandBuffer(commandBuffer, &beginInfo);
+    if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) {
+        vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
+        LOG_ERROR("Failed to begin command buffer for buffer copy");
+        throw std::runtime_error("Failed to begin command buffer for buffer copy");
+    }
 
     VkBufferCopy copyRegion{};
     copyRegion.size = size;
     vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
 
-    vkEndCommandBuffer(commandBuffer);
+    if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
+        vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
+        LOG_ERROR("Failed to end command buffer for buffer copy");
+        throw std::runtime_error("Failed to end command buffer for buffer copy");
+    }
 
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = &commandBuffer;
 
-    vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-    vkQueueWaitIdle(graphicsQueue);
+    if (vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS) {
+        vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
+        LOG_ERROR("Failed to submit buffer copy command");
+        throw std::runtime_error("Failed to submit buffer copy command");
+    }
+
+    if (vkQueueWaitIdle(graphicsQueue) != VK_SUCCESS) {
+        LOG_WARN("Queue wait idle failed after buffer copy");
+    }
 
     vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
 }

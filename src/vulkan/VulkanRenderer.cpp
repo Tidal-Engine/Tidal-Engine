@@ -145,7 +145,7 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
     VkBuffer vertexBuffers[] = {vertexBuffer};
     VkDeviceSize offsets[] = {0};
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
-    vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT16);
+    vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[currentFrame], 0, nullptr);
 
     vkCmdDrawIndexed(commandBuffer, indexCount, 1, 0, 0, 0);
@@ -166,7 +166,10 @@ void VulkanRenderer::drawFrame(VkSwapchainKHR swapchain, const std::vector<VkFra
                               const std::vector<void*>& uniformBuffersMapped,
                               uint32_t maxFramesInFlight,
                               bool& framebufferResized) {
-    vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
+    if (vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX) != VK_SUCCESS) {
+        LOG_ERROR("Failed to wait for fence");
+        throw std::runtime_error("Failed to wait for fence");
+    }
 
     uint32_t imageIndex = 0;
     VkResult result = vkAcquireNextImageKHR(device, swapchain, UINT64_MAX,
@@ -181,11 +184,17 @@ void VulkanRenderer::drawFrame(VkSwapchainKHR swapchain, const std::vector<VkFra
         throw std::runtime_error("Failed to acquire swap chain image");
     }
 
-    vkResetFences(device, 1, &inFlightFences[currentFrame]);
+    if (vkResetFences(device, 1, &inFlightFences[currentFrame]) != VK_SUCCESS) {
+        LOG_ERROR("Failed to reset fence");
+        throw std::runtime_error("Failed to reset fence");
+    }
 
     updateUniformBuffer(uniformBuffersMapped[currentFrame]);
 
-    vkResetCommandBuffer(commandBuffers[currentFrame], 0);
+    if (vkResetCommandBuffer(commandBuffers[currentFrame], 0) != VK_SUCCESS) {
+        LOG_ERROR("Failed to reset command buffer");
+        throw std::runtime_error("Failed to reset command buffer");
+    }
     recordCommandBuffer(commandBuffers[currentFrame], imageIndex, renderPass, framebuffers,
                        extent, pipeline, pipelineLayout, vertexBuffer, indexBuffer, indexCount,
                        descriptorSets);
@@ -244,14 +253,16 @@ void VulkanRenderer::updateUniformBuffer(void* uniformBufferMapped) {  // NOLINT
     ubo.proj = glm::perspective(glm::radians(45.0f), 800.0f / 600.0f, 0.1f, 10.0f);
     ubo.proj[1][1] *= -1; // GLM was designed for OpenGL, flip Y for Vulkan
 
-    ubo.lightPos = glm::vec3(2.0f, 2.0f, 2.0f);
-    ubo.viewPos = glm::vec3(2.0f, 2.0f, 2.0f);
+    ubo.lightPos = glm::vec4(2.0f, 2.0f, 2.0f, 1.0f);
+    ubo.viewPos = glm::vec4(2.0f, 2.0f, 2.0f, 1.0f);
 
     memcpy(uniformBufferMapped, &ubo, sizeof(ubo));
 }
 
 void VulkanRenderer::waitIdle() {
-    vkDeviceWaitIdle(device);
+    if (vkDeviceWaitIdle(device) != VK_SUCCESS) {
+        LOG_WARN("Failed to wait for device idle");
+    }
 }
 
 void VulkanRenderer::cleanup() {
@@ -314,7 +325,12 @@ void VulkanRenderer::createImage(uint32_t width, uint32_t height, VkFormat forma
         throw std::runtime_error("Failed to allocate image memory");
     }
 
-    vkBindImageMemory(device, image, imageMemory, 0);
+    if (vkBindImageMemory(device, image, imageMemory, 0) != VK_SUCCESS) {
+        vkDestroyImage(device, image, nullptr);
+        vkFreeMemory(device, imageMemory, nullptr);
+        LOG_ERROR("Failed to bind image memory");
+        throw std::runtime_error("Failed to bind image memory");
+    }
 }
 
 VkImageView VulkanRenderer::createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags) {

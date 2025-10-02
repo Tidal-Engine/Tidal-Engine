@@ -49,9 +49,17 @@ void VulkanSwapchain::create() {
         throw std::runtime_error("Failed to create swapchain");
     }
 
-    vkGetSwapchainImagesKHR(device, swapChain, &imageCount, nullptr);
+    if (vkGetSwapchainImagesKHR(device, swapChain, &imageCount, nullptr) != VK_SUCCESS) {
+        vkDestroySwapchainKHR(device, swapChain, nullptr);
+        LOG_ERROR("Failed to get swapchain image count");
+        throw std::runtime_error("Failed to get swapchain image count");
+    }
     swapChainImages.resize(imageCount);
-    vkGetSwapchainImagesKHR(device, swapChain, &imageCount, swapChainImages.data());
+    if (vkGetSwapchainImagesKHR(device, swapChain, &imageCount, swapChainImages.data()) != VK_SUCCESS) {
+        vkDestroySwapchainKHR(device, swapChain, nullptr);
+        LOG_ERROR("Failed to get swapchain images");
+        throw std::runtime_error("Failed to get swapchain images");
+    }
 
     swapChainImageFormat = surfaceFormat.format;
     swapChainExtent = extent;
@@ -122,7 +130,9 @@ void VulkanSwapchain::recreate() {
     LOG_INFO("Recreating swapchain");
 
     // Wait for device to be idle
-    vkDeviceWaitIdle(device);
+    if (vkDeviceWaitIdle(device) != VK_SUCCESS) {
+        LOG_WARN("Failed to wait for device idle during swapchain recreation");
+    }
 
     // Clean up old swapchain resources
     cleanupFramebuffers();
@@ -168,22 +178,38 @@ void VulkanSwapchain::cleanup() {
 VulkanSwapchain::SwapChainSupportDetails VulkanSwapchain::querySwapChainSupport() {
     SwapChainSupportDetails details;
 
-    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, surface, &details.capabilities);
+    if (vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, surface, &details.capabilities) != VK_SUCCESS) {
+        LOG_ERROR("Failed to get surface capabilities");
+        throw std::runtime_error("Failed to query swapchain support: surface capabilities");
+    }
 
     uint32_t formatCount = 0;
-    vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &formatCount, nullptr);
+    if (vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &formatCount, nullptr) != VK_SUCCESS) {
+        LOG_ERROR("Failed to get surface format count");
+        throw std::runtime_error("Failed to query swapchain support: format count");
+    }
     if (formatCount != 0) {
         details.formats.resize(formatCount);
-        vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &formatCount, details.formats.data());
+        if (vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &formatCount, details.formats.data()) != VK_SUCCESS) {
+            LOG_ERROR("Failed to get surface formats");
+            throw std::runtime_error("Failed to query swapchain support: surface formats");
+        }
     }
 
     uint32_t presentModeCount = 0;
-    vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &presentModeCount, nullptr);
+    if (vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &presentModeCount, nullptr) != VK_SUCCESS) {
+        LOG_ERROR("Failed to get present mode count");
+        throw std::runtime_error("Failed to query swapchain support: present mode count");
+    }
     if (presentModeCount != 0) {
         details.presentModes.resize(presentModeCount);
-        vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &presentModeCount, details.presentModes.data());
+        if (vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &presentModeCount, details.presentModes.data()) != VK_SUCCESS) {
+            LOG_ERROR("Failed to get present modes");
+            throw std::runtime_error("Failed to query swapchain support: present modes");
+        }
     }
 
+    LOG_DEBUG("Swapchain support queried: {} formats, {} present modes", formatCount, presentModeCount);
     return details;
 }
 

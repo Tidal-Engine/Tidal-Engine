@@ -25,13 +25,14 @@ class VulkanRenderer;
  *
  * Contains all the data needed to render a frame, including transformation
  * matrices and lighting information. Aligned for GPU buffer requirements.
+ * Uses vec4 for positions to ensure proper alignment and avoid wasted padding.
  */
 struct UniformBufferObject {
     alignas(16) glm::mat4 model;     ///< Model transformation matrix
     alignas(16) glm::mat4 view;      ///< View transformation matrix
     alignas(16) glm::mat4 proj;      ///< Projection transformation matrix
-    alignas(16) glm::vec3 lightPos;  ///< Light position in world space
-    alignas(16) glm::vec3 viewPos;   ///< Camera position in world space
+    alignas(16) glm::vec4 lightPos;  ///< Light position in world space (w unused)
+    alignas(16) glm::vec4 viewPos;   ///< Camera position in world space (w unused)
 };
 
 /**
@@ -80,7 +81,7 @@ private:
     const int MAX_FRAMES_IN_FLIGHT = 2;
 
     std::vector<Vertex> vertices;
-    std::vector<uint16_t> indices;
+    std::vector<uint32_t> indices;
 
     bool framebufferResized = false;
 

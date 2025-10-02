@@ -5,6 +5,7 @@
 #include "vulkan/VulkanRenderer.hpp"
 #include "vulkan/CubeGeometry.hpp"
 #include "core/Logger.hpp"
+#include "core/ResourceManager.hpp"
 
 #include <stdexcept>
 
@@ -51,6 +52,12 @@ void VulkanEngine::initVulkan() {
     createSurface();
     pickPhysicalDevice();
     createLogicalDevice();
+
+    // Initialize resource manager and register assets
+    ResourceManager::init(".");
+    ResourceManager::registerShader("cube_vert", "shaders/cube_vert.spv");
+    ResourceManager::registerShader("cube_frag", "shaders/cube_frag.spv");
+
     LOG_INFO("Vulkan initialized successfully");
 }
 
@@ -83,7 +90,9 @@ void VulkanEngine::initRenderingResources() {
                                                 swapchain->getImageFormat());
     pipeline->createRenderPass();
     pipeline->createDescriptorSetLayout();
-    pipeline->createGraphicsPipeline("shaders/cube_vert.spv", "shaders/cube_frag.spv");
+    pipeline->createGraphicsPipeline(
+        ResourceManager::getShaderPath("cube_vert"),
+        ResourceManager::getShaderPath("cube_frag"));
 
     // Create rendering resources
     renderer->createCommandPool();
@@ -131,7 +140,18 @@ void VulkanEngine::createInstance() {
     createInfo.pApplicationInfo = &appInfo;
     createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
     createInfo.ppEnabledExtensionNames = extensions.data();
+
+#ifdef ENABLE_VALIDATION_LAYERS
+    const std::vector<const char*> VALIDATION_LAYERS = {
+        "VK_LAYER_KHRONOS_validation"
+    };
+    createInfo.enabledLayerCount = static_cast<uint32_t>(VALIDATION_LAYERS.size());
+    createInfo.ppEnabledLayerNames = VALIDATION_LAYERS.data();
+    LOG_INFO("Validation layers enabled");
+#else
     createInfo.enabledLayerCount = 0;
+    LOG_DEBUG("Validation layers disabled");
+#endif
 
     if (vkCreateInstance(&createInfo, nullptr, &instance) != VK_SUCCESS) {
         LOG_ERROR("Failed to create Vulkan instance");
@@ -155,7 +175,10 @@ void VulkanEngine::createSurface() {
 void VulkanEngine::pickPhysicalDevice() {
     LOG_DEBUG("Selecting physical device...");
     uint32_t deviceCount = 0;
-    vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
+    if (vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr) != VK_SUCCESS) {
+        LOG_ERROR("Failed to enumerate physical devices");
+        throw std::runtime_error("Failed to enumerate physical devices");
+    }
 
     if (deviceCount == 0) {
         LOG_ERROR("No GPUs with Vulkan support found");
@@ -165,7 +188,10 @@ void VulkanEngine::pickPhysicalDevice() {
     LOG_DEBUG("Found {} Vulkan-capable device(s)", deviceCount);
 
     std::vector<VkPhysicalDevice> devices(deviceCount);
-    vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
+    if (vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data()) != VK_SUCCESS) {
+        LOG_ERROR("Failed to get physical device list");
+        throw std::runtime_error("Failed to get physical device list");
+    }
 
     // For now, just pick the first device
     physicalDevice = devices[0];
@@ -187,6 +213,11 @@ VulkanEngine::QueueFamilyIndices VulkanEngine::findQueueFamilies(VkPhysicalDevic
     uint32_t queueFamilyCount = 0;
     vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
 
+    if (queueFamilyCount == 0) {
+        LOG_ERROR("No queue families found for device");
+        throw std::runtime_error("No queue families found");
+    }
+
     std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
     vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
 
@@ -196,7 +227,10 @@ VulkanEngine::QueueFamilyIndices VulkanEngine::findQueueFamilies(VkPhysicalDevic
         }
 
         VkBool32 presentSupport = false;
-        vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &presentSupport);
+        if (vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &presentSupport) != VK_SUCCESS) {
+            LOG_WARN("Failed to check present support for queue family {}", i);
+            continue;
+        }
 
         if (presentSupport) {
             indices.presentFamily = i;

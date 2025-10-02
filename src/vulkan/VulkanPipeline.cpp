@@ -327,15 +327,40 @@ std::vector<char> VulkanPipeline::readFile(const std::string& filename) {  // NO
     std::ifstream file(filename, std::ios::ate | std::ios::binary);
 
     if (!file.is_open()) {
-        LOG_ERROR("Failed to open file: {}", filename);
-        throw std::runtime_error("Failed to open file: " + filename);
+        LOG_ERROR("Failed to open shader file: {}", filename);
+        throw std::runtime_error("Failed to open shader file: " + filename);
     }
 
-    size_t fileSize = static_cast<size_t>(file.tellg());
+    auto filePos = file.tellg();
+    if (filePos < 0) {
+        file.close();
+        LOG_ERROR("Failed to get file size for: {}", filename);
+        throw std::runtime_error("Failed to get shader file size: " + filename);
+    }
+
+    size_t fileSize = static_cast<size_t>(filePos);
+    if (fileSize == 0) {
+        file.close();
+        LOG_ERROR("Shader file is empty: {}", filename);
+        throw std::runtime_error("Shader file is empty: " + filename);
+    }
+
     std::vector<char> buffer(fileSize);
 
     file.seekg(0);
+    if (!file.good()) {
+        file.close();
+        LOG_ERROR("Failed to seek to beginning of file: {}", filename);
+        throw std::runtime_error("Failed to seek in shader file: " + filename);
+    }
+
     file.read(buffer.data(), static_cast<std::streamsize>(fileSize));
+    if (!file.good() && !file.eof()) {
+        file.close();
+        LOG_ERROR("Failed to read shader file: {}", filename);
+        throw std::runtime_error("Failed to read shader file: " + filename);
+    }
+
     file.close();
 
     LOG_DEBUG("Loaded shader file: {} ({} bytes)", filename, fileSize);
