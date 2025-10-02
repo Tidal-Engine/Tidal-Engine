@@ -6,6 +6,7 @@
 #include <glm/glm.hpp>
 
 #include "vulkan/Vertex.hpp"
+#include "core/EngineConfig.hpp"
 
 #include <vector>
 #include <set>
@@ -76,9 +77,7 @@ private:
     std::unique_ptr<VulkanPipeline> pipeline;
     std::unique_ptr<VulkanRenderer> renderer;
 
-    const uint32_t WIDTH = 800;
-    const uint32_t HEIGHT = 600;
-    const int MAX_FRAMES_IN_FLIGHT = 2;
+    EngineConfig::Runtime config;
 
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices;

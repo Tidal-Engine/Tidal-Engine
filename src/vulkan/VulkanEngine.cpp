@@ -8,6 +8,7 @@
 #include "core/ResourceManager.hpp"
 
 #include <stdexcept>
+#include <cstring>
 
 namespace engine {
 
@@ -31,10 +32,10 @@ void VulkanEngine::initSDL() {
         throw std::runtime_error("Failed to initialize SDL");
     }
 
-    LOG_INFO("Creating window ({}x{})...", WIDTH, HEIGHT);
+    LOG_INFO("Creating window ({}x{})...", config.windowWidth, config.windowHeight);
     window = SDL_CreateWindow(
-        "Vulkan Engine - Rainbow Cube",
-        static_cast<int>(WIDTH), static_cast<int>(HEIGHT),
+        config.windowTitle.c_str(),
+        static_cast<int>(config.windowWidth), static_cast<int>(config.windowHeight),
         SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE
     );
 
@@ -106,15 +107,15 @@ void VulkanEngine::initRenderingResources() {
                                      renderer->getCommandPool(), graphicsQueue);
     bufferManager->createIndexBuffer(indices.data(), sizeof(indices[0]) * indices.size(),
                                     renderer->getCommandPool(), graphicsQueue);
-    bufferManager->createUniformBuffers(MAX_FRAMES_IN_FLIGHT, sizeof(UniformBufferObject));
+    bufferManager->createUniformBuffers(EngineConfig::MAX_FRAMES_IN_FLIGHT, sizeof(UniformBufferObject));
 
     // Create descriptor sets
-    pipeline->createDescriptorPool(MAX_FRAMES_IN_FLIGHT);
+    pipeline->createDescriptorPool(EngineConfig::MAX_FRAMES_IN_FLIGHT);
     pipeline->createDescriptorSets(bufferManager->getUniformBuffers(), sizeof(UniformBufferObject));
 
     // Create command buffers and sync objects
-    renderer->createCommandBuffers(MAX_FRAMES_IN_FLIGHT);
-    renderer->createSyncObjects(MAX_FRAMES_IN_FLIGHT);
+    renderer->createCommandBuffers(EngineConfig::MAX_FRAMES_IN_FLIGHT);
+    renderer->createSyncObjects(EngineConfig::MAX_FRAMES_IN_FLIGHT);
 
     LOG_INFO("Rendering resources initialized successfully");
 }
@@ -123,10 +124,12 @@ void VulkanEngine::createInstance() {
     LOG_DEBUG("Creating Vulkan instance...");
     VkApplicationInfo appInfo{};
     appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-    appInfo.pApplicationName = "Vulkan Engine";
+    appInfo.pApplicationName = config.windowTitle.c_str();
     appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-    appInfo.pEngineName = "No Engine";
-    appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
+    appInfo.pEngineName = EngineConfig::ENGINE_NAME;
+    appInfo.engineVersion = VK_MAKE_VERSION(EngineConfig::ENGINE_VERSION_MAJOR,
+                                             EngineConfig::ENGINE_VERSION_MINOR,
+                                             EngineConfig::ENGINE_VERSION_PATCH);
     appInfo.apiVersion = VK_API_VERSION_1_3;
 
     // Get SDL required extensions
@@ -145,9 +148,36 @@ void VulkanEngine::createInstance() {
     const std::vector<const char*> VALIDATION_LAYERS = {
         "VK_LAYER_KHRONOS_validation"
     };
-    createInfo.enabledLayerCount = static_cast<uint32_t>(VALIDATION_LAYERS.size());
-    createInfo.ppEnabledLayerNames = VALIDATION_LAYERS.data();
-    LOG_INFO("Validation layers enabled");
+
+    // Check if validation layers are available
+    uint32_t layerCount = 0;
+    vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
+    std::vector<VkLayerProperties> availableLayers(layerCount);
+    vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
+
+    bool layersAvailable = true;
+    for (const char* layerName : VALIDATION_LAYERS) {
+        bool layerFound = false;
+        for (const auto& layerProperties : availableLayers) {
+            if (strcmp(layerName, layerProperties.layerName) == 0) {
+                layerFound = true;
+                break;
+            }
+        }
+        if (!layerFound) {
+            LOG_WARN("Validation layer not available: {}", layerName);
+            layersAvailable = false;
+        }
+    }
+
+    if (layersAvailable) {
+        createInfo.enabledLayerCount = static_cast<uint32_t>(VALIDATION_LAYERS.size());
+        createInfo.ppEnabledLayerNames = VALIDATION_LAYERS.data();
+        LOG_INFO("Validation layers enabled");
+    } else {
+        createInfo.enabledLayerCount = 0;
+        LOG_WARN("Validation layers requested but not available - continuing without them");
+    }
 #else
     createInfo.enabledLayerCount = 0;
     LOG_DEBUG("Validation layers disabled");
@@ -340,7 +370,7 @@ void VulkanEngine::mainLoop() {
                           static_cast<uint32_t>(indices.size()),
                           pipeline->getDescriptorSets(),
                           bufferManager->getUniformBuffersMapped(),
-                          MAX_FRAMES_IN_FLIGHT,
+                          EngineConfig::MAX_FRAMES_IN_FLIGHT,
                           framebufferResized);
     }
 

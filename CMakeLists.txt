@@ -100,6 +100,8 @@ target_link_libraries(imgui PUBLIC
 add_executable(TidalEngine
     src/Main.cpp
     src/core/ResourceManager.cpp
+    src/core/InputManager.cpp
+    src/core/Camera.cpp
     src/vulkan/VulkanEngine.cpp
     src/vulkan/VulkanBuffer.cpp
     src/vulkan/VulkanSwapchain.cpp
@@ -127,4 +129,43 @@ target_link_libraries(TidalEngine
 # Pass validation layer option to code
 if(ENABLE_VALIDATION_LAYERS)
     target_compile_definitions(TidalEngine PRIVATE ENABLE_VALIDATION_LAYERS)
+endif()
+
+# Compile shaders
+find_program(GLSLC glslc HINTS $ENV{VULKAN_SDK}/bin)
+if(NOT GLSLC)
+    message(WARNING "glslc not found - shaders will not be automatically compiled. Run shaders/compile.sh manually.")
+else()
+    set(SHADER_SOURCE_DIR ${CMAKE_SOURCE_DIR}/shaders)
+    set(SHADER_BINARY_DIR ${CMAKE_SOURCE_DIR}/shaders)
+
+    file(GLOB VERTEX_SHADERS ${SHADER_SOURCE_DIR}/*.vert)
+    file(GLOB FRAGMENT_SHADERS ${SHADER_SOURCE_DIR}/*.frag)
+
+    foreach(SHADER ${VERTEX_SHADERS})
+        get_filename_component(SHADER_NAME ${SHADER} NAME_WE)
+        set(SHADER_OUTPUT ${SHADER_BINARY_DIR}/${SHADER_NAME}_vert.spv)
+        add_custom_command(
+            OUTPUT ${SHADER_OUTPUT}
+            COMMAND ${GLSLC} ${SHADER} -o ${SHADER_OUTPUT}
+            DEPENDS ${SHADER}
+            COMMENT "Compiling vertex shader ${SHADER_NAME}.vert"
+        )
+        list(APPEND SHADER_BINARIES ${SHADER_OUTPUT})
+    endforeach()
+
+    foreach(SHADER ${FRAGMENT_SHADERS})
+        get_filename_component(SHADER_NAME ${SHADER} NAME_WE)
+        set(SHADER_OUTPUT ${SHADER_BINARY_DIR}/${SHADER_NAME}_frag.spv)
+        add_custom_command(
+            OUTPUT ${SHADER_OUTPUT}
+            COMMAND ${GLSLC} ${SHADER} -o ${SHADER_OUTPUT}
+            DEPENDS ${SHADER}
+            COMMENT "Compiling fragment shader ${SHADER_NAME}.frag"
+        )
+        list(APPEND SHADER_BINARIES ${SHADER_OUTPUT})
+    endforeach()
+
+    add_custom_target(CompileShaders ALL DEPENDS ${SHADER_BINARIES})
+    add_dependencies(TidalEngine CompileShaders)
 endif()
