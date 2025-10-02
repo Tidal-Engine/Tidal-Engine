@@ -1,0 +1,113 @@
+#pragma once
+
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_vulkan.h>
+#include <vulkan/vulkan.h>
+#include <glm/glm.hpp>
+
+#include "vulkan/Vertex.hpp"
+
+#include <vector>
+#include <set>
+#include <memory>
+#include <cstdint>
+
+namespace engine {
+
+// Forward declarations
+class VulkanBuffer;
+class VulkanSwapchain;
+class VulkanPipeline;
+class VulkanRenderer;
+
+/**
+ * @brief Uniform buffer object for shader uniforms
+ *
+ * Contains all the data needed to render a frame, including transformation
+ * matrices and lighting information. Aligned for GPU buffer requirements.
+ */
+struct UniformBufferObject {
+    alignas(16) glm::mat4 model;     ///< Model transformation matrix
+    alignas(16) glm::mat4 view;      ///< View transformation matrix
+    alignas(16) glm::mat4 proj;      ///< Projection transformation matrix
+    alignas(16) glm::vec3 lightPos;  ///< Light position in world space
+    alignas(16) glm::vec3 viewPos;   ///< Camera position in world space
+};
+
+/**
+ * @brief Main engine class that orchestrates the rendering pipeline
+ *
+ * The VulkanEngine class is the central component that initializes and manages
+ * all Vulkan subsystems, including the swapchain, pipeline, buffers, and renderer.
+ * It follows a modular design where each subsystem is encapsulated in its own class.
+ */
+class VulkanEngine {
+public:
+    VulkanEngine();
+    ~VulkanEngine();
+
+    // Delete copy operations (Vulkan resources shouldn't be copied)
+    VulkanEngine(const VulkanEngine&) = delete;
+    VulkanEngine& operator=(const VulkanEngine&) = delete;
+
+    // Delete move operations (singleton-like engine)
+    VulkanEngine(VulkanEngine&&) = delete;
+    VulkanEngine& operator=(VulkanEngine&&) = delete;
+
+    /**
+     * @brief Start the main engine loop
+     */
+    void run();
+
+private:
+    // Core Vulkan objects
+    SDL_Window* window = nullptr;
+    VkInstance instance = VK_NULL_HANDLE;
+    VkSurfaceKHR surface = VK_NULL_HANDLE;
+    VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
+    VkDevice device = VK_NULL_HANDLE;
+    VkQueue graphicsQueue = VK_NULL_HANDLE;
+    VkQueue presentQueue = VK_NULL_HANDLE;
+
+    // Subsystems
+    std::unique_ptr<VulkanBuffer> bufferManager;
+    std::unique_ptr<VulkanSwapchain> swapchain;
+    std::unique_ptr<VulkanPipeline> pipeline;
+    std::unique_ptr<VulkanRenderer> renderer;
+
+    const uint32_t WIDTH = 800;
+    const uint32_t HEIGHT = 600;
+    const int MAX_FRAMES_IN_FLIGHT = 2;
+
+    std::vector<Vertex> vertices;
+    std::vector<uint16_t> indices;
+
+    bool framebufferResized = false;
+
+    void initSDL();
+    void initVulkan();
+    void initGeometry();
+    void initRenderingResources();
+    void recreateSwapchain();
+
+    void createInstance();
+    void createSurface();
+    void pickPhysicalDevice();
+    void createLogicalDevice();
+
+    void mainLoop();
+    void cleanup();
+
+    struct QueueFamilyIndices {
+        uint32_t graphicsFamily = UINT32_MAX;
+        uint32_t presentFamily = UINT32_MAX;
+
+        bool isComplete() const {
+            return graphicsFamily != UINT32_MAX && presentFamily != UINT32_MAX;
+        }
+    };
+
+    QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
+};
+
+} // namespace engine

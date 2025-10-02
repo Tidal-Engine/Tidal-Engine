@@ -1,0 +1,15 @@
+CompileFlags:
+  CompilationDatabase: build/
+
+Diagnostics:
+  Suppress:
+    - pp_file_not_found
+    - undeclared_var_use
+    - undeclared_var_use_suggest
+    - no_member
+    - reference_bind_failed
+  UnusedIncludes: None
+  MissingIncludes: None
+  
+Index:
+  Background: Build

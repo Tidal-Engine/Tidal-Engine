@@ -1,0 +1,7 @@
+docs/
+build/
+logs/
+.cache/
+*.spv
+compile_commands.json
+.clangd/
