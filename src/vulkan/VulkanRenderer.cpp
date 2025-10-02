@@ -158,14 +158,13 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
     }
 }
 
-void VulkanRenderer::drawFrame(VkSwapchainKHR swapchain, const std::vector<VkFramebuffer>& framebuffers,
+bool VulkanRenderer::drawFrame(VkSwapchainKHR swapchain, const std::vector<VkFramebuffer>& framebuffers,
                               VkRenderPass renderPass, VkExtent2D extent,
                               VkPipeline pipeline, VkPipelineLayout pipelineLayout,
                               VkBuffer vertexBuffer, VkBuffer indexBuffer, uint32_t indexCount,
                               const std::vector<VkDescriptorSet>& descriptorSets,
                               const std::vector<void*>& uniformBuffersMapped,
-                              uint32_t maxFramesInFlight,
-                              bool& framebufferResized) {
+                              uint32_t maxFramesInFlight) {
     if (vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX) != VK_SUCCESS) {
         LOG_ERROR("Failed to wait for fence");
         throw std::runtime_error("Failed to wait for fence");
@@ -176,8 +175,7 @@ void VulkanRenderer::drawFrame(VkSwapchainKHR swapchain, const std::vector<VkFra
                                            imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
 
     if (result == VK_ERROR_OUT_OF_DATE_KHR) {
-        framebufferResized = true;
-        return;
+        return true; // Swapchain needs recreation
     }
     if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
         LOG_ERROR("Failed to acquire swap chain image");
@@ -231,14 +229,17 @@ void VulkanRenderer::drawFrame(VkSwapchainKHR swapchain, const std::vector<VkFra
 
     result = vkQueuePresentKHR(presentQueue, &presentInfo);
 
-    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || framebufferResized) {
-        framebufferResized = true;
-    } else if (result != VK_SUCCESS) {
+    currentFrame = (currentFrame + 1) % maxFramesInFlight;
+
+    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
+        return true; // Swapchain needs recreation
+    }
+    if (result != VK_SUCCESS) {
         LOG_ERROR("Failed to present swap chain image");
         throw std::runtime_error("Failed to present swap chain image");
     }
 
-    currentFrame = (currentFrame + 1) % maxFramesInFlight;
+    return false; // Swapchain is fine
 }
 
 void VulkanRenderer::updateUniformBuffer(void* uniformBufferMapped) {  // NOLINT(readability-convert-member-functions-to-static)

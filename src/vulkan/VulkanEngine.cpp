@@ -223,18 +223,29 @@ void VulkanEngine::pickPhysicalDevice() {
         throw std::runtime_error("Failed to get physical device list");
     }
 
-    // For now, just pick the first device
-    physicalDevice = devices[0];
+    // Score and select the best device
+    int bestScore = -1;
+    VkPhysicalDevice bestDevice = VK_NULL_HANDLE;
 
-    if (physicalDevice == VK_NULL_HANDLE) {
+    for (const auto& device : devices) {
+        int score = rateDeviceSuitability(device);
+        if (score > bestScore) {
+            bestScore = score;
+            bestDevice = device;
+        }
+    }
+
+    if (bestDevice == VK_NULL_HANDLE || bestScore < 0) {
         LOG_ERROR("Failed to find suitable GPU");
         throw std::runtime_error("Failed to find suitable GPU");
     }
 
+    physicalDevice = bestDevice;
+
     // Log device info
     VkPhysicalDeviceProperties deviceProperties;
     vkGetPhysicalDeviceProperties(physicalDevice, &deviceProperties);
-    LOG_INFO("Selected GPU: {}", deviceProperties.deviceName);
+    LOG_INFO("Selected GPU: {} (score: {})", deviceProperties.deviceName, bestScore);
 }
 
 VulkanEngine::QueueFamilyIndices VulkanEngine::findQueueFamilies(VkPhysicalDevice device) {
@@ -271,7 +282,70 @@ VulkanEngine::QueueFamilyIndices VulkanEngine::findQueueFamilies(VkPhysicalDevic
         }
     }
 
+    if (!indices.isComplete()) {
+        LOG_ERROR("Failed to find all required queue families");
+        throw std::runtime_error("Failed to find required queue families");
+    }
+
+    LOG_DEBUG("Found queue families - Graphics: {}, Present: {}",
+              indices.graphicsFamily, indices.presentFamily);
+
     return indices;
+}
+
+int VulkanEngine::rateDeviceSuitability(VkPhysicalDevice device) {
+    if (!isDeviceSuitable(device)) {
+        return -1;
+    }
+
+    VkPhysicalDeviceProperties deviceProperties;
+    VkPhysicalDeviceFeatures deviceFeatures;
+    vkGetPhysicalDeviceProperties(device, &deviceProperties);
+    vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
+
+    int score = 0;
+
+    // Discrete GPUs have a significant performance advantage
+    if (deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
+        score += 1000;
+    }
+
+    // Maximum possible size of textures affects graphics quality
+    score += static_cast<int>(deviceProperties.limits.maxImageDimension2D);
+
+    // Prefer devices with geometry shader support
+    if (deviceFeatures.geometryShader) {
+        score += 100;
+    }
+
+    // Prefer devices with anisotropic filtering
+    if (deviceFeatures.samplerAnisotropy) {
+        score += 50;
+    }
+
+    LOG_DEBUG("GPU '{}' rated with score: {}", deviceProperties.deviceName, score);
+    return score;
+}
+
+bool VulkanEngine::isDeviceSuitable(VkPhysicalDevice device) {
+    // Check queue families
+    QueueFamilyIndices indices = findQueueFamilies(device);
+    if (!indices.isComplete()) {
+        LOG_DEBUG("Device missing required queue families");
+        return false;
+    }
+
+    // Check for required features
+    VkPhysicalDeviceFeatures supportedFeatures;
+    vkGetPhysicalDeviceFeatures(device, &supportedFeatures);
+
+    // We need geometry shader support for future features
+    if (!supportedFeatures.geometryShader) {
+        LOG_DEBUG("Device missing geometry shader support");
+        return false;
+    }
+
+    return true;
 }
 
 void VulkanEngine::recreateSwapchain() {
@@ -348,6 +422,8 @@ void VulkanEngine::mainLoop() {
     SDL_Event event;
 
     while (running) {
+        performanceMetrics.beginFrame();
+
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_EVENT_QUIT) {
                 LOG_INFO("Quit event received");
@@ -361,21 +437,28 @@ void VulkanEngine::mainLoop() {
         // Recreate swapchain if needed (after resize or out of date)
         if (framebufferResized) {
             recreateSwapchain();
+            framebufferResized = false;
         }
 
-        renderer->drawFrame(swapchain->getSwapchain(), swapchain->getFramebuffers(),
+        bool needsRecreation = renderer->drawFrame(swapchain->getSwapchain(), swapchain->getFramebuffers(),
                           pipeline->getRenderPass(), swapchain->getExtent(),
                           pipeline->getPipeline(), pipeline->getPipelineLayout(),
                           bufferManager->getVertexBuffer(), bufferManager->getIndexBuffer(),
                           static_cast<uint32_t>(indices.size()),
                           pipeline->getDescriptorSets(),
                           bufferManager->getUniformBuffersMapped(),
-                          EngineConfig::MAX_FRAMES_IN_FLIGHT,
-                          framebufferResized);
+                          EngineConfig::MAX_FRAMES_IN_FLIGHT);
+
+        if (needsRecreation) {
+            framebufferResized = true;
+        }
+
+        performanceMetrics.endFrame();
     }
 
     renderer->waitIdle();
-    LOG_INFO("Exited main loop");
+    LOG_INFO("Exited main loop - Total frames: {}, Average FPS: {:.1f}",
+             performanceMetrics.getFrameCount(), performanceMetrics.getFPS());
 }
 
 void VulkanEngine::cleanup() {

@@ -102,6 +102,7 @@ add_executable(TidalEngine
     src/core/ResourceManager.cpp
     src/core/InputManager.cpp
     src/core/Camera.cpp
+    src/core/PerformanceMetrics.cpp
     src/vulkan/VulkanEngine.cpp
     src/vulkan/VulkanBuffer.cpp
     src/vulkan/VulkanSwapchain.cpp

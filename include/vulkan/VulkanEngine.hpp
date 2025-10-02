@@ -7,6 +7,7 @@
 
 #include "vulkan/Vertex.hpp"
 #include "core/EngineConfig.hpp"
+#include "core/PerformanceMetrics.hpp"
 
 #include <vector>
 #include <set>
@@ -78,6 +79,7 @@ private:
     std::unique_ptr<VulkanRenderer> renderer;
 
     EngineConfig::Runtime config;
+    PerformanceMetrics performanceMetrics;
 
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices;
@@ -97,6 +99,9 @@ private:
 
     void mainLoop();
     void cleanup();
+
+    int rateDeviceSuitability(VkPhysicalDevice device);
+    bool isDeviceSuitable(VkPhysicalDevice device);
 
     struct QueueFamilyIndices {
         uint32_t graphicsFamily = UINT32_MAX;

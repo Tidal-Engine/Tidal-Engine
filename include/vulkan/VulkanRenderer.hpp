@@ -102,16 +102,15 @@ public:
      * @param descriptorSets Descriptor sets
      * @param uniformBuffersMapped Mapped uniform buffer pointers
      * @param maxFramesInFlight Maximum frames in flight
-     * @param framebufferResized Flag set to true if swapchain needs recreation
+     * @return true if swapchain needs recreation, false otherwise
      */
-    void drawFrame(VkSwapchainKHR swapchain, const std::vector<VkFramebuffer>& framebuffers,
+    bool drawFrame(VkSwapchainKHR swapchain, const std::vector<VkFramebuffer>& framebuffers,
                   VkRenderPass renderPass, VkExtent2D extent,
                   VkPipeline pipeline, VkPipelineLayout pipelineLayout,
                   VkBuffer vertexBuffer, VkBuffer indexBuffer, uint32_t indexCount,
                   const std::vector<VkDescriptorSet>& descriptorSets,
                   const std::vector<void*>& uniformBuffersMapped,
-                  uint32_t maxFramesInFlight,
-                  bool& framebufferResized);
+                  uint32_t maxFramesInFlight);
 
     /**
      * @brief Wait for device to finish all operations
