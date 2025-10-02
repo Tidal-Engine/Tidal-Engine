@@ -14,29 +14,31 @@ bool InputManager::processEvents() {
                 return false;
 
             case SDL_EVENT_KEY_DOWN:
-                if (!keyState[event.key.scancode]) {
-                    keyPressedThisFrame[event.key.scancode] = true;
+                // Union access required by SDL3 API
+                if (!keyState[event.key.scancode]) {  // NOLINT(cppcoreguidelines-pro-type-union-access)
+                    keyPressedThisFrame[event.key.scancode] = true;  // NOLINT(cppcoreguidelines-pro-type-union-access)
                 }
-                keyState[event.key.scancode] = true;
+                keyState[event.key.scancode] = true;  // NOLINT(cppcoreguidelines-pro-type-union-access)
                 break;
 
             case SDL_EVENT_KEY_UP:
-                keyState[event.key.scancode] = false;
+                keyState[event.key.scancode] = false;  // NOLINT(cppcoreguidelines-pro-type-union-access)
                 break;
 
             case SDL_EVENT_MOUSE_BUTTON_DOWN:
-                mouseButtonState[event.button.button] = true;
+                mouseButtonState[event.button.button] = true;  // NOLINT(cppcoreguidelines-pro-type-union-access)
                 break;
 
             case SDL_EVENT_MOUSE_BUTTON_UP:
-                mouseButtonState[event.button.button] = false;
+                mouseButtonState[event.button.button] = false;  // NOLINT(cppcoreguidelines-pro-type-union-access)
                 break;
 
             case SDL_EVENT_MOUSE_MOTION:
-                mousePosition.x = static_cast<float>(event.motion.x);
-                mousePosition.y = static_cast<float>(event.motion.y);
-                mouseDelta.x = static_cast<float>(event.motion.xrel);
-                mouseDelta.y = static_cast<float>(event.motion.yrel);
+                // Union access required by SDL3 API
+                mousePosition.x = event.motion.x;  // NOLINT(cppcoreguidelines-pro-type-union-access)
+                mousePosition.y = event.motion.y;  // NOLINT(cppcoreguidelines-pro-type-union-access)
+                mouseDelta.x = event.motion.xrel;  // NOLINT(cppcoreguidelines-pro-type-union-access)
+                mouseDelta.y = event.motion.yrel;  // NOLINT(cppcoreguidelines-pro-type-union-access)
                 break;
 
             default:
