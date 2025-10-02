@@ -1,5 +1,8 @@
 #include "core/Camera.hpp"
 
+#include <algorithm>
+#include <cmath>
+
 namespace engine {
 
 Camera::Camera(const glm::vec3& position, const glm::vec3& worldUp, float yaw, float pitch)
@@ -13,14 +16,14 @@ glm::mat4 Camera::getViewMatrix() const {
     return glm::lookAt(position, position + front, up);
 }
 
-glm::mat4 Camera::getProjectionMatrix(float aspectRatio, float fov, float nearPlane, float farPlane) const {
+glm::mat4 Camera::getProjectionMatrix(float aspectRatio, float fov, float nearPlane, float farPlane) const {  // NOLINT(readability-convert-member-functions-to-static)
     glm::mat4 proj = glm::perspective(glm::radians(fov), aspectRatio, nearPlane, farPlane);
     proj[1][1] *= -1; // Flip Y for Vulkan coordinate system
     return proj;
 }
 
 void Camera::processMovement(bool forward, bool backward, bool left, bool right,
-                             bool up, bool down, float deltaTime, float speed) {
+                             bool up, bool down, float deltaTime, float speed) {  // NOLINT(readability-identifier-length)
     float velocity = speed * deltaTime;
 
     if (forward) {
@@ -30,10 +33,10 @@ void Camera::processMovement(bool forward, bool backward, bool left, bool right,
         position -= front * velocity;
     }
     if (left) {
-        position -= right * velocity;
+        position -= this->right * velocity;
     }
     if (right) {
-        position += right * velocity;
+        position += this->right * velocity;
     }
     if (up) {
         position += worldUp * velocity;
@@ -52,12 +55,8 @@ void Camera::processMouseMovement(float xOffset, float yOffset, float sensitivit
 
     // Constrain pitch to prevent screen flipping
     if (constrainPitch) {
-        if (pitch > 89.0f) {
-            pitch = 89.0f;
-        }
-        if (pitch < -89.0f) {
-            pitch = -89.0f;
-        }
+        pitch = std::min(pitch, 89.0f);
+        pitch = std::max(pitch, -89.0f);
     }
 
     updateCameraVectors();
@@ -66,9 +65,9 @@ void Camera::processMouseMovement(float xOffset, float yOffset, float sensitivit
 void Camera::updateCameraVectors() {
     // Calculate new front vector
     glm::vec3 newFront;
-    newFront.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
-    newFront.y = sin(glm::radians(pitch));
-    newFront.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
+    newFront.x = std::cos(glm::radians(yaw)) * std::cos(glm::radians(pitch));  // NOLINT(cppcoreguidelines-pro-type-union-access)
+    newFront.y = std::sin(glm::radians(pitch));  // NOLINT(cppcoreguidelines-pro-type-union-access)
+    newFront.z = std::sin(glm::radians(yaw)) * std::cos(glm::radians(pitch));  // NOLINT(cppcoreguidelines-pro-type-union-access)
     front = glm::normalize(newFront);
 
     // Recalculate right and up vectors
