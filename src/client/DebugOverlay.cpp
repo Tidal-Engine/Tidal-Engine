@@ -2,6 +2,7 @@
 #include "client/Camera.hpp"
 #include "client/NetworkClient.hpp"
 #include "core/PerformanceMetrics.hpp"
+#include "core/Logger.hpp"
 
 #include <glm/gtc/type_ptr.hpp>
 #include <cmath>
@@ -10,6 +11,7 @@ namespace engine {
 
 DebugOverlay::DebugOverlay() {
     fpsHistory.resize(FPS_HISTORY_SIZE, 0.0f);
+    LOG_DEBUG("DebugOverlay initialized");
 }
 
 void DebugOverlay::toggle() {
@@ -57,6 +59,7 @@ void DebugOverlay::render(const Camera* camera,
 
 void DebugOverlay::renderCameraInfo(const Camera* camera) {
     if (!camera) {
+        LOG_WARN("DebugOverlay: Camera pointer is null");
         return;
     }
 
@@ -98,6 +101,7 @@ void DebugOverlay::renderRenderingStats(uint32_t chunksVisible, uint32_t chunksT
 
 void DebugOverlay::renderPerformanceInfo(const PerformanceMetrics* metrics) {
     if (!metrics) {
+        LOG_WARN("DebugOverlay: PerformanceMetrics pointer is null");
         return;
     }
 
@@ -128,6 +132,7 @@ void DebugOverlay::renderPerformanceInfo(const PerformanceMetrics* metrics) {
 
 void DebugOverlay::renderNetworkInfo(const NetworkClient* networkClient) {
     if (!networkClient) {
+        LOG_WARN("DebugOverlay: NetworkClient pointer is null");
         return;
     }
 

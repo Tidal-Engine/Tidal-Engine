@@ -4,6 +4,10 @@
 #include <memory>
 #include <atomic>
 #include <cstdint>
+#include <unordered_map>
+#include <unordered_set>
+#include <glm/glm.hpp>
+#include "shared/ChunkCoord.hpp"
 
 namespace engine {
 
@@ -14,16 +18,16 @@ class World;
  * @brief Main game server class
  *
  * Manages the server tick loop, networking, and world state.
- * Runs at a fixed tick rate (20 TPS by default) for deterministic simulation.
+ * Runs at a fixed tick rate (40 TPS by default) for deterministic simulation.
  */
 class GameServer {
 public:
     /**
      * @brief Construct a new game server
      * @param port Port to listen on (default: 25565)
-     * @param tickRate Server tick rate in ticks per second (default: 20)
+     * @param tickRate Server tick rate in ticks per second (default: 40)
      */
-    GameServer(uint16_t port = 25565, double tickRate = 20.0);
+    GameServer(uint16_t port = 25565, double tickRate = 40.0);
     ~GameServer();
 
     // Delete copy/move operations (server is unique)
@@ -50,6 +54,17 @@ public:
      * @brief Get current tick number
      */
     uint64_t getCurrentTick() const { return currentTick; }
+
+private:
+    // Player tracking
+    struct PlayerData {
+        glm::vec3 position{0.0f, 5.0f, 0.0f};  ///< Player world position (spawn at Y=5)
+        std::unordered_set<ChunkCoord> loadedChunks;  ///< Chunks this player has loaded
+    };
+
+    std::unordered_map<ENetPeer*, PlayerData> players;  ///< Track all connected players
+
+    static constexpr int32_t CHUNK_LOAD_RADIUS = 4;  ///< Radius to load chunks around player
 
 private:
     ENetHost* server = nullptr;
@@ -98,6 +113,18 @@ private:
      * @brief Cleanup networking resources
      */
     void cleanupNetworking();
+
+    /**
+     * @brief Send chunks in radius around player
+     * @param peer Player to send chunks to
+     * @param position Player position
+     */
+    void sendChunksAroundPlayer(ENetPeer* peer, const glm::vec3& position);
+
+    /**
+     * @brief Update chunk loading for all players (called periodically)
+     */
+    void updatePlayerChunks();
 };
 
 } // namespace engine

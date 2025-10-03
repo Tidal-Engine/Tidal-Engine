@@ -67,14 +67,14 @@ void GameServer::run() {
             lastTick = now;
             currentTick++;
 
-            // Log every 100 ticks (~5 seconds at 20 TPS)
-            if (currentTick % 100 == 0) {
+            // Log every 200 ticks (~5 seconds at 40 TPS)
+            if (currentTick % 200 == 0) {
                 LOG_TRACE("Server tick: {} | Loaded chunks: {}",
                          currentTick, world->getLoadedChunkCount());
             }
 
-            // Autosave every 6000 ticks (5 minutes at 20 TPS)
-            if (currentTick % 6000 == 0) {
+            // Autosave every 12000 ticks (5 minutes at 40 TPS)
+            if (currentTick % 12000 == 0) {
                 LOG_INFO("Autosaving world...");
                 size_t saved = world->saveWorld("world");
                 if (saved > 0) {
@@ -121,9 +121,14 @@ void GameServer::tick() {
     // 2. Update world state
     world->update();
 
-    // 3. TODO: Update entities, physics, etc.
+    // 3. Update player chunks periodically (once per second at 40 TPS)
+    if (currentTick % 40 == 0) {
+        updatePlayerChunks();
+    }
 
-    // 4. TODO: Send state updates to clients
+    // 4. TODO: Update entities, physics, etc.
+
+    // 5. TODO: Send state updates to clients
 }
 
 void GameServer::processNetworkEvents() {
@@ -155,57 +160,26 @@ void GameServer::onClientConnect(ENetPeer* peer) {
     LOG_INFO("Client connected from {}:{}",
              peer->address.host, peer->address.port);
 
-    // Send all loaded chunks to the client
-    auto chunks = world->getAllChunks();
-    LOG_INFO("Sending {} chunks to new client...", chunks.size());
+    // Create player data (spawn at origin, Y=5)
+    PlayerData playerData;
+    playerData.position = glm::vec3(0.0f, 5.0f, 0.0f);
+    players[peer] = playerData;
 
-    for (const Chunk* chunk : chunks) {
-        // Serialize chunk
-        std::vector<uint8_t> compressedData;
-        size_t compressedSize = ChunkSerializer::serialize(*chunk, compressedData);
+    // Send chunks in radius around spawn point
+    sendChunksAroundPlayer(peer, playerData.position);
 
-        // Create packet: header + ChunkDataMessage + compressed data
-        size_t totalSize = sizeof(protocol::MessageHeader) +
-                          sizeof(protocol::ChunkDataMessage) +
-                          compressedSize;
-
-        ENetPacket* packet = enet_packet_create(nullptr, totalSize, ENET_PACKET_FLAG_RELIABLE);
-
-        // Write message header
-        protocol::MessageHeader header;
-        header.type = protocol::MessageType::ChunkData;
-        header.payloadSize = sizeof(protocol::ChunkDataMessage) + compressedSize;
-        std::memcpy(packet->data, &header, sizeof(protocol::MessageHeader));
-
-        // Write chunk data header
-        protocol::ChunkDataMessage chunkHeader;
-        chunkHeader.coord = chunk->getCoord();
-        chunkHeader.compressedSize = compressedSize;
-        std::memcpy(packet->data + sizeof(protocol::MessageHeader),
-                   &chunkHeader, sizeof(protocol::ChunkDataMessage));
-
-        // Write compressed chunk data
-        std::memcpy(packet->data + sizeof(protocol::MessageHeader) + sizeof(protocol::ChunkDataMessage),
-                   compressedData.data(), compressedSize);
-
-        // Send packet
-        enet_peer_send(peer, 0, packet);
-    }
-
-    // Flush packets immediately
-    enet_host_flush(server);
-
-    LOG_INFO("Sent {} chunks to client", chunks.size());
-
-    // TODO: Spawn player entity
+    LOG_INFO("Player spawned at ({}, {}, {})",
+             playerData.position.x, playerData.position.y, playerData.position.z);
 }
 
 void GameServer::onClientDisconnect(ENetPeer* peer) {
     LOG_INFO("Client disconnected from {}:{}",
              peer->address.host, peer->address.port);
 
-    // TODO: Despawn player entity
-    // TODO: Save player data
+    // Remove player from tracking
+    players.erase(peer);
+
+    LOG_INFO("Player removed, {} players remaining", players.size());
 }
 
 void GameServer::onClientPacket(ENetPeer* peer, ENetPacket* packet) {
@@ -248,6 +222,98 @@ void GameServer::cleanupNetworking() {
         enet_host_destroy(server);
         server = nullptr;
     }
+}
+
+void GameServer::sendChunksAroundPlayer(ENetPeer* peer, const glm::vec3& position) {
+    // Get chunks needed around this position
+    std::vector<ChunkCoord> chunksNeeded = world->getChunksInRadius(position, CHUNK_LOAD_RADIUS);
+
+    // Get player's loaded chunks
+    auto& playerData = players[peer];
+    std::unordered_set<ChunkCoord> chunksToSend;
+
+    // Find chunks that need to be sent (not already loaded by player)
+    for (const auto& coord : chunksNeeded) {
+        if (playerData.loadedChunks.find(coord) == playerData.loadedChunks.end()) {
+            chunksToSend.insert(coord);
+        }
+    }
+
+    if (chunksToSend.empty()) {
+        return;
+    }
+
+    LOG_DEBUG("Sending {} new chunks to player at ({:.1f}, {:.1f}, {:.1f})",
+              chunksToSend.size(), position.x, position.y, position.z);
+
+    size_t sentCount = 0;
+
+    for (const auto& coord : chunksToSend) {
+        // Load/generate chunk if needed
+        Chunk& chunk = world->loadChunk(coord);
+
+        // Serialize chunk
+        std::vector<uint8_t> compressedData;
+        size_t compressedSize = ChunkSerializer::serialize(chunk, compressedData);
+
+        // Create packet: header + ChunkDataMessage + compressed data
+        size_t totalSize = sizeof(protocol::MessageHeader) +
+                          sizeof(protocol::ChunkDataMessage) +
+                          compressedSize;
+
+        ENetPacket* packet = enet_packet_create(nullptr, totalSize, ENET_PACKET_FLAG_RELIABLE);
+
+        // Write message header
+        protocol::MessageHeader header;
+        header.type = protocol::MessageType::ChunkData;
+        header.payloadSize = sizeof(protocol::ChunkDataMessage) + compressedSize;
+        std::memcpy(packet->data, &header, sizeof(protocol::MessageHeader));
+
+        // Write chunk data header
+        protocol::ChunkDataMessage chunkHeader;
+        chunkHeader.coord = coord;
+        chunkHeader.compressedSize = compressedSize;
+        std::memcpy(packet->data + sizeof(protocol::MessageHeader),
+                   &chunkHeader, sizeof(protocol::ChunkDataMessage));
+
+        // Write compressed chunk data
+        std::memcpy(packet->data + sizeof(protocol::MessageHeader) + sizeof(protocol::ChunkDataMessage),
+                   compressedData.data(), compressedSize);
+
+        // Send packet
+        enet_peer_send(peer, 0, packet);
+
+        // Mark as loaded for this player
+        playerData.loadedChunks.insert(coord);
+        sentCount++;
+    }
+
+    // Flush packets immediately
+    enet_host_flush(server);
+
+    LOG_INFO("Sent {} chunks to player", sentCount);
+}
+
+void GameServer::updatePlayerChunks() {
+    if (players.empty()) {
+        // No players, unload all chunks
+        size_t unloaded = world->unloadDistantChunks({}, CHUNK_LOAD_RADIUS);
+        if (unloaded > 0) {
+            LOG_DEBUG("No players online, unloaded all {} chunks", unloaded);
+        }
+        return;
+    }
+
+    // Collect all player positions
+    std::vector<glm::vec3> playerPositions;
+    playerPositions.reserve(players.size());
+
+    for (const auto& [peer, playerData] : players) {
+        playerPositions.push_back(playerData.position);
+    }
+
+    // Unload chunks that are far from all players
+    world->unloadDistantChunks(playerPositions, CHUNK_LOAD_RADIUS + 2);  // +2 buffer for hysteresis
 }
 
 } // namespace engine

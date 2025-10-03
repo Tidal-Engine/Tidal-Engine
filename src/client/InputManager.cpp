@@ -1,4 +1,5 @@
 #include "client/InputManager.hpp"
+#include "core/Logger.hpp"
 
 namespace engine {
 
@@ -12,6 +13,7 @@ void InputManager::handleEvent(const SDL_Event& event) {
     switch (event.type) {
         case SDL_EVENT_KEY_DOWN:
             // Union access required by SDL3 API
+            LOG_TRACE("Key down: scancode {}", static_cast<int>(event.key.scancode));  // NOLINT(cppcoreguidelines-pro-type-union-access)
             if (!keyState[event.key.scancode]) {  // NOLINT(cppcoreguidelines-pro-type-union-access)
                 keyPressedThisFrame[event.key.scancode] = true;  // NOLINT(cppcoreguidelines-pro-type-union-access)
             }
@@ -19,19 +21,25 @@ void InputManager::handleEvent(const SDL_Event& event) {
             break;
 
         case SDL_EVENT_KEY_UP:
+            LOG_TRACE("Key up: scancode {}", static_cast<int>(event.key.scancode));  // NOLINT(cppcoreguidelines-pro-type-union-access)
             keyState[event.key.scancode] = false;  // NOLINT(cppcoreguidelines-pro-type-union-access)
             break;
 
         case SDL_EVENT_MOUSE_BUTTON_DOWN:
+            LOG_TRACE("Mouse button down: {}", static_cast<int>(event.button.button));  // NOLINT(cppcoreguidelines-pro-type-union-access)
             mouseButtonState[event.button.button] = true;  // NOLINT(cppcoreguidelines-pro-type-union-access)
             break;
 
         case SDL_EVENT_MOUSE_BUTTON_UP:
+            LOG_TRACE("Mouse button up: {}", static_cast<int>(event.button.button));  // NOLINT(cppcoreguidelines-pro-type-union-access)
             mouseButtonState[event.button.button] = false;  // NOLINT(cppcoreguidelines-pro-type-union-access)
             break;
 
         case SDL_EVENT_MOUSE_MOTION:
             // Union access required by SDL3 API
+            LOG_TRACE("Mouse motion: pos({}, {}), delta({}, {})",   // NOLINT(cppcoreguidelines-pro-type-union-access)
+                     static_cast<float>(event.motion.x), static_cast<float>(event.motion.y),    // NOLINT(cppcoreguidelines-pro-type-union-access)
+                     static_cast<float>(event.motion.xrel), static_cast<float>(event.motion.yrel));  // NOLINT(cppcoreguidelines-pro-type-union-access)
             mousePosition.x = event.motion.x;  // NOLINT(cppcoreguidelines-pro-type-union-access)
             mousePosition.y = event.motion.y;  // NOLINT(cppcoreguidelines-pro-type-union-access)
             mouseDelta.x += event.motion.xrel;  // NOLINT(cppcoreguidelines-pro-type-union-access)
@@ -39,6 +47,7 @@ void InputManager::handleEvent(const SDL_Event& event) {
             break;
 
         default:
+            // Unknown/unhandled event type - not necessarily an error
             break;
     }
 }

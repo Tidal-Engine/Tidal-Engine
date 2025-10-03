@@ -4,6 +4,7 @@
 #include <cmath>
 #include <fstream>
 #include <filesystem>
+#include <unordered_set>
 
 namespace engine {
 
@@ -13,40 +14,17 @@ World::World() {
 }
 
 void World::generateInitialChunks() {
-    // Pre-generate terrain area (7x7x7 area around origin with terrain)
-    for (int32_t x = -3; x <= 3; x++) {
-        for (int32_t y = -3; y <= 3; y++) {
-            for (int32_t z = -3; z <= 3; z++) {
+    // Only generate a small spawn area (3x3x3) to reduce initial load time
+    // Additional chunks will be generated dynamically as players explore
+    for (int32_t x = -1; x <= 1; x++) {
+        for (int32_t y = -1; y <= 1; y++) {
+            for (int32_t z = -1; z <= 1; z++) {
                 loadChunk(ChunkCoord{x, y, z});
             }
         }
     }
 
-    // Generate air chunks around the terrain for building space
-    // Extend to 11x11x11 total area (-5 to 5 in each direction)
-    for (int32_t x = -5; x <= 5; x++) {
-        for (int32_t y = -5; y <= 5; y++) {
-            for (int32_t z = -5; z <= 5; z++) {
-                ChunkCoord coord{x, y, z};
-                // Skip if already generated (core terrain area)
-                if (getChunk(coord) == nullptr) {
-                    auto chunk = std::make_unique<Chunk>(coord);
-                    // Fill with air
-                    for (uint32_t bx = 0; bx < CHUNK_SIZE; bx++) {
-                        for (uint32_t by = 0; by < CHUNK_SIZE; by++) {
-                            for (uint32_t bz = 0; bz < CHUNK_SIZE; bz++) {
-                                chunk->setBlock(bx, by, bz, Block{BlockType::Air});
-                            }
-                        }
-                    }
-                    std::lock_guard<std::mutex> lock(chunksMutex);
-                    chunks[coord] = std::move(chunk);
-                }
-            }
-        }
-    }
-
-    LOG_INFO("Generated initial world with {} chunks ({} terrain + air)", chunks.size(), 7*7*7);
+    LOG_INFO("Generated initial spawn area with {} chunks (3x3x3)", chunks.size());
 }
 
 void World::update() {
@@ -255,6 +233,82 @@ size_t World::saveWorld(const std::string& worldDir) {
     }
 
     return savedCount;
+}
+
+std::vector<ChunkCoord> World::getChunksInRadius(const glm::vec3& centerPos, int32_t chunkRadius) const {
+    std::vector<ChunkCoord> result;
+
+    // Convert center position to chunk coordinate
+    ChunkCoord centerChunk = ChunkCoord::fromWorldPos(centerPos);
+
+    // Get all chunks in a cube around the center
+    for (int32_t x = centerChunk.x - chunkRadius; x <= centerChunk.x + chunkRadius; x++) {
+        for (int32_t y = centerChunk.y - chunkRadius; y <= centerChunk.y + chunkRadius; y++) {
+            for (int32_t z = centerChunk.z - chunkRadius; z <= centerChunk.z + chunkRadius; z++) {
+                ChunkCoord coord{x, y, z};
+
+                // Check if within radius (using Manhattan distance for simplicity)
+                int32_t dx = coord.x - centerChunk.x;
+                int32_t dy = coord.y - centerChunk.y;
+                int32_t dz = coord.z - centerChunk.z;
+                int32_t distance = std::abs(dx) + std::abs(dy) + std::abs(dz);
+
+                if (distance <= chunkRadius * 3) {  // Allow diagonal chunks
+                    result.push_back(coord);
+                }
+            }
+        }
+    }
+
+    return result;
+}
+
+size_t World::unloadDistantChunks(const std::vector<glm::vec3>& playerPositions, int32_t keepRadius) {
+    std::lock_guard<std::mutex> lock(chunksMutex);
+
+    // Build set of chunks that should be kept loaded
+    std::unordered_set<ChunkCoord> chunksToKeep;
+
+    for (const auto& pos : playerPositions) {
+        ChunkCoord playerChunk = ChunkCoord::fromWorldPos(pos);
+
+        // Mark all chunks in radius around this player
+        for (int32_t x = playerChunk.x - keepRadius; x <= playerChunk.x + keepRadius; x++) {
+            for (int32_t y = playerChunk.y - keepRadius; y <= playerChunk.y + keepRadius; y++) {
+                for (int32_t z = playerChunk.z - keepRadius; z <= playerChunk.z + keepRadius; z++) {
+                    chunksToKeep.insert(ChunkCoord{x, y, z});
+                }
+            }
+        }
+    }
+
+    // Unload chunks not in the keep set
+    size_t unloadedCount = 0;
+    std::vector<ChunkCoord> toUnload;
+
+    for (const auto& [coord, chunk] : chunks) {
+        if (chunksToKeep.find(coord) == chunksToKeep.end()) {
+            toUnload.push_back(coord);
+        }
+    }
+
+    // Unload chunks (do this outside the iteration to avoid iterator invalidation)
+    for (const auto& coord : toUnload) {
+        // Save chunk if dirty before unloading
+        auto it = chunks.find(coord);
+        if (it != chunks.end() && it->second->isDirty()) {
+            // Will be saved in next autosave
+        }
+        chunks.erase(coord);
+        unloadedCount++;
+        LOG_TRACE("Unloaded distant chunk ({}, {}, {})", coord.x, coord.y, coord.z);
+    }
+
+    if (unloadedCount > 0) {
+        LOG_DEBUG("Unloaded {} distant chunks, {} chunks remaining", unloadedCount, chunks.size());
+    }
+
+    return unloadedCount;
 }
 
 size_t World::loadWorld(const std::string& worldDir) {

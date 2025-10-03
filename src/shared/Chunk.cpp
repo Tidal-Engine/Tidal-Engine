@@ -1,4 +1,5 @@
 #include "shared/Chunk.hpp"
+#include "core/Logger.hpp"
 #include <cmath>
 #include <stdexcept>
 #include <cstring>
@@ -15,6 +16,8 @@ Chunk::Chunk(const ChunkCoord& coord)
 
 Block& Chunk::getBlock(uint32_t x, uint32_t y, uint32_t z) {
     if (x >= CHUNK_SIZE || y >= CHUNK_SIZE || z >= CHUNK_SIZE) {
+        LOG_ERROR("Block access out of bounds: ({}, {}, {}) in chunk ({}, {}, {})",
+                  x, y, z, coord.x, coord.y, coord.z);
         throw std::out_of_range("Block coordinates out of chunk bounds");
     }
     return blocks[getIndex(x, y, z)];
@@ -22,6 +25,8 @@ Block& Chunk::getBlock(uint32_t x, uint32_t y, uint32_t z) {
 
 const Block& Chunk::getBlock(uint32_t x, uint32_t y, uint32_t z) const {
     if (x >= CHUNK_SIZE || y >= CHUNK_SIZE || z >= CHUNK_SIZE) {
+        LOG_ERROR("Block access out of bounds: ({}, {}, {}) in chunk ({}, {}, {})",
+                  x, y, z, coord.x, coord.y, coord.z);
         throw std::out_of_range("Block coordinates out of chunk bounds");
     }
     return blocks[getIndex(x, y, z)];
@@ -29,6 +34,8 @@ const Block& Chunk::getBlock(uint32_t x, uint32_t y, uint32_t z) const {
 
 void Chunk::setBlock(uint32_t x, uint32_t y, uint32_t z, const Block& block) {
     if (x >= CHUNK_SIZE || y >= CHUNK_SIZE || z >= CHUNK_SIZE) {
+        LOG_ERROR("Block set out of bounds: ({}, {}, {}) in chunk ({}, {}, {})",
+                  x, y, z, coord.x, coord.y, coord.z);
         throw std::out_of_range("Block coordinates out of chunk bounds");
     }
     blocks[getIndex(x, y, z)] = block;
@@ -65,6 +72,8 @@ bool Chunk::deserialize(const std::vector<uint8_t>& data) {
     // Verify size
     const size_t expectedSize = 12 + CHUNK_VOLUME * sizeof(Block);
     if (data.size() != expectedSize) {
+        LOG_ERROR("Chunk deserialization failed: invalid data size {} (expected {})",
+                  data.size(), expectedSize);
         return false;
     }
 
@@ -81,6 +90,8 @@ bool Chunk::deserialize(const std::vector<uint8_t>& data) {
 
     // Verify coordinates match
     if (loadedCoord.x != coord.x || loadedCoord.y != coord.y || loadedCoord.z != coord.z) {
+        LOG_ERROR("Chunk deserialization failed: coordinate mismatch - expected ({}, {}, {}), got ({}, {}, {})",
+                  coord.x, coord.y, coord.z, loadedCoord.x, loadedCoord.y, loadedCoord.z);
         return false;
     }
 

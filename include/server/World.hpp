@@ -104,6 +104,22 @@ public:
      */
     void generateInitialChunks();
 
+    /**
+     * @brief Get chunks within a radius of a position
+     * @param centerPos World position center
+     * @param chunkRadius Radius in chunks
+     * @return Vector of chunk coordinates within radius
+     */
+    std::vector<ChunkCoord> getChunksInRadius(const glm::vec3& centerPos, int32_t chunkRadius) const;
+
+    /**
+     * @brief Unload chunks that are not near any of the given positions
+     * @param playerPositions List of player positions to check
+     * @param keepRadius Radius in chunks to keep loaded around each position
+     * @return Number of chunks unloaded
+     */
+    size_t unloadDistantChunks(const std::vector<glm::vec3>& playerPositions, int32_t keepRadius);
+
 private:
     std::unordered_map<ChunkCoord, std::unique_ptr<Chunk>> chunks;
     mutable std::mutex chunksMutex;

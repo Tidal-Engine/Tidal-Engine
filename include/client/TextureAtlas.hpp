@@ -16,8 +16,19 @@ namespace engine {
  */
 class TextureAtlas {
 public:
+    /**
+     * @brief Construct a new Texture Atlas
+     * @param device Logical Vulkan device
+     * @param physicalDevice Physical device for memory properties
+     * @param commandPool Command pool for transfer commands
+     * @param graphicsQueue Graphics queue for command submission
+     */
     TextureAtlas(VkDevice device, VkPhysicalDevice physicalDevice,
                  VkCommandPool commandPool, VkQueue graphicsQueue);
+
+    /**
+     * @brief Destroy the Texture Atlas and free Vulkan resources
+     */
     ~TextureAtlas();
 
     // Delete copy
@@ -37,7 +48,16 @@ public:
      */
     glm::vec4 getBlockUVs(BlockType type) const;
 
+    /**
+     * @brief Get the texture atlas image view
+     * @return VkImageView Image view for the complete texture atlas
+     */
     VkImageView getImageView() const { return textureImageView; }
+
+    /**
+     * @brief Get the texture sampler
+     * @return VkSampler Sampler with filtering settings for block textures
+     */
     VkSampler getSampler() const { return textureSampler; }
 
 private:
@@ -78,22 +98,21 @@ private:
      */
     void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
 
-    VkDevice device;
-    VkPhysicalDevice physicalDevice;
-    VkCommandPool commandPool;
-    VkQueue graphicsQueue;
+    VkDevice device;                    ///< Logical Vulkan device
+    VkPhysicalDevice physicalDevice;    ///< Physical device for memory queries
+    VkCommandPool commandPool;          ///< Command pool for transfer operations
+    VkQueue graphicsQueue;              ///< Graphics queue for command submission
 
-    VkImage textureImage = VK_NULL_HANDLE;
-    VkDeviceMemory textureImageMemory = VK_NULL_HANDLE;
-    VkImageView textureImageView = VK_NULL_HANDLE;
-    VkSampler textureSampler = VK_NULL_HANDLE;
+    VkImage textureImage = VK_NULL_HANDLE;              ///< Texture atlas image
+    VkDeviceMemory textureImageMemory = VK_NULL_HANDLE; ///< Device memory for texture image
+    VkImageView textureImageView = VK_NULL_HANDLE;      ///< Image view for texture sampling
+    VkSampler textureSampler = VK_NULL_HANDLE;          ///< Sampler for texture filtering
 
-    // Map block type to UV coordinates in the atlas
-    std::unordered_map<BlockType, glm::vec4> blockUVs;
+    std::unordered_map<BlockType, glm::vec4> blockUVs;  ///< Map block type to UV coordinates in atlas
 
-    uint32_t atlasWidth = 0;
-    uint32_t atlasHeight = 0;
-    uint32_t textureSize = 160;  // Size of individual textures (160x160)
+    uint32_t atlasWidth = 0;        ///< Total atlas width in pixels
+    uint32_t atlasHeight = 0;       ///< Total atlas height in pixels
+    uint32_t textureSize = 160;     ///< Size of individual block textures (160x160)
 };
 
 } // namespace engine

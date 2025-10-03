@@ -4,6 +4,19 @@
 #include <glm/glm.hpp>
 #include "shared/ChunkCoord.hpp"
 
+// Cross-platform struct packing macros
+#ifdef _MSC_VER
+    // MSVC uses #pragma pack
+    #define PACK_BEGIN __pragma(pack(push, 1))
+    #define PACK_END __pragma(pack(pop))
+    #define PACKED
+#else
+    // GCC/Clang use __attribute__
+    #define PACK_BEGIN
+    #define PACK_END
+    #define PACKED __attribute__((packed))
+#endif
+
 namespace engine::protocol {
 
 /**
@@ -31,95 +44,117 @@ enum class MessageType : uint8_t {
 /**
  * @brief Message header (prepended to all messages)
  */
+PACK_BEGIN
 struct MessageHeader {
-    MessageType type;
-    uint32_t payloadSize;  // Size of data following this header
-} __attribute__((packed));
+    MessageType type;           ///< Type of message being sent
+    uint32_t payloadSize;       ///< Size of data following this header in bytes
+} PACKED;
+PACK_END
 
 /**
  * @brief Client join request
  */
+PACK_BEGIN
 struct ClientJoinMessage {
-    char playerName[32];
-    uint32_t clientVersion;
-} __attribute__((packed));
+    char playerName[32];        ///< Player's chosen display name (null-terminated)
+    uint32_t clientVersion;     ///< Client protocol version number
+} PACKED;
+PACK_END
 
 /**
  * @brief Player movement update (client -> server)
  */
+PACK_BEGIN
 struct PlayerMoveMessage {
-    glm::vec3 position;
-    glm::vec3 velocity;
-    float yaw;
-    float pitch;
-    uint8_t inputFlags;  // Bitfield: forward, back, left, right, jump, etc.
-} __attribute__((packed));
+    glm::vec3 position;         ///< Player position in world coordinates
+    glm::vec3 velocity;         ///< Player velocity vector
+    float yaw;                  ///< Camera yaw angle in degrees
+    float pitch;                ///< Camera pitch angle in degrees
+    uint8_t inputFlags;         ///< Bitfield: forward, back, left, right, jump, etc.
+} PACKED;
+PACK_END
 
 /**
  * @brief Block placement (client -> server)
  */
+PACK_BEGIN
 struct BlockPlaceMessage {
-    int32_t x, y, z;
-    uint16_t blockType;
-} __attribute__((packed));
+    int32_t x, y, z;            ///< Block world coordinates
+    uint16_t blockType;         ///< Type of block to place
+} PACKED;
+PACK_END
 
 /**
  * @brief Block break (client -> server)
  */
+PACK_BEGIN
 struct BlockBreakMessage {
-    int32_t x, y, z;
-} __attribute__((packed));
+    int32_t x, y, z;            ///< Block world coordinates to break
+} PACKED;
+PACK_END
 
 /**
  * @brief Chunk data header (server -> client)
  *
  * Followed by compressed chunk data
  */
+PACK_BEGIN
 struct ChunkDataMessage {
-    ChunkCoord coord;
-    uint32_t compressedSize;
+    ChunkCoord coord;           ///< Chunk coordinates
+    uint32_t compressedSize;    ///< Size of compressed block data that follows in bytes
     // Compressed block data follows
-} __attribute__((packed));
+} PACKED;
+PACK_END
 
 /**
  * @brief Chunk unload notification (server -> client)
  */
+PACK_BEGIN
 struct ChunkUnloadMessage {
-    ChunkCoord coord;
-} __attribute__((packed));
+    ChunkCoord coord;           ///< Chunk coordinates to unload
+} PACKED;
+PACK_END
 
 /**
  * @brief Single block update (server -> client)
  */
+PACK_BEGIN
 struct BlockUpdateMessage {
-    int32_t x, y, z;
-    uint16_t blockType;
-} __attribute__((packed));
+    int32_t x, y, z;            ///< Block world coordinates
+    uint16_t blockType;         ///< New block type at this position
+} PACKED;
+PACK_END
 
 /**
  * @brief Player spawn data (server -> client)
  */
+PACK_BEGIN
 struct PlayerSpawnMessage {
-    uint32_t playerId;
-    glm::vec3 spawnPosition;
-    char playerName[32];
-} __attribute__((packed));
+    uint32_t playerId;          ///< Unique player identifier
+    glm::vec3 spawnPosition;    ///< Initial spawn position in world coordinates
+    char playerName[32];        ///< Player's display name (null-terminated)
+} PACKED;
+PACK_END
 
 /**
  * @brief Player position update (server -> client)
  */
+PACK_BEGIN
 struct PlayerPositionUpdateMessage {
-    uint32_t playerId;
-    glm::vec3 position;
-    float yaw;
-    float pitch;
-} __attribute__((packed));
+    uint32_t playerId;          ///< Unique player identifier
+    glm::vec3 position;         ///< Current player position in world coordinates
+    float yaw;                  ///< Camera yaw angle in degrees
+    float pitch;                ///< Camera pitch angle in degrees
+} PACKED;
+PACK_END
 
 /**
  * @brief Keep-alive ping (bidirectional)
  */
+PACK_BEGIN
 struct KeepAliveMessage {
-    uint64_t timestamp;
-} __attribute__((packed));
+    uint64_t timestamp;         ///< Unix timestamp in milliseconds for RTT measurement
+} PACKED;
+PACK_END
 
 } // namespace engine::protocol
