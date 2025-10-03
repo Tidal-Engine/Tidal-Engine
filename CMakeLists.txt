@@ -192,6 +192,16 @@ target_include_directories(TidalClient PRIVATE
     ${enet_SOURCE_DIR}/include
 )
 
+# Copy SDL3.dll to executable directory on Windows
+if(WIN32)
+    add_custom_command(TARGET TidalClient POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        $<TARGET_FILE:SDL3::SDL3>
+        $<TARGET_FILE_DIR:TidalClient>
+        COMMENT "Copying SDL3.dll to output directory"
+    )
+endif()
+
 # Pass validation layer option to client
 if(ENABLE_VALIDATION_LAYERS)
     target_compile_definitions(TidalClient PRIVATE ENABLE_VALIDATION_LAYERS)
