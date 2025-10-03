@@ -1,12 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
 
-# Set generator to Ninja
-set(CMAKE_GENERATOR "Ninja" CACHE INTERNAL "" FORCE)
-
-# Set compilers BEFORE project()
-set(CMAKE_C_COMPILER clang)
-set(CMAKE_CXX_COMPILER clang++)
-
 project(TidalEngine)
 
 # Set C++ standard
@@ -73,7 +66,15 @@ FetchContent_Declare(
     GIT_SHALLOW TRUE
 )
 
-FetchContent_MakeAvailable(SDL3 spdlog cpptrace EnTT glm imgui)
+# ENet
+FetchContent_Declare(
+    enet
+    GIT_REPOSITORY https://github.com/lsalzman/enet.git
+    GIT_TAG master
+    GIT_SHALLOW TRUE
+)
+
+FetchContent_MakeAvailable(SDL3 spdlog cpptrace EnTT glm imgui enet)
 
 # Create ImGui library target
 add_library(imgui STATIC
@@ -96,28 +97,81 @@ target_link_libraries(imgui PUBLIC
     Vulkan::Vulkan
 )
 
-# Add executable
-add_executable(TidalEngine
-    src/Main.cpp
+# ============================================================================
+# Shared Library (used by both client and server)
+# ============================================================================
+add_library(TidalShared STATIC
+    src/shared/Chunk.cpp
+    src/shared/ChunkSerializer.cpp
     src/core/ResourceManager.cpp
-    src/core/InputManager.cpp
-    src/core/Camera.cpp
     src/core/PerformanceMetrics.cpp
-    src/vulkan/VulkanEngine.cpp
-    src/vulkan/VulkanBuffer.cpp
-    src/vulkan/VulkanSwapchain.cpp
-    src/vulkan/VulkanPipeline.cpp
-    src/vulkan/VulkanRenderer.cpp
-    src/vulkan/CubeGeometry.cpp
 )
 
-# Include directories
-target_include_directories(TidalEngine PRIVATE
+target_include_directories(TidalShared PUBLIC
     ${CMAKE_SOURCE_DIR}/include
 )
 
-# Link libraries
-target_link_libraries(TidalEngine
+target_link_libraries(TidalShared PUBLIC
+    spdlog::spdlog
+    EnTT::EnTT
+    glm::glm
+)
+
+# ============================================================================
+# Dedicated Server (headless, no graphics)
+# ============================================================================
+add_executable(TidalServer
+    src/server/ServerMain.cpp
+    src/server/GameServer.cpp
+    src/server/World.cpp
+)
+
+target_include_directories(TidalServer PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+)
+
+target_link_libraries(TidalServer PRIVATE
+    TidalShared
+    enet
+    spdlog::spdlog
+    cpptrace::cpptrace
+    EnTT::EnTT
+)
+
+# Windows requires ws2_32 and winmm for networking
+if(WIN32)
+    target_link_libraries(TidalServer PRIVATE ws2_32 winmm)
+endif()
+
+target_include_directories(TidalServer PRIVATE
+    ${enet_SOURCE_DIR}/include
+)
+
+# ============================================================================
+# Client (game executable with rendering)
+# ============================================================================
+add_executable(TidalClient
+    src/client/ClientMain.cpp
+    src/client/VulkanEngine.cpp
+    src/client/VulkanRenderer.cpp
+    src/client/InputManager.cpp
+    src/client/Camera.cpp
+    src/client/NetworkClient.cpp
+    src/client/ChunkMesh.cpp
+    src/client/ChunkRenderer.cpp
+    src/client/TextureAtlas.cpp
+    src/vulkan/VulkanBuffer.cpp
+    src/vulkan/VulkanSwapchain.cpp
+    src/vulkan/VulkanPipeline.cpp
+    src/vulkan/CubeGeometry.cpp
+)
+
+target_include_directories(TidalClient PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+)
+
+target_link_libraries(TidalClient PRIVATE
+    TidalShared
     SDL3::SDL3
     Vulkan::Vulkan
     spdlog::spdlog
@@ -125,17 +179,29 @@ target_link_libraries(TidalEngine
     EnTT::EnTT
     glm::glm
     imgui
+    enet
 )
 
-# Pass validation layer option to code
-if(ENABLE_VALIDATION_LAYERS)
-    target_compile_definitions(TidalEngine PRIVATE ENABLE_VALIDATION_LAYERS)
+# Windows requires ws2_32 and winmm for networking
+if(WIN32)
+    target_link_libraries(TidalClient PRIVATE ws2_32 winmm)
 endif()
 
+target_include_directories(TidalClient PRIVATE
+    ${enet_SOURCE_DIR}/include
+)
+
+# Pass validation layer option to client
+if(ENABLE_VALIDATION_LAYERS)
+    target_compile_definitions(TidalClient PRIVATE ENABLE_VALIDATION_LAYERS)
+endif()
+
+# ============================================================================
 # Compile shaders
-find_program(GLSLC glslc HINTS $ENV{VULKAN_SDK}/bin)
+# ============================================================================
+find_program(GLSLC glslc HINTS $ENV{VULKAN_SDK}/bin $ENV{VULKAN_SDK}/Bin)
 if(NOT GLSLC)
-    message(WARNING "glslc not found - shaders will not be automatically compiled. Run shaders/compile.sh manually.")
+    message(WARNING "glslc not found - shaders will not be automatically compiled. Please compile shaders manually.")
 else()
     set(SHADER_SOURCE_DIR ${CMAKE_SOURCE_DIR}/shaders)
     set(SHADER_BINARY_DIR ${CMAKE_SOURCE_DIR}/shaders)
@@ -168,5 +234,5 @@ else()
     endforeach()
 
     add_custom_target(CompileShaders ALL DEPENDS ${SHADER_BINARIES})
-    add_dependencies(TidalEngine CompileShaders)
+    add_dependencies(TidalClient CompileShaders)
 endif()
