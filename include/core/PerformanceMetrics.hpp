@@ -14,7 +14,7 @@ namespace engine {
  */
 class PerformanceMetrics {
 public:
-    PerformanceMetrics() = default;
+    PerformanceMetrics();
     ~PerformanceMetrics() = default;
 
     /**
@@ -74,6 +74,7 @@ private:
 
     TimePoint frameStartTime;
     TimePoint lastFrameTime;
+    TimePoint lastLogTime;  ///< Last time performance was logged
 
     double deltaTime = 0.0;
     double fps = 0.0;

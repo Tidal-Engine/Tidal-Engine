@@ -5,6 +5,10 @@
 
 namespace engine {
 
+PerformanceMetrics::PerformanceMetrics() {
+    lastLogTime = Clock::now();  // Initialize to avoid immediate logging on startup
+}
+
 void PerformanceMetrics::beginFrame() {
     frameStartTime = Clock::now();
 }
@@ -40,10 +44,13 @@ void PerformanceMetrics::endFrame() {
 
     frameCount++;
 
-    // Log performance every 5 seconds
-    if (frameCount % 300 == 0) {
+    // Log performance every 10 seconds (time-based, not frame-based)
+    auto now = Clock::now();
+    std::chrono::duration<double> timeSinceLastLog = now - lastLogTime;
+    if (timeSinceLastLog.count() >= 10.0) {
         LOG_DEBUG("Performance: {:.1f} FPS | Frame time: {:.2f}ms (avg), {:.2f}ms (min), {:.2f}ms (max)",
                   fps, averageFrameTime, minFrameTime, maxFrameTime);
+        lastLogTime = now;
     }
 
     lastFrameTime = frameEndTime;
@@ -57,6 +64,7 @@ void PerformanceMetrics::reset() {
     minFrameTime = 999999.0;
     maxFrameTime = 0.0;
     frameCount = 0;
+    lastLogTime = Clock::now();  // Reset log timer
 }
 
 } // namespace engine
