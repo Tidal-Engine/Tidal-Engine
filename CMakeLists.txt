@@ -262,3 +262,67 @@ else()
     add_custom_target(CompileShaders ALL DEPENDS ${SHADER_BINARIES})
     add_dependencies(TidalClient CompileShaders)
 endif()
+
+# ============================================================================
+# Convenience targets for running server + client
+# ============================================================================
+
+# Helper script to run server then client
+if(WIN32)
+    set(RUN_SCRIPT_EXT ".bat")
+    set(RUN_SCRIPT_CONTENT "@echo off
+start \"TidalServer\" /B \"$<TARGET_FILE:TidalServer>\"
+set SERVER_PID=%ERRORLEVEL%
+\"$<TARGET_FILE:TidalClient>\"
+taskkill /F /IM TidalServer.exe >nul 2>&1
+")
+else()
+    set(RUN_SCRIPT_EXT ".sh")
+    set(RUN_SCRIPT_CONTENT "#!/bin/bash
+\"$<TARGET_FILE:TidalServer>\" &
+SERVER_PID=$!
+\"$<TARGET_FILE:TidalClient>\"
+kill $SERVER_PID 2>/dev/null || true
+")
+endif()
+
+# Create run script
+file(GENERATE OUTPUT "${CMAKE_BINARY_DIR}/run_game${RUN_SCRIPT_EXT}" CONTENT "${RUN_SCRIPT_CONTENT}")
+
+# Target to run both server and client (uses current build configuration)
+add_custom_target(run_game
+    COMMAND ${CMAKE_COMMAND} -E echo "Starting TidalServer and TidalClient..."
+    COMMAND ${CMAKE_COMMAND} -E chmod +x "${CMAKE_BINARY_DIR}/run_game${RUN_SCRIPT_EXT}"
+    COMMAND "${CMAKE_BINARY_DIR}/run_game${RUN_SCRIPT_EXT}"
+    DEPENDS TidalServer TidalClient
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    COMMENT "Running TidalServer (background) and TidalClient (foreground)"
+    USES_TERMINAL
+)
+
+# Target to build server (Release) + client (Debug), then run both
+# Note: This works best with multi-config generators (Visual Studio, Xcode)
+add_custom_target(run_game_dev
+    COMMAND ${CMAKE_COMMAND} -E echo "Building TidalServer (Release) and TidalClient (Debug)..."
+    COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} --target TidalServer --config Release
+    COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} --target TidalClient --config Debug
+    COMMAND ${CMAKE_COMMAND} -E echo "Starting server and client..."
+    COMMAND ${CMAKE_COMMAND} -E chmod +x "${CMAKE_BINARY_DIR}/run_game${RUN_SCRIPT_EXT}"
+    COMMAND "${CMAKE_BINARY_DIR}/run_game${RUN_SCRIPT_EXT}"
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    COMMENT "Build (Server=Release, Client=Debug) and run both"
+    USES_TERMINAL
+)
+
+# Target to build server (Release) + client (Release), then run both
+add_custom_target(run_game_release
+    COMMAND ${CMAKE_COMMAND} -E echo "Building TidalServer and TidalClient (Release)..."
+    COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} --target TidalServer --config Release
+    COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} --target TidalClient --config Release
+    COMMAND ${CMAKE_COMMAND} -E echo "Starting server and client..."
+    COMMAND ${CMAKE_COMMAND} -E chmod +x "${CMAKE_BINARY_DIR}/run_game${RUN_SCRIPT_EXT}"
+    COMMAND "${CMAKE_BINARY_DIR}/run_game${RUN_SCRIPT_EXT}"
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    COMMENT "Build (Server=Release, Client=Release) and run both"
+    USES_TERMINAL
+)
