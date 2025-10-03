@@ -21,7 +21,7 @@ struct EngineConfig {
     static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
     static constexpr float FOV_DEGREES = 45.0f;
     static constexpr float NEAR_PLANE = 0.1f;
-    static constexpr float FAR_PLANE = 100.0f;
+    static constexpr float FAR_PLANE = 1000.0f;
 
     // Camera settings
     static constexpr float DEFAULT_CAMERA_SPEED = 2.5f;

@@ -8,6 +8,7 @@
 namespace engine {
 
 struct UniformBufferObject;
+class ChunkRenderer;
 
 /**
  * @brief Manages Vulkan command buffers and frame rendering
@@ -134,6 +135,17 @@ public:
      */
     VkImageView getDepthImageView() const { return depthImageView; }
 
+    /**
+     * @brief Get the current frame index
+     * @return uint32_t Current frame index
+     */
+    uint32_t getCurrentFrame() const { return currentFrame; }
+
+    /**
+     * @brief Set chunk renderer for drawing voxel chunks
+     */
+    void setChunkRenderer(ChunkRenderer* renderer) { chunkRenderer = renderer; }
+
 private:
     VkDevice device;
     VkPhysicalDevice physicalDevice;
@@ -153,13 +165,38 @@ private:
     std::vector<VkFence> inFlightFences;
     uint32_t currentFrame = 0;
 
+    ChunkRenderer* chunkRenderer = nullptr;
+
+    /**
+     * @brief Update uniform buffer with current frame data (currently unused)
+     * @param uniformBufferMapped Pointer to mapped uniform buffer memory
+     */
     void updateUniformBuffer(void* uniformBufferMapped);
+
+    /**
+     * @brief Create a Vulkan image with specified properties
+     * @param width Image width in pixels
+     * @param height Image height in pixels
+     * @param format Image format
+     * @param tiling Image tiling mode
+     * @param usage Usage flags for the image
+     * @param properties Memory property flags
+     * @param image Output image handle
+     * @param imageMemory Output memory handle
+     */
     void createImage(uint32_t width, uint32_t height, VkFormat format,
                     VkImageTiling tiling, VkImageUsageFlags usage,
                     VkMemoryPropertyFlags properties, VkImage& image,
                     VkDeviceMemory& imageMemory);
+
+    /**
+     * @brief Create an image view for an existing image
+     * @param image Image to create view for
+     * @param format Image format
+     * @param aspectFlags Aspect mask (color, depth, etc.)
+     * @return Created image view handle
+     */
     VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
-    uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 };
 
 } // namespace engine

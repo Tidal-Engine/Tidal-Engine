@@ -5,3 +5,4 @@ logs/
 *.spv
 compile_commands.json
 .clangd/
+dev-screenshots/

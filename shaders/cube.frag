@@ -1,10 +1,15 @@
 #version 450
 
+layout(binding = 1) uniform sampler2D texSampler;
+
 layout(location = 0) in vec3 fragColor;
 layout(location = 1) in vec3 fragNormal;
 layout(location = 2) in vec3 fragPos;
 layout(location = 3) in vec3 fragLightPos;
 layout(location = 4) in vec3 fragViewPos;
+layout(location = 5) in vec2 fragTexCoord;
+layout(location = 6) in vec2 fragAtlasOffset;
+layout(location = 7) in vec2 fragAtlasSize;
 
 layout(location = 0) out vec4 outColor;
 
@@ -29,7 +34,14 @@ void main() {
     float spec = pow(max(dot(norm, halfwayDir), 0.0), 32.0);
     vec3 specular = specularStrength * spec * lightColor;
 
-    // Combine all components with the vertex color
-    vec3 result = (ambient + diffuse + specular) * fragColor;
+    // Remap tiled UVs to atlas region for greedy meshing
+    // fragTexCoord ranges from (0,0) to (width, height) in blocks
+    // We use fract() to tile, then remap to the block's atlas region
+    vec2 tiledUV = fract(fragTexCoord);
+    vec2 atlasUV = fragAtlasOffset + tiledUV * fragAtlasSize;
+
+    // Sample texture and combine with lighting
+    vec4 texColor = texture(texSampler, atlasUV);
+    vec3 result = (ambient + diffuse + specular) * texColor.rgb;
     outColor = vec4(result, 1.0);
 }

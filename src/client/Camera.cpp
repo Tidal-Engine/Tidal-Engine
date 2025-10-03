@@ -1,4 +1,4 @@
-#include "core/Camera.hpp"
+#include "client/Camera.hpp"
 
 #include <algorithm>
 #include <cmath>

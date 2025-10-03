@@ -21,6 +21,12 @@ class VulkanBuffer;
 class VulkanSwapchain;
 class VulkanPipeline;
 class VulkanRenderer;
+class NetworkClient;
+class ChunkRenderer;
+class InputManager;
+class Camera;
+class TextureAtlas;
+class DebugOverlay;
 
 /**
  * @brief Uniform buffer object for shader uniforms
@@ -77,6 +83,12 @@ private:
     std::unique_ptr<VulkanSwapchain> swapchain;
     std::unique_ptr<VulkanPipeline> pipeline;
     std::unique_ptr<VulkanRenderer> renderer;
+    std::unique_ptr<NetworkClient> networkClient;
+    std::unique_ptr<ChunkRenderer> chunkRenderer;
+    std::unique_ptr<InputManager> inputManager;
+    std::unique_ptr<Camera> camera;
+    std::unique_ptr<TextureAtlas> textureAtlas;
+    std::unique_ptr<DebugOverlay> debugOverlay;
 
     EngineConfig::Runtime config;
     PerformanceMetrics performanceMetrics;
@@ -85,12 +97,20 @@ private:
     std::vector<uint32_t> indices;
 
     bool framebufferResized = false;
+    float deltaTime = 0.0f;
+    std::chrono::steady_clock::time_point lastFrameTime;
+
+    // ImGui resources
+    VkDescriptorPool imguiDescriptorPool = VK_NULL_HANDLE;
 
     void initSDL();
     void initVulkan();
     void initGeometry();
     void initRenderingResources();
+    void initImGui();
+    void initNetworking();
     void recreateSwapchain();
+    void cleanupImGui();
 
     void createInstance();
     void createSurface();

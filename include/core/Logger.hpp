@@ -20,15 +20,17 @@ public:
     /**
      * @brief Initialize the default logger
      * @param name Logger name (default: "TidalEngine")
+     * @param logFile Log file path (default: "logs/engine.log")
      */
-    static void init(const std::string& name [[maybe_unused]] = "TidalEngine") {
+    static void init(const std::string& name [[maybe_unused]] = "TidalEngine",
+                    const std::string& logFile = "logs/engine.log") {
         // Create sinks
         auto consoleSink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
         consoleSink->set_level(spdlog::level::trace);
 
         // Use basic_file_sink with truncate mode to overwrite on each run
         auto fileSink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(
-            "logs/engine.log", true);  // true = truncate (clear file on open)
+            logFile, true);  // true = truncate (clear file on open)
         fileSink->set_level(spdlog::level::trace);
 
         // Create logger with both sinks

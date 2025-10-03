@@ -14,23 +14,14 @@ void VulkanBuffer::createVertexBuffer(const void* data, VkDeviceSize size,
                                      VkCommandPool commandPool, VkQueue graphicsQueue) {
     LOG_DEBUG("Creating vertex buffer (size: {} bytes)", size);
 
-    // Create staging buffer
+    // Acquire staging buffer from pool
     VkBuffer stagingBuffer = VK_NULL_HANDLE;
     VkDeviceMemory stagingBufferMemory = VK_NULL_HANDLE;
-    createBuffer(size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                stagingBuffer, stagingBufferMemory);
+    void* mappedData = nullptr;
+    acquireStagingBuffer(size, stagingBuffer, stagingBufferMemory, &mappedData);
 
     // Copy data to staging buffer
-    void* mappedData = nullptr;
-    if (vkMapMemory(device, stagingBufferMemory, 0, size, 0, &mappedData) != VK_SUCCESS) {
-        vkDestroyBuffer(device, stagingBuffer, nullptr);
-        vkFreeMemory(device, stagingBufferMemory, nullptr);
-        LOG_ERROR("Failed to map vertex staging buffer memory");
-        throw std::runtime_error("Failed to map vertex staging buffer memory");
-    }
     memcpy(mappedData, data, static_cast<size_t>(size));
-    vkUnmapMemory(device, stagingBufferMemory);
 
     // Create device local buffer
     createBuffer(size, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
@@ -40,9 +31,8 @@ void VulkanBuffer::createVertexBuffer(const void* data, VkDeviceSize size,
     // Copy from staging to device local
     copyBuffer(stagingBuffer, vertexBuffer, size, commandPool, graphicsQueue);
 
-    // Cleanup staging buffer
-    vkDestroyBuffer(device, stagingBuffer, nullptr);
-    vkFreeMemory(device, stagingBufferMemory, nullptr);
+    // Release staging buffer back to pool
+    releaseStagingBuffer(stagingBuffer, stagingBufferMemory);
 
     LOG_DEBUG("Vertex buffer created successfully");
 }
@@ -51,23 +41,14 @@ void VulkanBuffer::createIndexBuffer(const void* data, VkDeviceSize size,
                                     VkCommandPool commandPool, VkQueue graphicsQueue) {
     LOG_DEBUG("Creating index buffer (size: {} bytes)", size);
 
-    // Create staging buffer
+    // Acquire staging buffer from pool
     VkBuffer stagingBuffer = VK_NULL_HANDLE;
     VkDeviceMemory stagingBufferMemory = VK_NULL_HANDLE;
-    createBuffer(size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                stagingBuffer, stagingBufferMemory);
+    void* mappedData = nullptr;
+    acquireStagingBuffer(size, stagingBuffer, stagingBufferMemory, &mappedData);
 
     // Copy data to staging buffer
-    void* mappedData = nullptr;
-    if (vkMapMemory(device, stagingBufferMemory, 0, size, 0, &mappedData) != VK_SUCCESS) {
-        vkDestroyBuffer(device, stagingBuffer, nullptr);
-        vkFreeMemory(device, stagingBufferMemory, nullptr);
-        LOG_ERROR("Failed to map index staging buffer memory");
-        throw std::runtime_error("Failed to map index staging buffer memory");
-    }
     memcpy(mappedData, data, static_cast<size_t>(size));
-    vkUnmapMemory(device, stagingBufferMemory);
 
     // Create device local buffer
     createBuffer(size, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
@@ -77,9 +58,8 @@ void VulkanBuffer::createIndexBuffer(const void* data, VkDeviceSize size,
     // Copy from staging to device local
     copyBuffer(stagingBuffer, indexBuffer, size, commandPool, graphicsQueue);
 
-    // Cleanup staging buffer
-    vkDestroyBuffer(device, stagingBuffer, nullptr);
-    vkFreeMemory(device, stagingBufferMemory, nullptr);
+    // Release staging buffer back to pool
+    releaseStagingBuffer(stagingBuffer, stagingBufferMemory);
 
     LOG_DEBUG("Index buffer created successfully");
 }
@@ -108,6 +88,17 @@ void VulkanBuffer::createUniformBuffers(uint32_t count, VkDeviceSize bufferSize)
 void VulkanBuffer::cleanup() {
     LOG_DEBUG("Cleaning up buffers");
 
+    // Cleanup staging buffer pool
+    for (auto& entry : stagingBufferPool) {
+        if (entry.buffer != VK_NULL_HANDLE) {
+            vkDestroyBuffer(device, entry.buffer, nullptr);
+        }
+        if (entry.memory != VK_NULL_HANDLE) {
+            vkFreeMemory(device, entry.memory, nullptr);
+        }
+    }
+    stagingBufferPool.clear();
+
     for (size_t i = 0; i < uniformBuffers.size(); i++) {
         vkDestroyBuffer(device, uniformBuffers[i], nullptr);
         vkFreeMemory(device, uniformBuffersMemory[i], nullptr);
@@ -122,6 +113,57 @@ void VulkanBuffer::cleanup() {
         vkDestroyBuffer(device, vertexBuffer, nullptr);
         vkFreeMemory(device, vertexBufferMemory, nullptr);
     }
+}
+
+void VulkanBuffer::acquireStagingBuffer(VkDeviceSize size, VkBuffer& buffer,
+                                       VkDeviceMemory& bufferMemory, void** mappedMemory) {
+    // Look for available buffer in pool with sufficient size
+    for (auto& entry : stagingBufferPool) {
+        if (!entry.inUse && entry.size >= size) {
+            entry.inUse = true;
+            buffer = entry.buffer;
+            bufferMemory = entry.memory;
+            *mappedMemory = entry.mapped;
+            LOG_TRACE("Reusing staging buffer from pool (size: {})", entry.size);
+            return;
+        }
+    }
+
+    // No suitable buffer found, create new one
+    LOG_DEBUG("Creating new staging buffer for pool (size: {})", size);
+
+    StagingBufferEntry newEntry;
+    newEntry.size = size;
+    newEntry.inUse = true;
+
+    createBuffer(size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                newEntry.buffer, newEntry.memory);
+
+    if (vkMapMemory(device, newEntry.memory, 0, size, 0, &newEntry.mapped) != VK_SUCCESS) {
+        vkDestroyBuffer(device, newEntry.buffer, nullptr);
+        vkFreeMemory(device, newEntry.memory, nullptr);
+        LOG_ERROR("Failed to map staging buffer memory");
+        throw std::runtime_error("Failed to map staging buffer memory");
+    }
+
+    buffer = newEntry.buffer;
+    bufferMemory = newEntry.memory;
+    *mappedMemory = newEntry.mapped;
+
+    stagingBufferPool.push_back(newEntry);
+    LOG_DEBUG("Added new staging buffer to pool (total: {})", stagingBufferPool.size());
+}
+
+void VulkanBuffer::releaseStagingBuffer(VkBuffer buffer, VkDeviceMemory bufferMemory) {
+    for (auto& entry : stagingBufferPool) {
+        if (entry.buffer == buffer && entry.memory == bufferMemory) {
+            entry.inUse = false;
+            LOG_TRACE("Released staging buffer back to pool");
+            return;
+        }
+    }
+    LOG_WARN("Attempted to release staging buffer not in pool");
 }
 
 void VulkanBuffer::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage,
@@ -144,7 +186,7 @@ void VulkanBuffer::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage,
     VkMemoryAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     allocInfo.allocationSize = memRequirements.size;
-    allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
+    allocInfo.memoryTypeIndex = findMemoryType(physicalDevice, memRequirements.memoryTypeBits, properties);
 
     if (vkAllocateMemory(device, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS) {
         LOG_ERROR("Failed to allocate buffer memory");
@@ -211,7 +253,8 @@ void VulkanBuffer::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSi
     vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
 }
 
-uint32_t VulkanBuffer::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) {
+uint32_t VulkanBuffer::findMemoryType(VkPhysicalDevice physicalDevice, uint32_t typeFilter,
+                                      VkMemoryPropertyFlags properties) {
     VkPhysicalDeviceMemoryProperties memProperties;
     vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
 
@@ -222,7 +265,7 @@ uint32_t VulkanBuffer::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags
         }
     }
 
-    LOG_ERROR("Failed to find suitable memory type");
+    LOG_ERROR("Failed to find suitable memory type (typeFilter: {}, properties: {})", typeFilter, properties);
     throw std::runtime_error("Failed to find suitable memory type");
 }
 

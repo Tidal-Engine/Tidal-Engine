@@ -26,10 +26,15 @@ public:
     InputManager& operator=(InputManager&&) noexcept = default;
 
     /**
-     * @brief Process SDL events and update input state
-     * @return false if quit event received, true otherwise
+     * @brief Begin a new input frame (call before polling events)
      */
-    bool processEvents();
+    void beginFrame();
+
+    /**
+     * @brief Handle a single SDL event
+     * @param event SDL event to process
+     */
+    void handleEvent(const SDL_Event& event);
 
     /**
      * @brief Check if a key is currently pressed

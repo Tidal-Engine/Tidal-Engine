@@ -63,6 +63,13 @@ public:
     void createDescriptorSets(const std::vector<VkBuffer>& uniformBuffers, VkDeviceSize bufferSize);
 
     /**
+     * @brief Update descriptor sets with texture sampler
+     * @param textureImageView Texture image view to bind
+     * @param textureSampler Texture sampler to bind
+     */
+    void updateTextureDescriptors(VkImageView textureImageView, VkSampler textureSampler);
+
+    /**
      * @brief Clean up all pipeline resources
      */
     void cleanup();

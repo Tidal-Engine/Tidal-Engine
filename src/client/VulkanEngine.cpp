@@ -1,14 +1,25 @@
-#include "vulkan/VulkanEngine.hpp"
+#include "client/VulkanEngine.hpp"
 #include "vulkan/VulkanBuffer.hpp"
 #include "vulkan/VulkanSwapchain.hpp"
 #include "vulkan/VulkanPipeline.hpp"
-#include "vulkan/VulkanRenderer.hpp"
+#include "client/VulkanRenderer.hpp"
+#include "client/NetworkClient.hpp"
+#include "client/ChunkRenderer.hpp"
+#include "client/TextureAtlas.hpp"
+#include "client/InputManager.hpp"
+#include "client/Camera.hpp"
+#include "client/DebugOverlay.hpp"
 #include "vulkan/CubeGeometry.hpp"
 #include "core/Logger.hpp"
 #include "core/ResourceManager.hpp"
 
+#include <imgui.h>
+#include <imgui_impl_sdl3.h>
+#include <imgui_impl_vulkan.h>
+
 #include <stdexcept>
 #include <cstring>
+#include <chrono>
 
 namespace engine {
 
@@ -20,6 +31,8 @@ void VulkanEngine::run() {
     initVulkan();
     initGeometry();
     initRenderingResources();
+    initImGui();
+    initNetworking();
     mainLoop();
     cleanup();
 }
@@ -33,6 +46,7 @@ void VulkanEngine::initSDL() {
     }
 
     LOG_INFO("Creating window ({}x{})...", config.windowWidth, config.windowHeight);
+
     window = SDL_CreateWindow(
         config.windowTitle.c_str(),
         static_cast<int>(config.windowWidth), static_cast<int>(config.windowHeight),
@@ -43,6 +57,8 @@ void VulkanEngine::initSDL() {
         LOG_ERROR("Failed to create window: {}", SDL_GetError());
         throw std::runtime_error("Failed to create window");
     }
+
+    LOG_INFO("Window created - click window to capture mouse");
 
     LOG_INFO("SDL3 initialized successfully");
 }
@@ -99,6 +115,29 @@ void VulkanEngine::initRenderingResources() {
     renderer->createCommandPool();
     renderer->createDepthResources(swapchain->getExtent());
 
+    // Create texture atlas
+    textureAtlas = std::make_unique<TextureAtlas>(device, physicalDevice,
+                                                   renderer->getCommandPool(),
+                                                   graphicsQueue);
+    textureAtlas->loadTextures("assets/texturepacks");
+
+    // Create chunk renderer
+    chunkRenderer = std::make_unique<ChunkRenderer>(device, physicalDevice,
+                                                   renderer->getCommandPool(),
+                                                   graphicsQueue,
+                                                   textureAtlas.get());
+
+    // Give renderer access to chunk renderer
+    renderer->setChunkRenderer(chunkRenderer.get());
+
+    // Create input manager and camera
+    inputManager = std::make_unique<InputManager>();
+    // Camera at (0, 5, 10) looking toward origin with -20° pitch to see the ground
+    camera = std::make_unique<Camera>(glm::vec3(0.0f, 5.0f, 10.0f), glm::vec3(0.0f, 1.0f, 0.0f), -90.0f, -20.0f);
+
+    // Create debug overlay
+    debugOverlay = std::make_unique<DebugOverlay>();
+
     // Create framebuffers
     swapchain->createFramebuffers(pipeline->getRenderPass(), renderer->getDepthImageView());
 
@@ -113,11 +152,161 @@ void VulkanEngine::initRenderingResources() {
     pipeline->createDescriptorPool(EngineConfig::MAX_FRAMES_IN_FLIGHT);
     pipeline->createDescriptorSets(bufferManager->getUniformBuffers(), sizeof(UniformBufferObject));
 
+    // Update descriptor sets with texture atlas
+    pipeline->updateTextureDescriptors(textureAtlas->getImageView(), textureAtlas->getSampler());
+
     // Create command buffers and sync objects
     renderer->createCommandBuffers(EngineConfig::MAX_FRAMES_IN_FLIGHT);
     renderer->createSyncObjects(EngineConfig::MAX_FRAMES_IN_FLIGHT);
 
     LOG_INFO("Rendering resources initialized successfully");
+}
+
+void VulkanEngine::initImGui() {
+    LOG_INFO("Initializing ImGui...");
+
+    // Create descriptor pool for ImGui
+    VkDescriptorPoolSize pool_sizes[] = {
+        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1 },
+    };
+
+    VkDescriptorPoolCreateInfo pool_info = {};
+    pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+    pool_info.maxSets = 1;
+    pool_info.poolSizeCount = 1;
+    pool_info.pPoolSizes = pool_sizes;
+
+    if (vkCreateDescriptorPool(device, &pool_info, nullptr, &imguiDescriptorPool) != VK_SUCCESS) {
+        LOG_ERROR("Failed to create ImGui descriptor pool");
+        throw std::runtime_error("Failed to create ImGui descriptor pool");
+    }
+
+    // Setup Dear ImGui context
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+
+    // Setup ImGui style
+    ImGui::StyleColorsDark();
+
+    // Setup Platform/Renderer backends
+    ImGui_ImplSDL3_InitForVulkan(window);
+
+    ImGui_ImplVulkan_InitInfo init_info = {};
+    init_info.Instance = instance;
+    init_info.PhysicalDevice = physicalDevice;
+    init_info.Device = device;
+    init_info.QueueFamily = findQueueFamilies(physicalDevice).graphicsFamily;
+    init_info.Queue = graphicsQueue;
+    init_info.PipelineCache = VK_NULL_HANDLE;
+    init_info.DescriptorPool = imguiDescriptorPool;
+    init_info.RenderPass = pipeline->getRenderPass();
+    init_info.Subpass = 0;
+    init_info.MinImageCount = 2;
+    init_info.ImageCount = static_cast<uint32_t>(swapchain->getImageViews().size());
+    init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+
+    ImGui_ImplVulkan_Init(&init_info);
+
+    LOG_INFO("ImGui initialized successfully");
+}
+
+void VulkanEngine::initNetworking() {
+    LOG_INFO("Initializing networking...");
+
+    // Create network client
+    networkClient = std::make_unique<NetworkClient>();
+
+    // Set up callback to upload chunks when received
+    networkClient->setOnChunkReceived([this](const ChunkCoord& coord) {
+        const Chunk* chunk = networkClient->getChunk(coord);
+        if (chunk) {
+            // Get neighboring chunks for cross-chunk face culling
+            const Chunk* neighborNegX = networkClient->getChunk({coord.x - 1, coord.y, coord.z});
+            const Chunk* neighborPosX = networkClient->getChunk({coord.x + 1, coord.y, coord.z});
+            const Chunk* neighborNegY = networkClient->getChunk({coord.x, coord.y - 1, coord.z});
+            const Chunk* neighborPosY = networkClient->getChunk({coord.x, coord.y + 1, coord.z});
+            const Chunk* neighborNegZ = networkClient->getChunk({coord.x, coord.y, coord.z - 1});
+            const Chunk* neighborPosZ = networkClient->getChunk({coord.x, coord.y, coord.z + 1});
+
+            // Upload the new chunk with its neighbors
+            chunkRenderer->uploadChunk(*chunk, neighborNegX, neighborPosX,
+                                      neighborNegY, neighborPosY,
+                                      neighborNegZ, neighborPosZ);
+
+            // Re-upload neighboring chunks so they can cull faces against this new chunk
+            if (neighborNegX) {
+                auto nnx = networkClient->getChunk({coord.x - 2, coord.y, coord.z});
+                auto npy = networkClient->getChunk({coord.x - 1, coord.y + 1, coord.z});
+                auto nny = networkClient->getChunk({coord.x - 1, coord.y - 1, coord.z});
+                auto npz = networkClient->getChunk({coord.x - 1, coord.y, coord.z + 1});
+                auto nnz = networkClient->getChunk({coord.x - 1, coord.y, coord.z - 1});
+                chunkRenderer->uploadChunk(*neighborNegX, nnx, chunk, nny, npy, nnz, npz);
+            }
+            if (neighborPosX) {
+                auto npx = networkClient->getChunk({coord.x + 2, coord.y, coord.z});
+                auto npy = networkClient->getChunk({coord.x + 1, coord.y + 1, coord.z});
+                auto nny = networkClient->getChunk({coord.x + 1, coord.y - 1, coord.z});
+                auto npz = networkClient->getChunk({coord.x + 1, coord.y, coord.z + 1});
+                auto nnz = networkClient->getChunk({coord.x + 1, coord.y, coord.z - 1});
+                chunkRenderer->uploadChunk(*neighborPosX, chunk, npx, nny, npy, nnz, npz);
+            }
+            if (neighborNegY) {
+                auto nnx = networkClient->getChunk({coord.x - 1, coord.y - 1, coord.z});
+                auto npx = networkClient->getChunk({coord.x + 1, coord.y - 1, coord.z});
+                auto nny = networkClient->getChunk({coord.x, coord.y - 2, coord.z});
+                auto npz = networkClient->getChunk({coord.x, coord.y - 1, coord.z + 1});
+                auto nnz = networkClient->getChunk({coord.x, coord.y - 1, coord.z - 1});
+                chunkRenderer->uploadChunk(*neighborNegY, nnx, npx, nny, chunk, nnz, npz);
+            }
+            if (neighborPosY) {
+                auto nnx = networkClient->getChunk({coord.x - 1, coord.y + 1, coord.z});
+                auto npx = networkClient->getChunk({coord.x + 1, coord.y + 1, coord.z});
+                auto npy = networkClient->getChunk({coord.x, coord.y + 2, coord.z});
+                auto npz = networkClient->getChunk({coord.x, coord.y + 1, coord.z + 1});
+                auto nnz = networkClient->getChunk({coord.x, coord.y + 1, coord.z - 1});
+                chunkRenderer->uploadChunk(*neighborPosY, nnx, npx, chunk, npy, nnz, npz);
+            }
+            if (neighborNegZ) {
+                auto nnx = networkClient->getChunk({coord.x - 1, coord.y, coord.z - 1});
+                auto npx = networkClient->getChunk({coord.x + 1, coord.y, coord.z - 1});
+                auto nny = networkClient->getChunk({coord.x, coord.y - 1, coord.z - 1});
+                auto npy = networkClient->getChunk({coord.x, coord.y + 1, coord.z - 1});
+                auto nnz = networkClient->getChunk({coord.x, coord.y, coord.z - 2});
+                chunkRenderer->uploadChunk(*neighborNegZ, nnx, npx, nny, npy, nnz, chunk);
+            }
+            if (neighborPosZ) {
+                auto nnx = networkClient->getChunk({coord.x - 1, coord.y, coord.z + 1});
+                auto npx = networkClient->getChunk({coord.x + 1, coord.y, coord.z + 1});
+                auto nny = networkClient->getChunk({coord.x, coord.y - 1, coord.z + 1});
+                auto npy = networkClient->getChunk({coord.x, coord.y + 1, coord.z + 1});
+                auto npz = networkClient->getChunk({coord.x, coord.y, coord.z + 2});
+                chunkRenderer->uploadChunk(*neighborPosZ, nnx, npx, nny, npy, chunk, npz);
+            }
+
+            LOG_INFO("Uploaded chunk ({}, {}, {}) to GPU | Total chunks: {}",
+                     coord.x, coord.y, coord.z, chunkRenderer->getLoadedChunkCount());
+        }
+    });
+
+    // Connect to localhost (integrated server for now)
+    if (!networkClient->connect("127.0.0.1", 25565, 5000)) {
+        LOG_ERROR("Failed to connect to server!");
+        throw std::runtime_error("Failed to connect to game server");
+    }
+
+    LOG_INFO("Connected to server successfully");
+
+    // Process initial messages to receive spawn chunks
+    for (int i = 0; i < 50; i++) {
+        networkClient->update();
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+
+    LOG_INFO("Networking initialized | Received {} chunks",
+             networkClient->getChunks().size());
 }
 
 void VulkanEngine::createInstance() {
@@ -420,31 +609,138 @@ void VulkanEngine::mainLoop() {
 
     bool running = true;
     SDL_Event event;
+    lastFrameTime = std::chrono::steady_clock::now();
 
     while (running) {
         performanceMetrics.beginFrame();
 
+        // Calculate delta time
+        auto now = std::chrono::steady_clock::now();
+        deltaTime = std::chrono::duration<float>(now - lastFrameTime).count();
+        lastFrameTime = now;
+
+        // Process SDL events - handle window events, pass input to InputManager
+        inputManager->beginFrame();
         while (SDL_PollEvent(&event)) {
+            // Let ImGui handle events first
+            ImGui_ImplSDL3_ProcessEvent(&event);
+
             if (event.type == SDL_EVENT_QUIT) {
                 LOG_INFO("Quit event received");
                 running = false;
-            } else if (event.type == SDL_EVENT_WINDOW_RESIZED) {
-                LOG_DEBUG("Window resized");
+            } else if (event.type == SDL_EVENT_WINDOW_RESIZED ||
+                       event.type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED ||
+                       event.type == SDL_EVENT_WINDOW_MAXIMIZED) {
+                LOG_DEBUG("Window size changed (event type: {})", event.type);
                 framebufferResized = true;
+            } else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
+                // Enable relative mouse mode when user clicks in the window
+                if (!SDL_GetWindowRelativeMouseMode(window)) {
+                    SDL_SetWindowRelativeMouseMode(window, true);
+                    LOG_INFO("Mouse captured - press ESC to release");
+                }
+            } else if (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_ESCAPE) {
+                // Release mouse capture on ESC key
+                if (SDL_GetWindowRelativeMouseMode(window)) {
+                    SDL_SetWindowRelativeMouseMode(window, false);
+                    LOG_INFO("Mouse released - click to recapture");
+                }
+            } else if (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_F3) {
+                // Toggle debug overlay on F3
+                debugOverlay->toggle();
+                LOG_DEBUG("Debug overlay toggled: {}", debugOverlay->getVisible() ? "ON" : "OFF");
+            } else {
+                // Pass event to input manager
+                inputManager->handleEvent(event);
             }
         }
+
+        // Process network messages
+        networkClient->update();
+
+        // Only update camera if mouse is captured
+        if (SDL_GetWindowRelativeMouseMode(window)) {
+            // Update camera with noclip movement
+            // Apply 8x speed boost when Ctrl is held
+            float speedMultiplier = inputManager->isKeyPressed(SDL_SCANCODE_LCTRL) ||
+                                   inputManager->isKeyPressed(SDL_SCANCODE_RCTRL) ? 8.0f : 1.0f;
+
+            camera->processMovement(
+                inputManager->isKeyPressed(SDL_SCANCODE_W),  // Forward
+                inputManager->isKeyPressed(SDL_SCANCODE_S),  // Backward
+                inputManager->isKeyPressed(SDL_SCANCODE_A),  // Left
+                inputManager->isKeyPressed(SDL_SCANCODE_D),  // Right
+                inputManager->isKeyPressed(SDL_SCANCODE_SPACE),  // Up
+                inputManager->isKeyPressed(SDL_SCANCODE_LSHIFT), // Down
+                deltaTime,
+                config.cameraSpeed * speedMultiplier
+            );
+
+            glm::vec2 mouseDelta = inputManager->getMouseDelta();
+            if (mouseDelta.x != 0.0f || mouseDelta.y != 0.0f) {
+                // Invert Y for standard FPS controls (not airplane mode)
+                camera->processMouseMovement(mouseDelta.x, -mouseDelta.y, config.mouseSensitivity);
+            }
+        }
+
+        // Debug: log camera position every second
+        static auto lastLogTime = std::chrono::steady_clock::now();
+        auto nowLog = std::chrono::steady_clock::now();
+        if (std::chrono::duration<float>(nowLog - lastLogTime).count() > 1.0f) {
+            glm::vec3 pos = camera->getPosition();
+            glm::vec3 front = camera->getFront();
+            LOG_DEBUG("Camera pos: ({:.1f}, {:.1f}, {:.1f}), front: ({:.2f}, {:.2f}, {:.2f})",
+                     pos.x, pos.y, pos.z, front.x, front.y, front.z);
+            lastLogTime = nowLog;
+        }
+
+        inputManager->endFrame();
 
         // Recreate swapchain if needed (after resize or out of date)
         if (framebufferResized) {
             recreateSwapchain();
-            framebufferResized = false;
         }
 
+        // Update uniform buffer with camera matrices
+        UniformBufferObject ubo{};
+        ubo.model = glm::mat4(1.0f);
+        ubo.view = camera->getViewMatrix();
+        ubo.proj = camera->getProjectionMatrix(
+            static_cast<float>(swapchain->getExtent().width) / static_cast<float>(swapchain->getExtent().height),
+            config.fov,
+            EngineConfig::NEAR_PLANE,
+            EngineConfig::FAR_PLANE
+        );
+        ubo.lightPos = glm::vec4(10.0f, 10.0f, 10.0f, 1.0f);
+        ubo.viewPos = glm::vec4(camera->getPosition(), 1.0f);
+
+        // Copy UBO to mapped uniform buffer for current frame
+        uint32_t currentFrame = renderer->getCurrentFrame();
+        std::memcpy(bufferManager->getUniformBuffersMapped()[currentFrame], &ubo, sizeof(ubo));
+
+        // Start ImGui frame
+        ImGui_ImplVulkan_NewFrame();
+        ImGui_ImplSDL3_NewFrame();
+        ImGui::NewFrame();
+
+        // Render debug overlay (updates ImGui)
+        // Note: Without frustum culling, all loaded chunks are visible
+        uint32_t chunksVisible = chunkRenderer->getChunkCount();
+        uint32_t chunksTotal = chunkRenderer->getChunkCount();
+        uint32_t verticesRendered = chunkRenderer->getTotalVertices();
+        uint32_t drawCalls = (chunksVisible > 0) ? 1 : 0; // Batched rendering = 1 draw call for all chunks
+
+        debugOverlay->render(camera.get(), &performanceMetrics, networkClient.get(),
+                            chunksVisible, chunksTotal, verticesRendered, drawCalls);
+
+        // Finalize ImGui rendering
+        ImGui::Render();
+
+        // Draw frame (simplified - just render chunks for now)
         bool needsRecreation = renderer->drawFrame(swapchain->getSwapchain(), swapchain->getFramebuffers(),
                           pipeline->getRenderPass(), swapchain->getExtent(),
                           pipeline->getPipeline(), pipeline->getPipelineLayout(),
-                          bufferManager->getVertexBuffer(), bufferManager->getIndexBuffer(),
-                          static_cast<uint32_t>(indices.size()),
+                          VK_NULL_HANDLE, VK_NULL_HANDLE, 0,  // No cube geometry
                           pipeline->getDescriptorSets(),
                           bufferManager->getUniformBuffersMapped(),
                           EngineConfig::MAX_FRAMES_IN_FLIGHT);
@@ -463,6 +759,8 @@ void VulkanEngine::mainLoop() {
 
 void VulkanEngine::cleanup() {
     LOG_INFO("Cleaning up resources...");
+
+    cleanupImGui();
 
     if (renderer) {
         renderer->cleanup();
@@ -504,6 +802,17 @@ void VulkanEngine::cleanup() {
     SDL_Quit();
 
     LOG_INFO("Cleanup complete");
+}
+
+void VulkanEngine::cleanupImGui() {
+    if (imguiDescriptorPool != VK_NULL_HANDLE) {
+        ImGui_ImplVulkan_Shutdown();
+        ImGui_ImplSDL3_Shutdown();
+        ImGui::DestroyContext();
+
+        vkDestroyDescriptorPool(device, imguiDescriptorPool, nullptr);
+        imguiDescriptorPool = VK_NULL_HANDLE;
+    }
 }
 
 } // namespace engine

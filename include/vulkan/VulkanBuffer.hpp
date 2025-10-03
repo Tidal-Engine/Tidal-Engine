@@ -60,6 +60,23 @@ public:
     void cleanup();
 
     /**
+     * @brief Acquire a staging buffer from the pool (creates if needed)
+     * @param size Required buffer size
+     * @param buffer Output buffer handle
+     * @param bufferMemory Output memory handle
+     * @param mappedMemory Output mapped memory pointer
+     */
+    void acquireStagingBuffer(VkDeviceSize size, VkBuffer& buffer,
+                             VkDeviceMemory& bufferMemory, void** mappedMemory);
+
+    /**
+     * @brief Release a staging buffer back to the pool for reuse
+     * @param buffer Buffer handle to release
+     * @param bufferMemory Memory handle to release
+     */
+    void releaseStagingBuffer(VkBuffer buffer, VkDeviceMemory bufferMemory);
+
+    /**
      * @brief Get the vertex buffer handle
      * @return VkBuffer Vertex buffer
      */
@@ -83,6 +100,17 @@ public:
      */
     const std::vector<void*>& getUniformBuffersMapped() const { return uniformBuffersMapped; }
 
+    /**
+     * @brief Find suitable memory type for allocation (static utility)
+     * @param physicalDevice Physical device to query memory properties from
+     * @param typeFilter Bitmask of suitable memory types
+     * @param properties Required memory properties
+     * @return Memory type index
+     * @throws std::runtime_error if no suitable memory type found
+     */
+    static uint32_t findMemoryType(VkPhysicalDevice physicalDevice, uint32_t typeFilter,
+                                   VkMemoryPropertyFlags properties);
+
 private:
     VkDevice device;
     VkPhysicalDevice physicalDevice;
@@ -97,13 +125,28 @@ private:
     std::vector<VkDeviceMemory> uniformBuffersMemory;
     std::vector<void*> uniformBuffersMapped;
 
-    // Helper functions
+    // Staging buffer pool
+    struct StagingBufferEntry {
+        VkBuffer buffer = VK_NULL_HANDLE;
+        VkDeviceMemory memory = VK_NULL_HANDLE;
+        void* mapped = nullptr;
+        VkDeviceSize size = 0;
+        bool inUse = false;
+    };
+    std::vector<StagingBufferEntry> stagingBufferPool;
+
+    /**
+     * @brief Create a buffer with specified properties (internal helper)
+     */
     void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage,
                      VkMemoryPropertyFlags properties, VkBuffer& buffer,
                      VkDeviceMemory& bufferMemory);
+
+    /**
+     * @brief Copy data between buffers using transfer command (internal helper)
+     */
     void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size,
                    VkCommandPool commandPool, VkQueue graphicsQueue);
-    uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 };
 
 } // namespace engine

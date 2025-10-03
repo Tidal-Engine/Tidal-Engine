@@ -1,15 +1,15 @@
 #include "core/Logger.hpp"
 #include "core/CrashHandler.hpp"
-#include "vulkan/VulkanEngine.hpp"
+#include "client/VulkanEngine.hpp"
 
 #include <exception>
 
 int main(int argc, char* argv[]) {
     // Initialize infrastructure
-    engine::Logger::init();
+    engine::Logger::init("TidalEngine", "logs/client.log");
     engine::CrashHandler::init();
 
-    LOG_INFO("=== Tidal Engine Starting ===");
+    LOG_INFO("=== Tidal Engine Client Starting ===");
 
     try {
         engine::VulkanEngine engine;

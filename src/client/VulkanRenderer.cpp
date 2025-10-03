@@ -1,6 +1,11 @@
-#include "vulkan/VulkanRenderer.hpp"
-#include "vulkan/VulkanEngine.hpp"
+#include "client/VulkanRenderer.hpp"
+#include "client/VulkanEngine.hpp"
+#include "client/ChunkRenderer.hpp"
+#include "vulkan/VulkanBuffer.hpp"
 #include "core/Logger.hpp"
+
+#include <imgui.h>
+#include <imgui_impl_vulkan.h>
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <stdexcept>
@@ -142,13 +147,43 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
     vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 
-    VkBuffer vertexBuffers[] = {vertexBuffer};
-    VkDeviceSize offsets[] = {0};
-    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
-    vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+    // Set dynamic viewport and scissor
+    VkViewport viewport{};
+    viewport.x = 0.0f;
+    viewport.y = 0.0f;
+    viewport.width = static_cast<float>(extent.width);
+    viewport.height = static_cast<float>(extent.height);
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+    vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+
+    VkRect2D scissor{};
+    scissor.offset = {0, 0};
+    scissor.extent = extent;
+    vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+
+    // Bind descriptor sets
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[currentFrame], 0, nullptr);
 
-    vkCmdDrawIndexed(commandBuffer, indexCount, 1, 0, 0, 0);
+    // Draw cube geometry (if provided)
+    if (vertexBuffer != VK_NULL_HANDLE && indexBuffer != VK_NULL_HANDLE && indexCount > 0) {
+        VkBuffer vertexBuffers[] = {vertexBuffer};
+        VkDeviceSize offsets[] = {0};
+        vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+        vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+        vkCmdDrawIndexed(commandBuffer, indexCount, 1, 0, 0, 0);
+    }
+
+    // Draw voxel chunks (if chunk renderer is set)
+    if (chunkRenderer != nullptr) {
+        chunkRenderer->drawChunks(commandBuffer);
+    }
+
+    // Draw ImGui
+    ImDrawData* drawData = ImGui::GetDrawData();
+    if (drawData != nullptr) {
+        ImGui_ImplVulkan_RenderDrawData(drawData, commandBuffer);
+    }
 
     vkCmdEndRenderPass(commandBuffer);
 
@@ -187,7 +222,7 @@ bool VulkanRenderer::drawFrame(VkSwapchainKHR swapchain, const std::vector<VkFra
         throw std::runtime_error("Failed to reset fence");
     }
 
-    updateUniformBuffer(uniformBuffersMapped[currentFrame]);
+    // Note: Uniform buffer is updated by VulkanEngine before calling drawFrame
 
     if (vkResetCommandBuffer(commandBuffers[currentFrame], 0) != VK_SUCCESS) {
         LOG_ERROR("Failed to reset command buffer");
@@ -319,7 +354,7 @@ void VulkanRenderer::createImage(uint32_t width, uint32_t height, VkFormat forma
     VkMemoryAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     allocInfo.allocationSize = memRequirements.size;
-    allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
+    allocInfo.memoryTypeIndex = VulkanBuffer::findMemoryType(physicalDevice, memRequirements.memoryTypeBits, properties);
 
     if (vkAllocateMemory(device, &allocInfo, nullptr, &imageMemory) != VK_SUCCESS) {
         LOG_ERROR("Failed to allocate image memory");
@@ -355,19 +390,5 @@ VkImageView VulkanRenderer::createImageView(VkImage image, VkFormat format, VkIm
     return imageView;
 }
 
-uint32_t VulkanRenderer::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) {
-    VkPhysicalDeviceMemoryProperties memProperties;
-    vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
-
-    for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
-        if ((typeFilter & (1 << i)) &&
-            (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
-            return i;
-        }
-    }
-
-    LOG_ERROR("Failed to find suitable memory type");
-    throw std::runtime_error("Failed to find suitable memory type");
-}
 
 } // namespace engine

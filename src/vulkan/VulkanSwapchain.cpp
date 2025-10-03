@@ -224,11 +224,24 @@ VkSurfaceFormatKHR VulkanSwapchain::chooseSwapSurfaceFormat(const std::vector<Vk
 }
 
 VkPresentModeKHR VulkanSwapchain::chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes) {  // NOLINT(readability-convert-member-functions-to-static)
+    // Prefer IMMEDIATE mode for uncapped FPS (no VSync)
     for (const auto& availablePresentMode : availablePresentModes) {
-        if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR) {
+        if (availablePresentMode == VK_PRESENT_MODE_IMMEDIATE_KHR) {
+            LOG_INFO("Using VK_PRESENT_MODE_IMMEDIATE (uncapped FPS, no VSync)");
             return availablePresentMode;
         }
     }
+
+    // Fallback to MAILBOX if available (triple buffering with VSync)
+    for (const auto& availablePresentMode : availablePresentModes) {
+        if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR) {
+            LOG_INFO("Using VK_PRESENT_MODE_MAILBOX (VSync with triple buffering)");
+            return availablePresentMode;
+        }
+    }
+
+    // FIFO is always available (VSync)
+    LOG_INFO("Using VK_PRESENT_MODE_FIFO (VSync)");
     return VK_PRESENT_MODE_FIFO_KHR;
 }
 
