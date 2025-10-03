@@ -202,6 +202,21 @@ if(WIN32)
     )
 endif()
 
+# Copy resource directories to executable output directory
+add_custom_command(TARGET TidalClient POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+    ${CMAKE_SOURCE_DIR}/shaders
+    $<TARGET_FILE_DIR:TidalClient>/shaders
+    COMMENT "Copying shaders to output directory"
+)
+
+add_custom_command(TARGET TidalClient POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+    ${CMAKE_SOURCE_DIR}/assets
+    $<TARGET_FILE_DIR:TidalClient>/assets
+    COMMENT "Copying assets to output directory"
+)
+
 # Pass validation layer option to client
 if(ENABLE_VALIDATION_LAYERS)
     target_compile_definitions(TidalClient PRIVATE ENABLE_VALIDATION_LAYERS)
