@@ -253,8 +253,8 @@ void NetworkClient::handleChunkData(const uint8_t* data, size_t size) {
         return;
     }
 
-    LOG_INFO("Received chunk ({}, {}, {}) | Compressed: {} bytes",
-             header.coord.x, header.coord.y, header.coord.z, compressedSize);
+    LOG_DEBUG("Received chunk ({}, {}, {}) | Compressed: {} bytes",
+              header.coord.x, header.coord.y, header.coord.z, compressedSize);
 
     // Store chunk
     chunks[header.coord] = std::move(chunk);
@@ -268,7 +268,7 @@ void NetworkClient::handleChunkData(const uint8_t* data, size_t size) {
 void NetworkClient::handleChunkUnload(const protocol::ChunkUnloadMessage& msg) {
     auto it = chunks.find(msg.coord);
     if (it != chunks.end()) {
-        LOG_INFO("Unloading chunk ({}, {}, {})", msg.coord.x, msg.coord.y, msg.coord.z);
+        LOG_DEBUG("Unloading chunk ({}, {}, {})", msg.coord.x, msg.coord.y, msg.coord.z);
         chunks.erase(it);
     }
 }

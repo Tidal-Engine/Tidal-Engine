@@ -51,8 +51,8 @@ void ChunkRenderer::uploadChunk(const Chunk& chunk,
     chunkMeshes[coord] = std::move(meshData);
     buffersDirty = true;
 
-    LOG_INFO("Uploaded chunk ({}, {}, {}) | {} vertices, {} indices",
-             coord.x, coord.y, coord.z, chunkMeshes[coord].vertices.size(), chunkMeshes[coord].indices.size());
+    LOG_DEBUG("Uploaded chunk ({}, {}, {}) | {} vertices, {} indices",
+              coord.x, coord.y, coord.z, chunkMeshes[coord].vertices.size(), chunkMeshes[coord].indices.size());
 }
 
 void ChunkRenderer::removeChunk(const ChunkCoord& coord) {
