@@ -37,9 +37,6 @@ void InputManager::handleEvent(const SDL_Event& event) {
 
         case SDL_EVENT_MOUSE_MOTION:
             // Union access required by SDL3 API
-            LOG_TRACE("Mouse motion: pos({}, {}), delta({}, {})",   // NOLINT(cppcoreguidelines-pro-type-union-access)
-                     static_cast<float>(event.motion.x), static_cast<float>(event.motion.y),    // NOLINT(cppcoreguidelines-pro-type-union-access)
-                     static_cast<float>(event.motion.xrel), static_cast<float>(event.motion.yrel));  // NOLINT(cppcoreguidelines-pro-type-union-access)
             mousePosition.x = event.motion.x;  // NOLINT(cppcoreguidelines-pro-type-union-access)
             mousePosition.y = event.motion.y;  // NOLINT(cppcoreguidelines-pro-type-union-access)
             mouseDelta.x += event.motion.xrel;  // NOLINT(cppcoreguidelines-pro-type-union-access)

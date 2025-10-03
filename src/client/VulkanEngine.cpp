@@ -683,17 +683,6 @@ void VulkanEngine::mainLoop() {
             }
         }
 
-        // Debug: log camera position every second
-        static auto lastLogTime = std::chrono::steady_clock::now();
-        auto nowLog = std::chrono::steady_clock::now();
-        if (std::chrono::duration<float>(nowLog - lastLogTime).count() > 1.0f) {
-            glm::vec3 pos = camera->getPosition();
-            glm::vec3 front = camera->getFront();
-            LOG_DEBUG("Camera pos: ({:.1f}, {:.1f}, {:.1f}), front: ({:.2f}, {:.2f}, {:.2f})",
-                     pos.x, pos.y, pos.z, front.x, front.y, front.z);
-            lastLogTime = nowLog;
-        }
-
         inputManager->endFrame();
 
         // Recreate swapchain if needed (after resize or out of date)
