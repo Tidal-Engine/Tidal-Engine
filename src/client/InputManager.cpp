@@ -13,7 +13,6 @@ void InputManager::handleEvent(const SDL_Event& event) {
     switch (event.type) {
         case SDL_EVENT_KEY_DOWN:
             // Union access required by SDL3 API
-            LOG_TRACE("Key down: scancode {}", static_cast<int>(event.key.scancode));  // NOLINT(cppcoreguidelines-pro-type-union-access)
             if (!keyState[event.key.scancode]) {  // NOLINT(cppcoreguidelines-pro-type-union-access)
                 keyPressedThisFrame[event.key.scancode] = true;  // NOLINT(cppcoreguidelines-pro-type-union-access)
             }
@@ -21,17 +20,14 @@ void InputManager::handleEvent(const SDL_Event& event) {
             break;
 
         case SDL_EVENT_KEY_UP:
-            LOG_TRACE("Key up: scancode {}", static_cast<int>(event.key.scancode));  // NOLINT(cppcoreguidelines-pro-type-union-access)
             keyState[event.key.scancode] = false;  // NOLINT(cppcoreguidelines-pro-type-union-access)
             break;
 
         case SDL_EVENT_MOUSE_BUTTON_DOWN:
-            LOG_TRACE("Mouse button down: {}", static_cast<int>(event.button.button));  // NOLINT(cppcoreguidelines-pro-type-union-access)
             mouseButtonState[event.button.button] = true;  // NOLINT(cppcoreguidelines-pro-type-union-access)
             break;
 
         case SDL_EVENT_MOUSE_BUTTON_UP:
-            LOG_TRACE("Mouse button up: {}", static_cast<int>(event.button.button));  // NOLINT(cppcoreguidelines-pro-type-union-access)
             mouseButtonState[event.button.button] = false;  // NOLINT(cppcoreguidelines-pro-type-union-access)
             break;
 
