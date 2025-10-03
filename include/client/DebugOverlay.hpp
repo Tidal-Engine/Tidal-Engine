@@ -56,6 +56,11 @@ public:
                 uint32_t verticesRendered,
                 uint32_t drawCalls);
 
+    /**
+     * @brief Render a crosshair in the center of the screen
+     */
+    void renderCrosshair();
+
 private:
     bool isVisible = false;
 

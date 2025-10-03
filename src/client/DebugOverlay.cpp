@@ -156,4 +156,78 @@ std::string DebugOverlay::formatNumber(uint32_t num) {
     return std::to_string(num);
 }
 
+void DebugOverlay::renderCrosshair() {
+    ImGuiIO& io = ImGui::GetIO();
+    ImVec2 center(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f);
+
+    ImDrawList* drawList = ImGui::GetForegroundDrawList();
+
+    // Crosshair parameters
+    const float crosshairSize = 10.0f;
+    const float crosshairThickness = 2.0f;
+    const float crosshairGap = 3.0f;
+    const ImU32 crosshairColor = IM_COL32(255, 255, 255, 200); // White with slight transparency
+    const ImU32 outlineColor = IM_COL32(0, 0, 0, 150); // Black outline
+
+    // Draw outline (thicker, black lines)
+    // Horizontal line (left)
+    drawList->AddLine(
+        ImVec2(center.x - crosshairSize - crosshairGap, center.y),
+        ImVec2(center.x - crosshairGap, center.y),
+        outlineColor,
+        crosshairThickness + 2.0f
+    );
+    // Horizontal line (right)
+    drawList->AddLine(
+        ImVec2(center.x + crosshairGap, center.y),
+        ImVec2(center.x + crosshairSize + crosshairGap, center.y),
+        outlineColor,
+        crosshairThickness + 2.0f
+    );
+    // Vertical line (top)
+    drawList->AddLine(
+        ImVec2(center.x, center.y - crosshairSize - crosshairGap),
+        ImVec2(center.x, center.y - crosshairGap),
+        outlineColor,
+        crosshairThickness + 2.0f
+    );
+    // Vertical line (bottom)
+    drawList->AddLine(
+        ImVec2(center.x, center.y + crosshairGap),
+        ImVec2(center.x, center.y + crosshairSize + crosshairGap),
+        outlineColor,
+        crosshairThickness + 2.0f
+    );
+
+    // Draw crosshair (white lines on top)
+    // Horizontal line (left)
+    drawList->AddLine(
+        ImVec2(center.x - crosshairSize - crosshairGap, center.y),
+        ImVec2(center.x - crosshairGap, center.y),
+        crosshairColor,
+        crosshairThickness
+    );
+    // Horizontal line (right)
+    drawList->AddLine(
+        ImVec2(center.x + crosshairGap, center.y),
+        ImVec2(center.x + crosshairSize + crosshairGap, center.y),
+        crosshairColor,
+        crosshairThickness
+    );
+    // Vertical line (top)
+    drawList->AddLine(
+        ImVec2(center.x, center.y - crosshairSize - crosshairGap),
+        ImVec2(center.x, center.y - crosshairGap),
+        crosshairColor,
+        crosshairThickness
+    );
+    // Vertical line (bottom)
+    drawList->AddLine(
+        ImVec2(center.x, center.y + crosshairGap),
+        ImVec2(center.x, center.y + crosshairSize + crosshairGap),
+        crosshairColor,
+        crosshairThickness
+    );
+}
+
 } // namespace engine

@@ -722,6 +722,9 @@ void VulkanEngine::mainLoop() {
         debugOverlay->render(camera.get(), &performanceMetrics, networkClient.get(),
                             chunksVisible, chunksTotal, verticesRendered, drawCalls);
 
+        // Render crosshair
+        debugOverlay->renderCrosshair();
+
         // Finalize ImGui rendering
         ImGui::Render();
 
