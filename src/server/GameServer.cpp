@@ -157,29 +157,32 @@ void GameServer::processNetworkEvents() {
 }
 
 void GameServer::onClientConnect(ENetPeer* peer) {
-    LOG_INFO("Client connected from {}:{}",
-             peer->address.host, peer->address.port);
-
     // Create player data (spawn at origin, Y=5)
     PlayerData playerData;
     playerData.position = glm::vec3(0.0f, 5.0f, 0.0f);
     players[peer] = playerData;
 
+    LOG_INFO("========================================");
+    LOG_INFO(">>> PLAYER JOINED <<<");
+    LOG_INFO("Address: {}:{}", peer->address.host, peer->address.port);
+    LOG_INFO("Spawn position: ({:.1f}, {:.1f}, {:.1f})",
+             playerData.position.x, playerData.position.y, playerData.position.z);
+    LOG_INFO("Players online: {}", players.size());
+    LOG_INFO("========================================");
+
     // Send chunks in radius around spawn point
     sendChunksAroundPlayer(peer, playerData.position);
-
-    LOG_INFO("Player spawned at ({}, {}, {})",
-             playerData.position.x, playerData.position.y, playerData.position.z);
 }
 
 void GameServer::onClientDisconnect(ENetPeer* peer) {
-    LOG_INFO("Client disconnected from {}:{}",
-             peer->address.host, peer->address.port);
-
     // Remove player from tracking
     players.erase(peer);
 
-    LOG_INFO("Player removed, {} players remaining", players.size());
+    LOG_INFO("========================================");
+    LOG_INFO("<<< PLAYER LEFT >>>");
+    LOG_INFO("Address: {}:{}", peer->address.host, peer->address.port);
+    LOG_INFO("Players remaining: {}", players.size());
+    LOG_INFO("========================================");
 }
 
 void GameServer::onClientPacket(ENetPeer* peer, ENetPacket* packet) {
