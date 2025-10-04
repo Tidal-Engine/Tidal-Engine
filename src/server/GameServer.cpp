@@ -294,8 +294,11 @@ void GameServer::onClientPacket(ENetPeer* peer, ENetPacket* packet) {
             break;
 
         case protocol::MessageType::PlayerMove: {
-            if (packet->dataLength < sizeof(protocol::MessageHeader) + sizeof(protocol::PlayerMoveMessage)) {
-                LOG_WARN("Received invalid PlayerMove message (too small)");
+            size_t expectedSize = sizeof(protocol::MessageHeader) + sizeof(protocol::PlayerMoveMessage);
+            if (packet->dataLength < expectedSize) {
+                LOG_WARN("Received invalid PlayerMove message (too small): got {} bytes, expected {} bytes (header={}, msg={})",
+                         packet->dataLength, expectedSize,
+                         sizeof(protocol::MessageHeader), sizeof(protocol::PlayerMoveMessage));
                 break;
             }
 

@@ -155,6 +155,13 @@ void NetworkClient::sendPlayerMove(const glm::vec3& position, const glm::vec3& v
     msg.pitch = pitch;
     msg.inputFlags = 0; // Input state currently handled client-side, will be needed for server-authoritative movement
 
+    static bool loggedOnce = false;
+    if (!loggedOnce) {
+        LOG_DEBUG("Sending PlayerMove: sizeof(PlayerMoveMessage)={}, total packet size={}",
+                  sizeof(msg), sizeof(protocol::MessageHeader) + sizeof(msg));
+        loggedOnce = true;
+    }
+
     sendMessage(protocol::MessageType::PlayerMove, &msg, sizeof(msg));
 }
 
