@@ -60,6 +60,16 @@ public:
                     const Chunk* neighborPosZ = nullptr);
 
     /**
+     * @brief Upload pre-generated chunk mesh to GPU
+     * @param coord Chunk coordinate
+     * @param vertices Pre-generated vertex data
+     * @param indices Pre-generated index data
+     */
+    void uploadChunkMesh(const ChunkCoord& coord,
+                        const std::vector<Vertex>& vertices,
+                        const std::vector<uint32_t>& indices);
+
+    /**
      * @brief Remove chunk from GPU
      */
     void removeChunk(const ChunkCoord& coord);

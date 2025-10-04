@@ -26,17 +26,21 @@ void Camera::processMovement(bool forward, bool backward, bool left, bool right,
                              bool up, bool down, float deltaTime, float speed) {  // NOLINT(readability-identifier-length)
     float velocity = speed * deltaTime;
 
+    // Calculate movement vectors in world XZ plane (ignore camera pitch)
+    glm::vec3 forwardDir = glm::normalize(glm::vec3(front.x, 0.0f, front.z));
+    glm::vec3 rightDir = glm::normalize(glm::cross(forwardDir, worldUp));
+
     if (forward) {
-        position += front * velocity;
+        position += forwardDir * velocity;
     }
     if (backward) {
-        position -= front * velocity;
+        position -= forwardDir * velocity;
     }
     if (left) {
-        position -= this->right * velocity;
+        position -= rightDir * velocity;
     }
     if (right) {
-        position += this->right * velocity;
+        position += rightDir * velocity;
     }
     if (up) {
         position += worldUp * velocity;

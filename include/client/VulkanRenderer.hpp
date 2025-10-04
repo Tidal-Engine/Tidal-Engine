@@ -9,6 +9,7 @@ namespace engine {
 
 struct UniformBufferObject;
 class ChunkRenderer;
+class BlockOutlineRenderer;
 
 /**
  * @brief Manages Vulkan command buffers and frame rendering
@@ -146,6 +147,11 @@ public:
      */
     void setChunkRenderer(ChunkRenderer* renderer) { chunkRenderer = renderer; }
 
+    /**
+     * @brief Set block outline renderer for drawing targeted block outline
+     */
+    void setBlockOutlineRenderer(BlockOutlineRenderer* renderer) { blockOutlineRenderer = renderer; }
+
 private:
     VkDevice device;
     VkPhysicalDevice physicalDevice;
@@ -166,6 +172,7 @@ private:
     uint32_t currentFrame = 0;
 
     ChunkRenderer* chunkRenderer = nullptr;
+    BlockOutlineRenderer* blockOutlineRenderer = nullptr;
 
     /**
      * @brief Update uniform buffer with current frame data (currently unused)

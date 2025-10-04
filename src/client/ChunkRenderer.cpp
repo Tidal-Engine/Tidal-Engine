@@ -5,6 +5,7 @@
 
 #include <cstring>
 #include <stdexcept>
+#include <chrono>
 
 namespace engine {
 
@@ -53,6 +54,28 @@ void ChunkRenderer::uploadChunk(const Chunk& chunk,
 
     LOG_DEBUG("Uploaded chunk ({}, {}, {}) | {} vertices, {} indices",
               coord.x, coord.y, coord.z, chunkMeshes[coord].vertices.size(), chunkMeshes[coord].indices.size());
+}
+
+void ChunkRenderer::uploadChunkMesh(const ChunkCoord& coord,
+                                   const std::vector<Vertex>& vertices,
+                                   const std::vector<uint32_t>& indices) {
+    // Remove existing mesh if present
+    removeChunk(coord);
+
+    if (vertices.empty() || indices.empty()) {
+        LOG_TRACE("Chunk ({}, {}, {}) has no visible geometry",
+                  coord.x, coord.y, coord.z);
+        return;
+    }
+
+    // Store mesh data in CPU memory and mark buffers dirty
+    ChunkMeshData meshData;
+    meshData.vertices = vertices;
+    meshData.indices = indices;
+
+    totalVertices += static_cast<uint32_t>(vertices.size());
+    chunkMeshes[coord] = std::move(meshData);
+    buffersDirty = true;
 }
 
 void ChunkRenderer::removeChunk(const ChunkCoord& coord) {
@@ -168,7 +191,14 @@ void ChunkRenderer::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceS
 }
 
 void ChunkRenderer::rebuildBatchedBuffers() {
+    auto startTime = std::chrono::high_resolution_clock::now();
     LOG_DEBUG("Rebuilding batched buffers for {} chunks", chunkMeshes.size());
+
+    // Wait for GPU to finish using old buffers before destroying them
+    // This prevents crashes when buffers are destroyed while still in use by in-flight frames
+    if (batchedBuffers.vertexBuffer != VK_NULL_HANDLE || batchedBuffers.indexBuffer != VK_NULL_HANDLE) {
+        vkDeviceWaitIdle(device);
+    }
 
     // Clean up old buffers
     if (batchedBuffers.vertexBuffer != VK_NULL_HANDLE) {
@@ -196,6 +226,7 @@ void ChunkRenderer::rebuildBatchedBuffers() {
     }
 
     // Combine all chunk meshes into single buffers
+    auto combineStart = std::chrono::high_resolution_clock::now();
     std::vector<Vertex> combinedVertices;
     std::vector<uint32_t> combinedIndices;
 
@@ -216,10 +247,14 @@ void ChunkRenderer::rebuildBatchedBuffers() {
     batchedBuffers.totalVertexCount = static_cast<uint32_t>(combinedVertices.size());
     batchedBuffers.totalIndexCount = static_cast<uint32_t>(combinedIndices.size());
 
-    LOG_DEBUG("Combined buffers: {} vertices, {} indices",
-             batchedBuffers.totalVertexCount, batchedBuffers.totalIndexCount);
+    auto combineEnd = std::chrono::high_resolution_clock::now();
+    auto combineDuration = std::chrono::duration<double, std::milli>(combineEnd - combineStart).count();
+
+    LOG_DEBUG("Combined buffers: {} vertices, {} indices (took {:.2f}ms)",
+             batchedBuffers.totalVertexCount, batchedBuffers.totalIndexCount, combineDuration);
 
     // Create vertex buffer
+    auto vertexStart = std::chrono::high_resolution_clock::now();
     VkDeviceSize vertexBufferSize = sizeof(Vertex) * combinedVertices.size();
     VkBuffer stagingBuffer;
     VkDeviceMemory stagingMemory;
@@ -243,7 +278,12 @@ void ChunkRenderer::rebuildBatchedBuffers() {
     vkDestroyBuffer(device, stagingBuffer, nullptr);
     vkFreeMemory(device, stagingMemory, nullptr);
 
+    auto vertexEnd = std::chrono::high_resolution_clock::now();
+    auto vertexDuration = std::chrono::duration<double, std::milli>(vertexEnd - vertexStart).count();
+    LOG_DEBUG("Vertex buffer creation took {:.2f}ms", vertexDuration);
+
     // Create index buffer
+    auto indexStart = std::chrono::high_resolution_clock::now();
     VkDeviceSize indexBufferSize = sizeof(uint32_t) * combinedIndices.size();
 
     createBuffer(indexBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
@@ -264,7 +304,13 @@ void ChunkRenderer::rebuildBatchedBuffers() {
     vkDestroyBuffer(device, stagingBuffer, nullptr);
     vkFreeMemory(device, stagingMemory, nullptr);
 
-    LOG_DEBUG("Batched buffers rebuilt successfully");
+    auto indexEnd = std::chrono::high_resolution_clock::now();
+    auto indexDuration = std::chrono::duration<double, std::milli>(indexEnd - indexStart).count();
+    LOG_DEBUG("Index buffer creation took {:.2f}ms", indexDuration);
+
+    auto totalEnd = std::chrono::high_resolution_clock::now();
+    auto totalDuration = std::chrono::duration<double, std::milli>(totalEnd - startTime).count();
+    LOG_WARN("Batched buffers rebuilt successfully - TOTAL TIME: {:.2f}ms", totalDuration);
 }
 
 } // namespace engine

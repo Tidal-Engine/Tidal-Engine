@@ -241,20 +241,19 @@ std::vector<ChunkCoord> World::getChunksInRadius(const glm::vec3& centerPos, int
     // Convert center position to chunk coordinate
     ChunkCoord centerChunk = ChunkCoord::fromWorldPos(centerPos);
 
-    // Get all chunks in a cube around the center
+    // Get all chunks in a horizontal circle around the center (X-Z plane only)
+    // Load all Y levels for each X-Z position
     for (int32_t x = centerChunk.x - chunkRadius; x <= centerChunk.x + chunkRadius; x++) {
-        for (int32_t y = centerChunk.y - chunkRadius; y <= centerChunk.y + chunkRadius; y++) {
-            for (int32_t z = centerChunk.z - chunkRadius; z <= centerChunk.z + chunkRadius; z++) {
-                ChunkCoord coord{x, y, z};
+        for (int32_t z = centerChunk.z - chunkRadius; z <= centerChunk.z + chunkRadius; z++) {
+            // Check if within circular radius (Euclidean distance in XZ plane)
+            int32_t dx = x - centerChunk.x;
+            int32_t dz = z - centerChunk.z;
+            float distanceXZ = std::sqrt(static_cast<float>(dx * dx + dz * dz));
 
-                // Check if within radius (using Manhattan distance for simplicity)
-                int32_t dx = coord.x - centerChunk.x;
-                int32_t dy = coord.y - centerChunk.y;
-                int32_t dz = coord.z - centerChunk.z;
-                int32_t distance = std::abs(dx) + std::abs(dy) + std::abs(dz);
-
-                if (distance <= chunkRadius * 3) {  // Allow diagonal chunks
-                    result.push_back(coord);
+            if (distanceXZ <= static_cast<float>(chunkRadius)) {
+                // Add all vertical chunks at this X-Z position (typically -1 to 1 for Y)
+                for (int32_t y = -1; y <= 1; y++) {
+                    result.push_back(ChunkCoord{x, y, z});
                 }
             }
         }

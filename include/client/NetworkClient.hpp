@@ -87,6 +87,13 @@ public:
         onChunkReceived = callback;
     }
 
+    /**
+     * @brief Set callback for when chunk is unloaded
+     */
+    void setOnChunkUnloaded(std::function<void(const ChunkCoord&)> callback) {
+        onChunkUnloaded = callback;
+    }
+
 private:
     ENetHost* client = nullptr;
     ENetPeer* serverPeer = nullptr;
@@ -97,6 +104,7 @@ private:
 
     // Callbacks
     std::function<void(const ChunkCoord&)> onChunkReceived;
+    std::function<void(const ChunkCoord&)> onChunkUnloaded;
 
     /**
      * @brief Handle received packet from server

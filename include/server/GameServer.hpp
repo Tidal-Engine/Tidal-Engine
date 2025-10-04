@@ -59,12 +59,13 @@ private:
     // Player tracking
     struct PlayerData {
         glm::vec3 position{0.0f, 5.0f, 0.0f};  ///< Player world position (spawn at Y=5)
+        glm::vec3 lastChunkUpdatePos{0.0f, 5.0f, 0.0f};  ///< Last position where chunks were sent
         std::unordered_set<ChunkCoord> loadedChunks;  ///< Chunks this player has loaded
     };
 
     std::unordered_map<ENetPeer*, PlayerData> players;  ///< Track all connected players
 
-    static constexpr int32_t CHUNK_LOAD_RADIUS = 4;  ///< Radius to load chunks around player
+    static constexpr int32_t CHUNK_LOAD_RADIUS = 10;  ///< Radius to load chunks around player (10 chunks = 160 blocks)
 
 private:
     ENetHost* server = nullptr;

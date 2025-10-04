@@ -1,6 +1,7 @@
 #include "client/DebugOverlay.hpp"
 #include "client/Camera.hpp"
 #include "client/NetworkClient.hpp"
+#include "client/Raycaster.hpp"
 #include "core/PerformanceMetrics.hpp"
 #include "core/Logger.hpp"
 
@@ -24,7 +25,8 @@ void DebugOverlay::render(const Camera* camera,
                          uint32_t chunksVisible,
                          uint32_t chunksTotal,
                          uint32_t verticesRendered,
-                         uint32_t drawCalls) {
+                         uint32_t drawCalls,
+                         const std::optional<RaycastHit>* targetedBlock) {
     if (!isVisible) {
         return;
     }
@@ -46,6 +48,18 @@ void DebugOverlay::render(const Camera* camera,
         renderCameraInfo(camera);
         ImGui::Separator();
 
+        // Targeted block info
+        if (targetedBlock && targetedBlock->has_value()) {
+            const auto& hit = targetedBlock->value();
+            ImGui::Text("Targeted Block");
+            ImGui::Text("  Position: %d, %d, %d", hit.blockPos.x, hit.blockPos.y, hit.blockPos.z);
+            ImGui::Text("  Type: %s", hit.blockType == BlockType::Stone ? "Stone" :
+                                      hit.blockType == BlockType::Dirt ? "Dirt" : "Unknown");
+            ImGui::Text("  Distance: %.2f", hit.distance);
+            ImGui::Text("  Face: %d, %d, %d", hit.normal.x, hit.normal.y, hit.normal.z);
+            ImGui::Separator();
+        }
+
         renderRenderingStats(chunksVisible, chunksTotal, verticesRendered, drawCalls);
         ImGui::Separator();
 
@@ -66,6 +80,12 @@ void DebugOverlay::renderCameraInfo(const Camera* camera) {
     ImGui::Text("Camera");
 
     glm::vec3 pos = camera->getPosition();
+
+    // Block coordinates (whole numbers)
+    int blockX = static_cast<int>(std::floor(pos.x));
+    int blockY = static_cast<int>(std::floor(pos.y));
+    int blockZ = static_cast<int>(std::floor(pos.z));
+    ImGui::Text("  Block: %d, %d, %d", blockX, blockY, blockZ);
     ImGui::Text("  Position: %.2f, %.2f, %.2f", pos.x, pos.y, pos.z);
 
     glm::vec3 front = camera->getFront();

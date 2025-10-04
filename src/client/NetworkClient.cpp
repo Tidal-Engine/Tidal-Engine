@@ -171,7 +171,12 @@ void NetworkClient::sendBlockPlace(int32_t x, int32_t y, int32_t z, uint16_t blo
 }
 
 void NetworkClient::sendBlockBreak(int32_t x, int32_t y, int32_t z) {
-    if (!connected) return;
+    if (!connected) {
+        LOG_WARN("CLIENT: Cannot send block break - not connected");
+        return;
+    }
+
+    LOG_INFO("CLIENT: Sending BlockBreak message for ({}, {}, {})", x, y, z);
 
     protocol::BlockBreakMessage msg;
     msg.x = x;
@@ -270,6 +275,11 @@ void NetworkClient::handleChunkUnload(const protocol::ChunkUnloadMessage& msg) {
     if (it != chunks.end()) {
         LOG_DEBUG("Unloading chunk ({}, {}, {})", msg.coord.x, msg.coord.y, msg.coord.z);
         chunks.erase(it);
+
+        // Notify callback
+        if (onChunkUnloaded) {
+            onChunkUnloaded(msg.coord);
+        }
     }
 }
 
@@ -295,7 +305,16 @@ void NetworkClient::handleBlockUpdate(const protocol::BlockUpdateMessage& msg) {
     block.type = static_cast<BlockType>(msg.blockType);
     chunk->setBlock(localX, localY, localZ, block);
 
-    LOG_TRACE("Block updated at ({}, {}, {}) to type {}", msg.x, msg.y, msg.z, msg.blockType);
+    LOG_INFO("CLIENT: Received BlockUpdate at ({}, {}, {}) to type {}", msg.x, msg.y, msg.z, msg.blockType);
+
+    // Notify callback to regenerate mesh
+    if (onChunkReceived) {
+        LOG_INFO("CLIENT: Triggering mesh regeneration for chunk ({}, {}, {})",
+                 chunkCoord.x, chunkCoord.y, chunkCoord.z);
+        onChunkReceived(chunkCoord);
+    } else {
+        LOG_WARN("CLIENT: No chunk callback registered - mesh won't update!");
+    }
 }
 
 void NetworkClient::sendMessage(protocol::MessageType type, const void* data, size_t size) {

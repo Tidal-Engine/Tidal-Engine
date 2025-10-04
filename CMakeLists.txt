@@ -161,6 +161,8 @@ add_executable(TidalClient
     src/client/ChunkRenderer.cpp
     src/client/TextureAtlas.cpp
     src/client/DebugOverlay.cpp
+    src/client/Raycaster.cpp
+    src/client/BlockOutlineRenderer.cpp
     src/vulkan/VulkanBuffer.cpp
     src/vulkan/VulkanSwapchain.cpp
     src/vulkan/VulkanPipeline.cpp

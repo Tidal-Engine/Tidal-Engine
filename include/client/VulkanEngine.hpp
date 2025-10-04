@@ -8,11 +8,18 @@
 #include "vulkan/Vertex.hpp"
 #include "core/EngineConfig.hpp"
 #include "core/PerformanceMetrics.hpp"
+#include "client/Raycaster.hpp"
+#include "shared/Chunk.hpp"
+#include "shared/ChunkCoord.hpp"
 
 #include <vector>
 #include <set>
 #include <memory>
 #include <cstdint>
+#include <optional>
+#include <queue>
+#include <mutex>
+#include <future>
 
 namespace engine {
 
@@ -27,6 +34,7 @@ class InputManager;
 class Camera;
 class TextureAtlas;
 class DebugOverlay;
+class BlockOutlineRenderer;
 
 /**
  * @brief Uniform buffer object for shader uniforms
@@ -89,6 +97,7 @@ private:
     std::unique_ptr<Camera> camera;
     std::unique_ptr<TextureAtlas> textureAtlas;
     std::unique_ptr<DebugOverlay> debugOverlay;
+    std::unique_ptr<BlockOutlineRenderer> blockOutlineRenderer;
 
     EngineConfig::Runtime config;
     PerformanceMetrics performanceMetrics;
@@ -100,8 +109,55 @@ private:
     float deltaTime = 0.0f;
     std::chrono::steady_clock::time_point lastFrameTime;
 
+    // Raycasting
+    std::optional<RaycastHit> targetedBlock;
+
+    // Position update throttling
+    std::chrono::steady_clock::time_point lastPositionUpdate;
+    glm::vec3 lastSentPosition;
+
+    // Block breaking state
+    std::chrono::steady_clock::time_point lastBlockBreak;
+    bool wasLeftClickPressed = false;  // Track previous frame's button state
+    static constexpr float BLOCK_BREAK_COOLDOWN = 0.25f;  // seconds between breaks when holding
+
     // ImGui resources
     VkDescriptorPool imguiDescriptorPool = VK_NULL_HANDLE;
+
+    // Async chunk loading
+    struct PendingChunk {
+        ChunkCoord coord{0, 0, 0};
+        Chunk chunk{ChunkCoord{0, 0, 0}};  // Copy of chunk data for async processing
+        Chunk neighborNegX{ChunkCoord{0, 0, 0}};
+        Chunk neighborPosX{ChunkCoord{0, 0, 0}};
+        Chunk neighborNegY{ChunkCoord{0, 0, 0}};
+        Chunk neighborPosY{ChunkCoord{0, 0, 0}};
+        Chunk neighborNegZ{ChunkCoord{0, 0, 0}};
+        Chunk neighborPosZ{ChunkCoord{0, 0, 0}};
+        bool hasNegX = false;
+        bool hasPosX = false;
+        bool hasNegY = false;
+        bool hasPosY = false;
+        bool hasNegZ = false;
+        bool hasPosZ = false;
+    };
+
+    struct CompletedMesh {
+        ChunkCoord coord;
+        std::vector<Vertex> vertices;
+        std::vector<uint32_t> indices;
+    };
+
+    std::queue<PendingChunk> pendingChunks;
+    std::queue<CompletedMesh> completedMeshes;
+    std::mutex pendingChunksMutex;
+    std::mutex completedMeshesMutex;
+    std::vector<std::future<void>> meshGenerationTasks;
+
+    static constexpr size_t MAX_CHUNKS_PER_FRAME = 10;
+
+    void processPendingChunks();
+    void uploadCompletedMeshes();
 
     void initSDL();
     void initVulkan();

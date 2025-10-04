@@ -3,6 +3,7 @@
 #include <imgui.h>
 #include <vector>
 #include <string>
+#include <optional>
 #include <glm/glm.hpp>
 
 namespace engine {
@@ -11,6 +12,7 @@ namespace engine {
 class Camera;
 class PerformanceMetrics;
 class NetworkClient;
+struct RaycastHit;
 
 /**
  * @brief Debug overlay for displaying runtime information (F3 menu)
@@ -47,6 +49,7 @@ public:
      * @param chunksTotal Total number of chunks loaded
      * @param verticesRendered Total vertices rendered this frame
      * @param drawCalls Number of draw calls this frame
+     * @param targetedBlock Currently targeted block (if any)
      */
     void render(const Camera* camera,
                 const PerformanceMetrics* metrics,
@@ -54,7 +57,8 @@ public:
                 uint32_t chunksVisible,
                 uint32_t chunksTotal,
                 uint32_t verticesRendered,
-                uint32_t drawCalls);
+                uint32_t drawCalls,
+                const std::optional<RaycastHit>* targetedBlock = nullptr);
 
     /**
      * @brief Render a crosshair in the center of the screen

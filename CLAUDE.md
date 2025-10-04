@@ -1,0 +1,1 @@
+- Anything involving chunks is 32x32x32, not 16x16 like minecraft is.

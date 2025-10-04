@@ -1,6 +1,7 @@
 #include "client/VulkanRenderer.hpp"
 #include "client/VulkanEngine.hpp"
 #include "client/ChunkRenderer.hpp"
+#include "client/BlockOutlineRenderer.hpp"
 #include "vulkan/VulkanBuffer.hpp"
 #include "core/Logger.hpp"
 
@@ -177,6 +178,11 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
     // Draw voxel chunks (if chunk renderer is set)
     if (chunkRenderer != nullptr) {
         chunkRenderer->drawChunks(commandBuffer);
+    }
+
+    // Draw block outline (if block outline renderer is set)
+    if (blockOutlineRenderer != nullptr && blockOutlineRenderer->hasOutline()) {
+        blockOutlineRenderer->draw(commandBuffer, descriptorSets[currentFrame]);
     }
 
     // Draw ImGui

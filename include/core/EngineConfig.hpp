@@ -19,7 +19,7 @@ struct EngineConfig {
 
     // Rendering settings
     static constexpr int MAX_FRAMES_IN_FLIGHT = 2;      ///< Maximum frames that can be processed concurrently
-    static constexpr float FOV_DEGREES = 45.0f;         ///< Default field of view in degrees
+    static constexpr float FOV_DEGREES = 90.0f;         ///< Default field of view in degrees
     static constexpr float NEAR_PLANE = 0.1f;           ///< Near clipping plane distance
     static constexpr float FAR_PLANE = 1000.0f;         ///< Far clipping plane distance
 
