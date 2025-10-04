@@ -97,10 +97,10 @@ void DebugOverlay::renderCameraInfo(const Camera* camera) {
     ImGui::Text("  Rotation: Yaw %.1f, Pitch %.1f", yaw, pitch);
     ImGui::Text("  Direction: %.2f, %.2f, %.2f", front.x, front.y, front.z);
 
-    // Chunk coordinates
-    int chunkX = static_cast<int>(std::floor(pos.x / 16.0f));
-    int chunkY = static_cast<int>(std::floor(pos.y / 16.0f));
-    int chunkZ = static_cast<int>(std::floor(pos.z / 16.0f));
+    // Chunk coordinates (chunks are 32x32x32)
+    int chunkX = static_cast<int>(std::floor(pos.x / 32.0f));
+    int chunkY = static_cast<int>(std::floor(pos.y / 32.0f));
+    int chunkZ = static_cast<int>(std::floor(pos.z / 32.0f));
     ImGui::Text("  Chunk: %d, %d, %d", chunkX, chunkY, chunkZ);
 }
 
