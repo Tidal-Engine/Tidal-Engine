@@ -283,7 +283,7 @@ void VulkanEngine::initNetworking() {
 
             PendingChunk pending;
             pending.coord = chunkCoord;
-            pending.chunk = *c;
+            pending.chunk = std::make_shared<Chunk>(*c);
 
             // Copy neighbor chunks if they exist
             const Chunk* neighborNegX = networkClient->getChunk({chunkCoord.x - 1, chunkCoord.y, chunkCoord.z});
@@ -293,12 +293,12 @@ void VulkanEngine::initNetworking() {
             const Chunk* neighborNegZ = networkClient->getChunk({chunkCoord.x, chunkCoord.y, chunkCoord.z - 1});
             const Chunk* neighborPosZ = networkClient->getChunk({chunkCoord.x, chunkCoord.y, chunkCoord.z + 1});
 
-            if (neighborNegX) { pending.neighborNegX = *neighborNegX; pending.hasNegX = true; }
-            if (neighborPosX) { pending.neighborPosX = *neighborPosX; pending.hasPosX = true; }
-            if (neighborNegY) { pending.neighborNegY = *neighborNegY; pending.hasNegY = true; }
-            if (neighborPosY) { pending.neighborPosY = *neighborPosY; pending.hasPosY = true; }
-            if (neighborNegZ) { pending.neighborNegZ = *neighborNegZ; pending.hasNegZ = true; }
-            if (neighborPosZ) { pending.neighborPosZ = *neighborPosZ; pending.hasPosZ = true; }
+            if (neighborNegX) pending.neighborNegX = std::make_shared<Chunk>(*neighborNegX);
+            if (neighborPosX) pending.neighborPosX = std::make_shared<Chunk>(*neighborPosX);
+            if (neighborNegY) pending.neighborNegY = std::make_shared<Chunk>(*neighborNegY);
+            if (neighborPosY) pending.neighborPosY = std::make_shared<Chunk>(*neighborPosY);
+            if (neighborNegZ) pending.neighborNegZ = std::make_shared<Chunk>(*neighborNegZ);
+            if (neighborPosZ) pending.neighborPosZ = std::make_shared<Chunk>(*neighborPosZ);
 
             {
                 std::lock_guard<std::mutex> lock(pendingChunksMutex);
@@ -1018,16 +1018,16 @@ void VulkanEngine::processPendingChunks() {
 
             // Generate mesh on background thread
             ChunkMesh::generateMesh(
-                p.chunk,
+                *p.chunk,
                 completed.vertices,
                 completed.indices,
                 textureAtlas.get(),
-                p.hasNegX ? &p.neighborNegX : nullptr,
-                p.hasPosX ? &p.neighborPosX : nullptr,
-                p.hasNegY ? &p.neighborNegY : nullptr,
-                p.hasPosY ? &p.neighborPosY : nullptr,
-                p.hasNegZ ? &p.neighborNegZ : nullptr,
-                p.hasPosZ ? &p.neighborPosZ : nullptr
+                p.neighborNegX ? p.neighborNegX.get() : nullptr,
+                p.neighborPosX ? p.neighborPosX.get() : nullptr,
+                p.neighborNegY ? p.neighborNegY.get() : nullptr,
+                p.neighborPosY ? p.neighborPosY.get() : nullptr,
+                p.neighborNegZ ? p.neighborNegZ.get() : nullptr,
+                p.neighborPosZ ? p.neighborPosZ.get() : nullptr
             );
 
             // Queue completed mesh for upload

@@ -145,19 +145,13 @@ private:
     // Async chunk loading
     struct PendingChunk {
         ChunkCoord coord{0, 0, 0};
-        Chunk chunk{ChunkCoord{0, 0, 0}};  // Copy of chunk data for async processing
-        Chunk neighborNegX{ChunkCoord{0, 0, 0}};
-        Chunk neighborPosX{ChunkCoord{0, 0, 0}};
-        Chunk neighborNegY{ChunkCoord{0, 0, 0}};
-        Chunk neighborPosY{ChunkCoord{0, 0, 0}};
-        Chunk neighborNegZ{ChunkCoord{0, 0, 0}};
-        Chunk neighborPosZ{ChunkCoord{0, 0, 0}};
-        bool hasNegX = false;
-        bool hasPosX = false;
-        bool hasNegY = false;
-        bool hasPosY = false;
-        bool hasNegZ = false;
-        bool hasPosZ = false;
+        std::shared_ptr<Chunk> chunk;  // Use shared_ptr to avoid stack overflow
+        std::shared_ptr<Chunk> neighborNegX;
+        std::shared_ptr<Chunk> neighborPosX;
+        std::shared_ptr<Chunk> neighborNegY;
+        std::shared_ptr<Chunk> neighborPosY;
+        std::shared_ptr<Chunk> neighborNegZ;
+        std::shared_ptr<Chunk> neighborPosZ;
     };
 
     struct CompletedMesh {
