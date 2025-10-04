@@ -13,10 +13,13 @@
 #include <fstream>
 #include <sstream>
 #include <iostream>
+#include <filesystem>
+
+#ifndef _WIN32
 #include <sys/wait.h>
 #include <unistd.h>
 #include <signal.h>
-#include <filesystem>
+#endif
 
 namespace engine {
 
@@ -630,6 +633,11 @@ void GameServer::updatePlayerChunks() {
 }
 
 bool GameServer::startTunnel(const std::string& secretKey) {
+#ifdef _WIN32
+    LOG_WARN("playit.gg tunnel is not supported on Windows yet");
+    LOG_INFO("Please use playit.gg manually: https://playit.gg/download");
+    return false;
+#else
     if (tunnelRunning) {
         LOG_WARN("Tunnel is already running");
         return false;
@@ -725,9 +733,14 @@ bool GameServer::startTunnel(const std::string& secretKey) {
     LOG_INFO("========================================");
 
     return true;
+#endif
 }
 
 void GameServer::stopTunnel() {
+#ifdef _WIN32
+    LOG_INFO("playit.gg tunnel is not supported on Windows");
+    return;
+#else
     if (!tunnelRunning || tunnelPid == -1) {
         LOG_INFO("No tunnel is running");
         return;
@@ -763,6 +776,7 @@ void GameServer::stopTunnel() {
 
     LOG_INFO("playit.gg tunnel stopped");
     LOG_INFO("========================================");
+#endif
 }
 
 } // namespace engine
