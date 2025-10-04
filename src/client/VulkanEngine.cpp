@@ -758,7 +758,7 @@ void VulkanEngine::mainLoop() {
                 // Toggle debug overlay on F3
                 debugOverlay->toggle();
                 LOG_DEBUG("Debug overlay toggled: {}", debugOverlay->getVisible() ? "ON" : "OFF");
-            } else if (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_GRAVE) {
+            } else if (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_U) {
                 // Toggle console on ~ key
                 console->toggle();
 
