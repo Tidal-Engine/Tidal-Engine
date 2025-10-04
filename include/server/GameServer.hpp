@@ -109,6 +109,8 @@ private:
     uint64_t currentTick = 0;
     std::atomic<bool> running{false};
 
+    size_t lastLoggedChunkCount = 0;  ///< Last chunk count logged (to reduce spam)
+
     // Player ID generation
     uint32_t nextPlayerId = 1;  ///< Next player ID to assign
 

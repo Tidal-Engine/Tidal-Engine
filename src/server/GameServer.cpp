@@ -84,10 +84,14 @@ void GameServer::run() {
             lastTick = now;
             currentTick++;
 
-            // Log every 200 ticks (~5 seconds at 40 TPS)
+            // Log chunk count changes (check every 200 ticks / ~5 seconds at 40 TPS)
             if (currentTick % 200 == 0) {
-                LOG_TRACE("Server tick: {} | Loaded chunks: {}",
-                         currentTick, world->getLoadedChunkCount());
+                size_t currentChunkCount = world->getLoadedChunkCount();
+                if (currentChunkCount != lastLoggedChunkCount) {
+                    LOG_TRACE("Server tick: {} | Loaded chunks: {}",
+                             currentTick, currentChunkCount);
+                    lastLoggedChunkCount = currentChunkCount;
+                }
             }
 
             // Autosave every 12000 ticks (5 minutes at 40 TPS)
