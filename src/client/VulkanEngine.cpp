@@ -28,6 +28,8 @@
 #include <stdexcept>
 #include <cstring>
 #include <chrono>
+#include <fstream>
+#include <random>
 
 namespace engine {
 
@@ -262,6 +264,15 @@ void VulkanEngine::initImGui() {
     hotbarUI->init();
     creativeMenu->init();
 
+    // Set up callback to sync inventory to server when creative menu modifies it
+    creativeMenu->setOnInventoryChanged([this]() {
+        ItemStack hotbar[9];
+        for (size_t i = 0; i < 9; i++) {
+            hotbar[i] = inventory->getSlot(i);
+        }
+        networkClient->sendInventoryUpdate(hotbar, static_cast<uint32_t>(inventory->getSelectedHotbarIndex()));
+    });
+
     LOG_INFO("ImGui initialized successfully");
 }
 
@@ -328,18 +339,33 @@ void VulkanEngine::initNetworking() {
                  coord.x, coord.y, coord.z, chunkRenderer->getLoadedChunkCount());
     });
 
-    networkClient->setOnInventorySync([this](const ItemStack hotbar[9], uint32_t selectedSlot) {
-        // Apply inventory sync from server
+    networkClient->setOnInventorySync([this](const ItemStack hotbar[9], uint32_t selectedSlot,
+                                                     const glm::vec3& position, float yaw, float pitch) {
+        // Apply inventory and spawn position sync from server
         for (size_t i = 0; i < 9; i++) {
             inventory->setSlot(i, hotbar[i].type, hotbar[i].count);
         }
         inventory->setSelectedHotbarIndex(static_cast<size_t>(selectedSlot));
-        LOG_INFO("Inventory synced from server: {} items in slot 0, selected slot {}",
-                 hotbar[0].count, selectedSlot);
+
+        // Set camera position and rotation
+        camera->setPosition(position);
+        camera->setYaw(yaw);
+        camera->setPitch(pitch);
+
+        LOG_INFO("Spawned at position ({:.1f}, {:.1f}, {:.1f}), yaw {:.1f}, pitch {:.1f}",
+                 position.x, position.y, position.z, yaw, pitch);
     });
 
+    // Load or generate username
+    std::string username = loadUsername();
+    console->setUsername(username);
+    LOG_INFO("Player username: {}", username);
+
+    // Connect console to network client
+    console->setNetworkClient(networkClient.get());
+
     // Connect to localhost (integrated server for now)
-    if (!networkClient->connect("127.0.0.1", 25565, 5000)) {
+    if (!networkClient->connect("127.0.0.1", username, 25565, 5000)) {
         LOG_ERROR("Failed to connect to server!");
         throw std::runtime_error("Failed to connect to game server");
     }
@@ -351,9 +377,6 @@ void VulkanEngine::initNetworking() {
         networkClient->update();
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
-
-    // Connect console to network client
-    console->setNetworkClient(networkClient.get());
 
     LOG_INFO("Networking initialized | Received {} chunks",
              networkClient->getChunks().size());
@@ -736,6 +759,13 @@ void VulkanEngine::mainLoop() {
                         LOG_INFO("Dropped item from slot {}: {} x{}", selectedSlot,
                                  static_cast<int>(slot.type), slot.count);
                         inventory->setSlot(selectedSlot, ItemType::Empty, 0);
+
+                        // Send inventory update to server
+                        ItemStack hotbar[9];
+                        for (size_t i = 0; i < 9; i++) {
+                            hotbar[i] = inventory->getSlot(i);
+                        }
+                        networkClient->sendInventoryUpdate(hotbar, static_cast<uint32_t>(selectedSlot));
                     }
                 }
             }
@@ -1172,6 +1202,46 @@ void VulkanEngine::cleanupImGui() {
         vkDestroyDescriptorPool(device, imguiDescriptorPool, nullptr);
         imguiDescriptorPool = VK_NULL_HANDLE;
     }
+}
+
+std::string VulkanEngine::loadUsername() {
+    const std::string usernameFile = "username.txt";
+
+    // Try to load existing username
+    std::ifstream file(usernameFile);
+    if (file.is_open()) {
+        std::string username;
+        std::getline(file, username);
+        file.close();
+
+        // Trim whitespace
+        username.erase(0, username.find_first_not_of(" \t\n\r"));
+        username.erase(username.find_last_not_of(" \t\n\r") + 1);
+
+        if (!username.empty() && username.length() <= 31) {
+            LOG_INFO("Loaded username from {}: {}", usernameFile, username);
+            return username;
+        }
+    }
+
+    // Generate new random username
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<> dis(1000, 9999);
+
+    std::string username = "Player" + std::to_string(dis(gen));
+
+    // Save for future use
+    std::ofstream outFile(usernameFile);
+    if (outFile.is_open()) {
+        outFile << username;
+        outFile.close();
+        LOG_INFO("Generated new username and saved to {}: {}", usernameFile, username);
+    } else {
+        LOG_WARN("Failed to save username to {}", usernameFile);
+    }
+
+    return username;
 }
 
 } // namespace engine

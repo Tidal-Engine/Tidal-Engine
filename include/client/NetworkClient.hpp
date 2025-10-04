@@ -31,11 +31,12 @@ public:
     /**
      * @brief Connect to a server
      * @param host Server hostname or IP (e.g., "127.0.0.1" or "localhost")
+     * @param username Player's username for persistence
      * @param port Server port (default: 25565)
      * @param timeout Connection timeout in milliseconds (default: 5000)
      * @return true if connected successfully
      */
-    bool connect(const std::string& host, uint16_t port = 25565, uint32_t timeout = 5000);
+    bool connect(const std::string& host, const std::string& username, uint16_t port = 25565, uint32_t timeout = 5000);
 
     /**
      * @brief Disconnect from server
@@ -70,6 +71,11 @@ public:
     void sendBlockBreak(int32_t x, int32_t y, int32_t z);
 
     /**
+     * @brief Send inventory update to server for persistence
+     */
+    void sendInventoryUpdate(const ItemStack hotbar[9], uint32_t selectedSlot);
+
+    /**
      * @brief Get a received chunk (nullptr if not loaded)
      */
     Chunk* getChunk(const ChunkCoord& coord);
@@ -97,7 +103,7 @@ public:
     /**
      * @brief Set callback for when inventory sync is received from server
      */
-    void setOnInventorySync(std::function<void(const ItemStack[9], uint32_t)> callback) {
+    void setOnInventorySync(std::function<void(const ItemStack[9], uint32_t, const glm::vec3&, float, float)> callback) {
         onInventorySync = callback;
     }
 
@@ -126,7 +132,7 @@ private:
     // Callbacks
     std::function<void(const ChunkCoord&)> onChunkReceived;
     std::function<void(const ChunkCoord&)> onChunkUnloaded;
-    std::function<void(const ItemStack[9], uint32_t)> onInventorySync;
+    std::function<void(const ItemStack[9], uint32_t, const glm::vec3&, float, float)> onInventorySync;
 
     /**
      * @brief Handle received packet from server

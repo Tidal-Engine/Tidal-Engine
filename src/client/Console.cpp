@@ -200,11 +200,11 @@ void Console::cmdConnect(const std::vector<std::string>& args) {
         networkClient->disconnect();
     }
 
-    addMessage("Connecting to " + host + ":" + std::to_string(port) + "...");
+    addMessage("Connecting to " + host + ":" + std::to_string(port) + " as '" + username + "'...");
 
-    if (networkClient->connect(host, port)) {
+    if (networkClient->connect(host, username, port)) {
         addMessage("Successfully connected to server!");
-        LOG_INFO("Console: Connected to {}:{}", host, port);
+        LOG_INFO("Console: Connected to {}:{} as '{}'", host, port, username);
     } else {
         addMessage("ERROR: Failed to connect to server");
         addMessage("Make sure the server is running and address is correct");

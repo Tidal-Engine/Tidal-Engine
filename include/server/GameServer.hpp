@@ -75,12 +75,19 @@ public:
      */
     uint64_t getCurrentTick() const { return currentTick; }
 
+    /**
+     * @brief Get world instance
+     */
+    World* getWorld() const { return world.get(); }
+
 private:
     // Player tracking
     struct PlayerData {
         uint32_t playerId = 0;                 ///< Unique player ID
         std::string playerName;                ///< Player's display name
         glm::vec3 position{0.0f, 5.0f, 0.0f};  ///< Player world position (spawn at Y=5)
+        float yaw = -90.0f;                    ///< Camera yaw angle in degrees
+        float pitch = -20.0f;                  ///< Camera pitch angle in degrees
         glm::vec3 lastChunkUpdatePos{0.0f, 5.0f, 0.0f};  ///< Last position where chunks were sent
         std::unordered_set<ChunkCoord> loadedChunks;  ///< Chunks this player has loaded
         std::array<ItemStack, 9> hotbar;       ///< Player hotbar inventory (9 slots)

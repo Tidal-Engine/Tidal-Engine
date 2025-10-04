@@ -5,6 +5,7 @@
 #include <vulkan/vulkan.h>
 #include <unordered_map>
 #include <string>
+#include <functional>
 
 namespace engine {
 
@@ -64,10 +65,20 @@ public:
      */
     void render();
 
+    /**
+     * @brief Set callback for when inventory is modified via creative menu
+     */
+    void setOnInventoryChanged(std::function<void()> callback) {
+        onInventoryChanged = callback;
+    }
+
 private:
     Inventory* inventory;
     bool isOpen = false;
     std::string searchFilter;
+
+    // Callback for inventory changes
+    std::function<void()> onInventoryChanged;
 
     VkDevice device;
     VkPhysicalDevice physicalDevice;

@@ -1,6 +1,7 @@
 #include "core/Logger.hpp"
 #include "core/CrashHandler.hpp"
 #include "server/GameServer.hpp"
+#include "server/World.hpp"
 
 #include <exception>
 #include <csignal>
@@ -80,10 +81,16 @@ int main(int argc, char* argv[]) {
                         LOG_INFO("Tunnel is not running");
                     }
                 }
+                else if (line == "/save" || line == "save") {
+                    LOG_INFO("Saving world...");
+                    size_t chunks = server.getWorld()->saveWorld("world");
+                    LOG_INFO("Saved {} chunks", chunks);
+                }
                 else if (line == "/help" || line == "help") {
                     LOG_INFO("========================================");
                     LOG_INFO("Available commands:");
                     LOG_INFO("  /stop - Stop the server");
+                    LOG_INFO("  /save - Save world to disk");
                     LOG_INFO("  /tunnel start [secret-key] - Start playit.gg tunnel");
                     LOG_INFO("  /tunnel stop - Stop playit.gg tunnel");
                     LOG_INFO("  /tunnel status - Check tunnel status");

@@ -94,6 +94,24 @@ public:
      */
     float getPitch() const { return pitch; }
 
+    /**
+     * @brief Set camera yaw angle
+     * @param newYaw Yaw angle in degrees
+     */
+    void setYaw(float newYaw) {
+        yaw = newYaw;
+        updateCameraVectors();
+    }
+
+    /**
+     * @brief Set camera pitch angle
+     * @param newPitch Pitch angle in degrees
+     */
+    void setPitch(float newPitch) {
+        pitch = newPitch;
+        updateCameraVectors();
+    }
+
 private:
     // Camera attributes
     glm::vec3 position;

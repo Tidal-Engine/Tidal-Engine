@@ -35,13 +35,13 @@ NetworkClient::~NetworkClient() {
     enet_deinitialize();
 }
 
-bool NetworkClient::connect(const std::string& host, uint16_t port, uint32_t timeout) {
+bool NetworkClient::connect(const std::string& host, const std::string& username, uint16_t port, uint32_t timeout) {
     if (connected) {
         LOG_WARN("Already connected to server");
         return true;
     }
 
-    LOG_INFO("Connecting to {}:{}...", host, port);
+    LOG_INFO("Connecting to {}:{} as '{}'...", host, port, username);
 
     // Resolve server address
     ENetAddress address;
@@ -65,9 +65,10 @@ bool NetworkClient::connect(const std::string& host, uint16_t port, uint32_t tim
         LOG_INFO("Connected to server successfully");
         connected = true;
 
-        // Send join message
+        // Send join message with username
         protocol::ClientJoinMessage joinMsg;
-        std::strncpy(joinMsg.playerName, "Player", sizeof(joinMsg.playerName) - 1);
+        std::strncpy(joinMsg.playerName, username.c_str(), sizeof(joinMsg.playerName) - 1);
+        joinMsg.playerName[sizeof(joinMsg.playerName) - 1] = '\0';  // Ensure null termination
         joinMsg.clientVersion = 1;
         sendMessage(protocol::MessageType::ClientJoin, &joinMsg, sizeof(joinMsg));
 
@@ -193,6 +194,17 @@ void NetworkClient::sendBlockBreak(int32_t x, int32_t y, int32_t z) {
     sendMessage(protocol::MessageType::BlockBreak, &msg, sizeof(msg));
 }
 
+void NetworkClient::sendInventoryUpdate(const ItemStack hotbar[9], uint32_t selectedSlot) {
+    if (!connected) return;
+
+    protocol::InventoryUpdateMessage msg;
+    std::memcpy(msg.hotbar, hotbar, 9 * sizeof(ItemStack));
+    msg.selectedHotbarSlot = selectedSlot;
+
+    sendMessage(protocol::MessageType::InventoryUpdate, &msg, sizeof(msg));
+    LOG_DEBUG("Sent inventory update to server (selected slot: {})", selectedSlot);
+}
+
 Chunk* NetworkClient::getChunk(const ChunkCoord& coord) {
     auto it = chunks.find(coord);
     return (it != chunks.end()) ? it->second.get() : nullptr;
@@ -270,9 +282,10 @@ void NetworkClient::handlePacket(ENetPacket* packet) {
                 protocol::InventorySyncMessage msg;
                 std::memcpy(&msg, payload, sizeof(msg));
                 if (onInventorySync) {
-                    onInventorySync(msg.hotbar, msg.selectedHotbarSlot);
+                    onInventorySync(msg.hotbar, msg.selectedHotbarSlot, msg.position, msg.yaw, msg.pitch);
                 }
-                LOG_INFO("Received inventory sync from server (selected slot: {})", msg.selectedHotbarSlot);
+                LOG_INFO("Received inventory sync from server: position ({:.1f}, {:.1f}, {:.1f}), yaw {:.1f}, pitch {:.1f}",
+                         msg.position.x, msg.position.y, msg.position.z, msg.yaw, msg.pitch);
             }
             break;
 

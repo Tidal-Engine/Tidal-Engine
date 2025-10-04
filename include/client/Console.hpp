@@ -53,6 +53,11 @@ public:
      */
     void setNetworkClient(NetworkClient* client) { networkClient = client; }
 
+    /**
+     * @brief Set the username for server connections
+     */
+    void setUsername(const std::string& name) { username = name; }
+
 private:
     bool visible = false;
     char inputBuffer[256] = {0};
@@ -63,6 +68,7 @@ private:
     bool focusInput = false;
 
     NetworkClient* networkClient = nullptr;
+    std::string username = "Player";  // Default username
 
     static constexpr size_t MAX_MESSAGES = 100;
 

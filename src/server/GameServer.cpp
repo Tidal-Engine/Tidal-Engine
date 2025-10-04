@@ -186,6 +186,12 @@ void GameServer::onClientConnect(ENetPeer* peer) {
 
     players[peer] = playerData;
 
+    // Set aggressive timeout to detect disconnects faster
+    // Parameters: peer, limit (retries), min timeout (ms), max timeout (ms)
+    // Defaults are: 32, 5000, 30000 which causes ~10 second delay
+    // New values: 8, 1000, 3000 = detect disconnect in ~2-3 seconds
+    enet_peer_timeout(peer, 8, 1000, 3000);
+
     LOG_INFO("========================================");
     LOG_INFO(">>> PLAYER CONNECTED <<<");
     LOG_INFO("Player ID: {}", playerData.playerId);
@@ -201,11 +207,16 @@ void GameServer::onClientDisconnect(ENetPeer* peer) {
     auto it = players.find(peer);
     if (it != players.end()) {
         uint32_t disconnectedPlayerId = it->second.playerId;
+        std::string playerName = it->second.playerName;  // Save name before erasing
         const PlayerData& playerData = it->second;
 
         // Save player data to disk
         if (!playerData.playerName.empty() && !playerData.playerName.starts_with("Player_")) {
+            LOG_INFO("Saving player data for {} at position ({:.1f}, {:.1f}, {:.1f})",
+                     playerData.playerName, playerData.position.x, playerData.position.y, playerData.position.z);
             savePlayerData(playerData);
+        } else {
+            LOG_DEBUG("Skipping save for temporary player: {}", playerData.playerName);
         }
 
         // Broadcast player removal to all other clients
@@ -235,7 +246,7 @@ void GameServer::onClientDisconnect(ENetPeer* peer) {
 
         LOG_INFO("========================================");
         LOG_INFO("<<< PLAYER LEFT >>>");
-        LOG_INFO("Player ID: {}", disconnectedPlayerId);
+        LOG_INFO("Player: {} (ID: {})", playerName, disconnectedPlayerId);
         LOG_INFO("Address: {}:{}", peer->address.host, peer->address.port);
         LOG_INFO("Players remaining: {}", players.size());
         LOG_INFO("========================================");
@@ -325,10 +336,13 @@ void GameServer::onClientPacket(ENetPeer* peer, ENetPacket* packet) {
             sendChunksAroundPlayer(peer, playerData.position);
             players[peer].lastChunkUpdatePos = playerData.position;
 
-            // Send inventory sync to client
+            // Send inventory sync and spawn position to client
             protocol::InventorySyncMessage inventoryMsg;
             std::memcpy(inventoryMsg.hotbar, playerData.hotbar.data(), 9 * sizeof(ItemStack));
             inventoryMsg.selectedHotbarSlot = static_cast<uint32_t>(playerData.selectedHotbarSlot);
+            inventoryMsg.position = playerData.position;
+            inventoryMsg.yaw = playerData.yaw;
+            inventoryMsg.pitch = playerData.pitch;
 
             size_t invTotalSize = sizeof(protocol::MessageHeader) + sizeof(protocol::InventorySyncMessage);
             ENetPacket* invPacket = enet_packet_create(nullptr, invTotalSize, ENET_PACKET_FLAG_RELIABLE);
@@ -359,9 +373,11 @@ void GameServer::onClientPacket(ENetPeer* peer, ENetPacket* packet) {
                 static_cast<const uint8_t*>(packet->data) + sizeof(protocol::MessageHeader)
             );
 
-            // Update player position
+            // Update player position and rotation
             auto& playerData = players[peer];
             playerData.position = moveMsg->position;
+            playerData.yaw = moveMsg->yaw;
+            playerData.pitch = moveMsg->pitch;
 
             // Broadcast position update to all other players
             protocol::PlayerPositionUpdateMessage posUpdate;
@@ -397,6 +413,28 @@ void GameServer::onClientPacket(ENetPeer* peer, ENetPacket* packet) {
                 sendChunksAroundPlayer(peer, playerData.position);
                 playerData.lastChunkUpdatePos = playerData.position;
             }
+            break;
+        }
+
+        case protocol::MessageType::InventoryUpdate: {
+            size_t expectedSize = sizeof(protocol::MessageHeader) + sizeof(protocol::InventoryUpdateMessage);
+            if (packet->dataLength < expectedSize) {
+                LOG_WARN("Received invalid InventoryUpdate message (too small): got {} bytes, expected {} bytes",
+                         packet->dataLength, expectedSize);
+                break;
+            }
+
+            const auto* invMsg = reinterpret_cast<const protocol::InventoryUpdateMessage*>(
+                static_cast<const uint8_t*>(packet->data) + sizeof(protocol::MessageHeader)
+            );
+
+            // Update player inventory on server
+            auto& playerData = players[peer];
+            std::memcpy(playerData.hotbar.data(), invMsg->hotbar, 9 * sizeof(ItemStack));
+            playerData.selectedHotbarSlot = static_cast<size_t>(invMsg->selectedHotbarSlot);
+
+            LOG_DEBUG("Updated inventory for player {} (selected slot: {})",
+                     playerData.playerName, playerData.selectedHotbarSlot);
             break;
         }
 
@@ -851,6 +889,8 @@ bool GameServer::savePlayerData(const PlayerData& playerData) {
     // Write player data:
     // - Name length (uint32_t) + name string
     // - Position (3 x float)
+    // - Yaw (float)
+    // - Pitch (float)
     // - Selected hotbar slot (uint32_t)
     // - Hotbar (9 x ItemStack)
 
@@ -859,6 +899,8 @@ bool GameServer::savePlayerData(const PlayerData& playerData) {
     file.write(playerData.playerName.c_str(), nameLength);
 
     file.write(reinterpret_cast<const char*>(&playerData.position), sizeof(glm::vec3));
+    file.write(reinterpret_cast<const char*>(&playerData.yaw), sizeof(float));
+    file.write(reinterpret_cast<const char*>(&playerData.pitch), sizeof(float));
 
     uint32_t selectedSlot = static_cast<uint32_t>(playerData.selectedHotbarSlot);
     file.write(reinterpret_cast<const char*>(&selectedSlot), sizeof(uint32_t));
@@ -894,6 +936,8 @@ bool GameServer::loadPlayerData(const std::string& playerName, PlayerData& outPl
     file.read(&savedName[0], nameLength);
 
     file.read(reinterpret_cast<char*>(&outPlayerData.position), sizeof(glm::vec3));
+    file.read(reinterpret_cast<char*>(&outPlayerData.yaw), sizeof(float));
+    file.read(reinterpret_cast<char*>(&outPlayerData.pitch), sizeof(float));
 
     uint32_t selectedSlot;
     file.read(reinterpret_cast<char*>(&selectedSlot), sizeof(uint32_t));

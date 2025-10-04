@@ -149,6 +149,11 @@ void CreativeMenu::renderItemGrid() {
                     inventory->setSlot(0, type, 64);
                     LOG_INFO("Set hotbar slot 1 to 64x {}", props->displayName);
                 }
+
+                // Notify that inventory changed
+                if (onInventoryChanged) {
+                    onInventoryChanged();
+                }
             }
         }
 

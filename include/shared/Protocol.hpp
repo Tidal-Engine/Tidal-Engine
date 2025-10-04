@@ -29,6 +29,7 @@ enum class MessageType : uint8_t {
     PlayerMove = 1,
     BlockPlace = 2,
     BlockBreak = 3,
+    InventoryUpdate = 4,
 
     // Server -> Client
     ChunkData = 10,
@@ -171,10 +172,24 @@ PACK_END
 
 /**
  * @brief Inventory sync (server -> client)
- * Sends hotbar inventory to client
+ * Sends hotbar inventory and spawn position to client
  */
 PACK_BEGIN
 struct InventorySyncMessage {
+    ItemStack hotbar[9];         ///< Hotbar inventory (9 slots)
+    uint32_t selectedHotbarSlot; ///< Currently selected hotbar slot (0-8)
+    glm::vec3 position;          ///< Player spawn position
+    float yaw;                   ///< Camera yaw angle in degrees
+    float pitch;                 ///< Camera pitch angle in degrees
+} PACKED;
+PACK_END
+
+/**
+ * @brief Inventory update (client -> server)
+ * Sends updated hotbar inventory to server for persistence
+ */
+PACK_BEGIN
+struct InventoryUpdateMessage {
     ItemStack hotbar[9];         ///< Hotbar inventory (9 slots)
     uint32_t selectedHotbarSlot; ///< Currently selected hotbar slot (0-8)
 } PACKED;

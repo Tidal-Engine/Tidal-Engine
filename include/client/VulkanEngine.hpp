@@ -180,6 +180,8 @@ private:
     void recreateSwapchain();
     void cleanupImGui();
 
+    std::string loadUsername();
+
     void createInstance();
     void createSurface();
     void pickPhysicalDevice();
