@@ -727,6 +727,17 @@ void VulkanEngine::mainLoop() {
                 }
 
                 LOG_DEBUG("Console toggled: {}", console->isOpen() ? "ON" : "OFF");
+            } else if (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_Q) {
+                // Drop/delete currently selected item (Q key)
+                if (!console->isOpen() && !creativeMenu->isMenuOpen()) {
+                    size_t selectedSlot = inventory->getSelectedHotbarIndex();
+                    ItemStack& slot = inventory->getSlot(selectedSlot);
+                    if (!slot.isEmpty()) {
+                        LOG_INFO("Dropped item from slot {}: {} x{}", selectedSlot,
+                                 static_cast<int>(slot.type), slot.count);
+                        inventory->setSlot(selectedSlot, ItemType::Empty, 0);
+                    }
+                }
             }
 
             // Always pass events to input manager (it will handle them appropriately)
