@@ -141,6 +141,7 @@ target_link_libraries(TidalServer PRIVATE
 # Windows requires ws2_32 and winmm for networking
 if(WIN32)
     target_link_libraries(TidalServer PRIVATE ws2_32 winmm)
+    target_compile_definitions(TidalServer PRIVATE NOMINMAX)
 endif()
 
 target_include_directories(TidalServer PRIVATE
@@ -194,6 +195,7 @@ target_link_libraries(TidalClient PRIVATE
 # Windows requires ws2_32 and winmm for networking
 if(WIN32)
     target_link_libraries(TidalClient PRIVATE ws2_32 winmm)
+    target_compile_definitions(TidalClient PRIVATE NOMINMAX)
 endif()
 
 target_include_directories(TidalClient PRIVATE
