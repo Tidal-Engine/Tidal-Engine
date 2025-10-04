@@ -55,18 +55,46 @@ const Chunk* World::getChunk(const ChunkCoord& coord) const {
 Chunk& World::loadChunk(const ChunkCoord& coord) {
     std::lock_guard<std::mutex> lock(chunksMutex);
 
-    // Check if already loaded
+    // Check if already loaded in memory
     auto it = chunks.find(coord);
     if (it != chunks.end()) {
         return *it->second;
     }
 
-    // Generate new chunk
+    // Try to load from disk first
+    std::string filename = "world/chunk_" +
+                          std::to_string(coord.x) + "_" +
+                          std::to_string(coord.y) + "_" +
+                          std::to_string(coord.z) + ".dat";
+
+    if (std::filesystem::exists(filename)) {
+        // Load from file
+        std::ifstream file(filename, std::ios::binary);
+        if (file.is_open()) {
+            file.seekg(0, std::ios::end);
+            size_t fileSize = file.tellg();
+            file.seekg(0, std::ios::beg);
+
+            std::vector<uint8_t> data(fileSize);
+            file.read(reinterpret_cast<char*>(data.data()), fileSize);
+            file.close();
+
+            auto chunk = std::make_unique<Chunk>(coord);
+            if (chunk->deserialize(data)) {
+                auto* chunkPtr = chunk.get();
+                chunks[coord] = std::move(chunk);
+                LOG_DEBUG("Loaded chunk ({}, {}, {}) from disk", coord.x, coord.y, coord.z);
+                return *chunkPtr;
+            }
+        }
+    }
+
+    // Generate new chunk if not found on disk
     auto chunk = generateChunk(coord);
     auto* chunkPtr = chunk.get();
     chunks[coord] = std::move(chunk);
 
-    LOG_TRACE("Loaded chunk at ({}, {}, {})", coord.x, coord.y, coord.z);
+    LOG_TRACE("Generated new chunk at ({}, {}, {})", coord.x, coord.y, coord.z);
 
     return *chunkPtr;
 }
@@ -230,6 +258,8 @@ size_t World::saveWorld(const std::string& worldDir) {
 
     if (savedCount > 0) {
         LOG_INFO("Saved {} dirty chunks to {}", savedCount, worldDir);
+    } else {
+        LOG_DEBUG("No dirty chunks to save (total chunks loaded: {})", chunks.size());
     }
 
     return savedCount;
