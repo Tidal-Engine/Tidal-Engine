@@ -165,7 +165,6 @@ void VulkanEngine::initRenderingResources() {
 
     // Create console
     console = std::make_unique<Console>();
-    console->setNetworkClient(networkClient.get());
 
     // Create player cube renderer
     playerCubeRenderer = std::make_unique<PlayerCubeRenderer>(device, physicalDevice,
@@ -342,6 +341,9 @@ void VulkanEngine::initNetworking() {
         networkClient->update();
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
+
+    // Connect console to network client
+    console->setNetworkClient(networkClient.get());
 
     LOG_INFO("Networking initialized | Received {} chunks",
              networkClient->getChunks().size());
