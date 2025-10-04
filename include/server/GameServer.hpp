@@ -3,12 +3,14 @@
 #include <enet/enet.h>
 #include <memory>
 #include <atomic>
+#include <array>
 #include <cstdint>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <glm/glm.hpp>
 #include "shared/ChunkCoord.hpp"
+#include "shared/Item.hpp"
 
 namespace engine {
 
@@ -77,9 +79,12 @@ private:
     // Player tracking
     struct PlayerData {
         uint32_t playerId = 0;                 ///< Unique player ID
+        std::string playerName;                ///< Player's display name
         glm::vec3 position{0.0f, 5.0f, 0.0f};  ///< Player world position (spawn at Y=5)
         glm::vec3 lastChunkUpdatePos{0.0f, 5.0f, 0.0f};  ///< Last position where chunks were sent
         std::unordered_set<ChunkCoord> loadedChunks;  ///< Chunks this player has loaded
+        std::array<ItemStack, 36> inventory;   ///< Player inventory (9 hotbar + 27 main)
+        size_t selectedHotbarSlot = 0;         ///< Currently selected hotbar slot (0-8)
     };
 
     std::unordered_map<ENetPeer*, PlayerData> players;  ///< Track all connected players
@@ -152,6 +157,21 @@ private:
      * @brief Update chunk loading for all players (called periodically)
      */
     void updatePlayerChunks();
+
+    /**
+     * @brief Save player data to disk
+     * @param playerData Player data to save
+     * @return true if saved successfully
+     */
+    bool savePlayerData(const PlayerData& playerData);
+
+    /**
+     * @brief Load player data from disk
+     * @param playerName Name of player to load
+     * @param outPlayerData Output player data
+     * @return true if loaded successfully
+     */
+    bool loadPlayerData(const std::string& playerName, PlayerData& outPlayerData);
 };
 
 } // namespace engine

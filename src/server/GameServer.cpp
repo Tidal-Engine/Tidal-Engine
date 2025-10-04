@@ -174,67 +174,26 @@ void GameServer::processNetworkEvents() {
 }
 
 void GameServer::onClientConnect(ENetPeer* peer) {
-    // Create player data (spawn at origin, Y=5)
+    // Player data will be populated when we receive ClientJoin message with player name
     PlayerData playerData;
     playerData.playerId = nextPlayerId++;
+    playerData.playerName = "Player_" + std::to_string(playerData.playerId);  // Temporary until ClientJoin received
     playerData.position = glm::vec3(0.0f, 5.0f, 0.0f);
+
+    // Initialize default inventory (stone and dirt in first two slots)
+    playerData.inventory[0] = ItemStack::fromBlock(BlockType::Stone, 64);
+    playerData.inventory[1] = ItemStack::fromBlock(BlockType::Dirt, 64);
+
     players[peer] = playerData;
 
     LOG_INFO("========================================");
-    LOG_INFO(">>> PLAYER JOINED <<<");
+    LOG_INFO(">>> PLAYER CONNECTED <<<");
     LOG_INFO("Player ID: {}", playerData.playerId);
     LOG_INFO("Address: {}:{}", peer->address.host, peer->address.port);
-    LOG_INFO("Spawn position: ({:.1f}, {:.1f}, {:.1f})",
-             playerData.position.x, playerData.position.y, playerData.position.z);
-    LOG_INFO("Players online: {}", players.size());
+    LOG_INFO("Waiting for ClientJoin message with player name...");
     LOG_INFO("========================================");
 
-    // Send all existing players to the new player
-    for (const auto& [otherPeer, otherPlayer] : players) {
-        if (otherPeer != peer) {
-            protocol::PlayerSpawnMessage spawnMsg;
-            spawnMsg.playerId = otherPlayer.playerId;
-            spawnMsg.spawnPosition = otherPlayer.position;
-            std::snprintf(spawnMsg.playerName, sizeof(spawnMsg.playerName), "Player %u", otherPlayer.playerId);
-
-            size_t totalSize = sizeof(protocol::MessageHeader) + sizeof(protocol::PlayerSpawnMessage);
-            ENetPacket* packet = enet_packet_create(nullptr, totalSize, ENET_PACKET_FLAG_RELIABLE);
-
-            protocol::MessageHeader header;
-            header.type = protocol::MessageType::PlayerSpawn;
-            header.payloadSize = sizeof(protocol::PlayerSpawnMessage);
-            std::memcpy(packet->data, &header, sizeof(protocol::MessageHeader));
-            std::memcpy(packet->data + sizeof(protocol::MessageHeader), &spawnMsg, sizeof(spawnMsg));
-
-            enet_peer_send(peer, 0, packet);
-        }
-    }
-
-    // Broadcast new player spawn to all existing players
-    protocol::PlayerSpawnMessage spawnMsg;
-    spawnMsg.playerId = playerData.playerId;
-    spawnMsg.spawnPosition = playerData.position;
-    std::snprintf(spawnMsg.playerName, sizeof(spawnMsg.playerName), "Player %u", playerData.playerId);
-
-    size_t totalSize = sizeof(protocol::MessageHeader) + sizeof(protocol::PlayerSpawnMessage);
-    ENetPacket* packet = enet_packet_create(nullptr, totalSize, ENET_PACKET_FLAG_RELIABLE);
-
-    protocol::MessageHeader header;
-    header.type = protocol::MessageType::PlayerSpawn;
-    header.payloadSize = sizeof(protocol::PlayerSpawnMessage);
-    std::memcpy(packet->data, &header, sizeof(protocol::MessageHeader));
-    std::memcpy(packet->data + sizeof(protocol::MessageHeader), &spawnMsg, sizeof(spawnMsg));
-
-    for (const auto& [otherPeer, otherPlayer] : players) {
-        if (otherPeer != peer) {
-            enet_peer_send(otherPeer, 0, enet_packet_create(packet->data, packet->dataLength, ENET_PACKET_FLAG_RELIABLE));
-        }
-    }
-    enet_packet_destroy(packet);
-
-    // Send chunks in radius around spawn point
-    sendChunksAroundPlayer(peer, playerData.position);
-    players[peer].lastChunkUpdatePos = playerData.position;
+    // Player spawn and chunks are sent when ClientJoin message is received
 }
 
 void GameServer::onClientDisconnect(ENetPeer* peer) {
@@ -242,6 +201,12 @@ void GameServer::onClientDisconnect(ENetPeer* peer) {
     auto it = players.find(peer);
     if (it != players.end()) {
         uint32_t disconnectedPlayerId = it->second.playerId;
+        const PlayerData& playerData = it->second;
+
+        // Save player data to disk
+        if (!playerData.playerName.empty() && !playerData.playerName.starts_with("Player_")) {
+            savePlayerData(playerData);
+        }
 
         // Broadcast player removal to all other clients
         protocol::PlayerRemoveMessage removeMsg;
@@ -289,9 +254,81 @@ void GameServer::onClientPacket(ENetPeer* peer, ENetPacket* packet) {
 
     // Handle different message types
     switch (header.type) {
-        case protocol::MessageType::ClientJoin:
-            LOG_INFO("Client join request received");
+        case protocol::MessageType::ClientJoin: {
+            if (packet->dataLength < sizeof(protocol::MessageHeader) + sizeof(protocol::ClientJoinMessage)) {
+                LOG_WARN("Invalid ClientJoin message (too small)");
+                break;
+            }
+
+            const auto* joinMsg = reinterpret_cast<const protocol::ClientJoinMessage*>(
+                static_cast<const uint8_t*>(packet->data) + sizeof(protocol::MessageHeader)
+            );
+
+            std::string playerName(joinMsg->playerName);
+            LOG_INFO("Client join request from player: {}", playerName);
+
+            // Try to load existing player data
+            PlayerData& playerData = players[peer];
+            playerData.playerName = playerName;
+
+            if (loadPlayerData(playerName, playerData)) {
+                LOG_INFO("Loaded existing player data for {}", playerName);
+            } else {
+                LOG_INFO("New player {}, using default spawn", playerName);
+                // Keep default position and inventory from onClientConnect
+            }
+
+            // Send all existing players to the new player
+            for (const auto& [otherPeer, otherPlayer] : players) {
+                if (otherPeer != peer && !otherPlayer.playerName.empty()) {
+                    protocol::PlayerSpawnMessage spawnMsg;
+                    spawnMsg.playerId = otherPlayer.playerId;
+                    spawnMsg.spawnPosition = otherPlayer.position;
+                    std::snprintf(spawnMsg.playerName, sizeof(spawnMsg.playerName), "%s", otherPlayer.playerName.c_str());
+
+                    size_t totalSize = sizeof(protocol::MessageHeader) + sizeof(protocol::PlayerSpawnMessage);
+                    ENetPacket* spawnPacket = enet_packet_create(nullptr, totalSize, ENET_PACKET_FLAG_RELIABLE);
+
+                    protocol::MessageHeader spawnHeader;
+                    spawnHeader.type = protocol::MessageType::PlayerSpawn;
+                    spawnHeader.payloadSize = sizeof(protocol::PlayerSpawnMessage);
+                    std::memcpy(spawnPacket->data, &spawnHeader, sizeof(protocol::MessageHeader));
+                    std::memcpy(spawnPacket->data + sizeof(protocol::MessageHeader), &spawnMsg, sizeof(spawnMsg));
+
+                    enet_peer_send(peer, 0, spawnPacket);
+                }
+            }
+
+            // Broadcast new player spawn to all existing players
+            protocol::PlayerSpawnMessage spawnMsg;
+            spawnMsg.playerId = playerData.playerId;
+            spawnMsg.spawnPosition = playerData.position;
+            std::snprintf(spawnMsg.playerName, sizeof(spawnMsg.playerName), "%s", playerData.playerName.c_str());
+
+            size_t totalSize = sizeof(protocol::MessageHeader) + sizeof(protocol::PlayerSpawnMessage);
+            ENetPacket* spawnPacket = enet_packet_create(nullptr, totalSize, ENET_PACKET_FLAG_RELIABLE);
+
+            protocol::MessageHeader spawnHeader;
+            spawnHeader.type = protocol::MessageType::PlayerSpawn;
+            spawnHeader.payloadSize = sizeof(protocol::PlayerSpawnMessage);
+            std::memcpy(spawnPacket->data, &spawnHeader, sizeof(protocol::MessageHeader));
+            std::memcpy(spawnPacket->data + sizeof(protocol::MessageHeader), &spawnMsg, sizeof(spawnMsg));
+
+            for (const auto& [otherPeer, otherPlayer] : players) {
+                if (otherPeer != peer) {
+                    enet_peer_send(otherPeer, 0, enet_packet_create(spawnPacket->data, spawnPacket->dataLength, ENET_PACKET_FLAG_RELIABLE));
+                }
+            }
+            enet_packet_destroy(spawnPacket);
+
+            // Send chunks in radius around spawn point
+            sendChunksAroundPlayer(peer, playerData.position);
+            players[peer].lastChunkUpdatePos = playerData.position;
+
+            LOG_INFO("Player {} joined at ({:.1f}, {:.1f}, {:.1f})",
+                     playerName, playerData.position.x, playerData.position.y, playerData.position.z);
             break;
+        }
 
         case protocol::MessageType::PlayerMove: {
             size_t expectedSize = sizeof(protocol::MessageHeader) + sizeof(protocol::PlayerMoveMessage);
@@ -780,6 +817,82 @@ void GameServer::stopTunnel() {
     LOG_INFO("playit.gg tunnel stopped");
     LOG_INFO("========================================");
 #endif
+}
+
+bool GameServer::savePlayerData(const PlayerData& playerData) {
+    // Create players directory if it doesn't exist
+    std::filesystem::create_directories("players");
+
+    // Create filename based on player name
+    std::string filename = "players/" + playerData.playerName + ".dat";
+
+    std::ofstream file(filename, std::ios::binary);
+    if (!file.is_open()) {
+        LOG_ERROR("Failed to save player data for {}", playerData.playerName);
+        return false;
+    }
+
+    // Write player data:
+    // - Name length (uint32_t) + name string
+    // - Position (3 x float)
+    // - Selected hotbar slot (uint32_t)
+    // - Inventory (36 x ItemStack)
+
+    uint32_t nameLength = static_cast<uint32_t>(playerData.playerName.length());
+    file.write(reinterpret_cast<const char*>(&nameLength), sizeof(uint32_t));
+    file.write(playerData.playerName.c_str(), nameLength);
+
+    file.write(reinterpret_cast<const char*>(&playerData.position), sizeof(glm::vec3));
+
+    uint32_t selectedSlot = static_cast<uint32_t>(playerData.selectedHotbarSlot);
+    file.write(reinterpret_cast<const char*>(&selectedSlot), sizeof(uint32_t));
+
+    file.write(reinterpret_cast<const char*>(playerData.inventory.data()),
+               playerData.inventory.size() * sizeof(ItemStack));
+
+    file.close();
+    LOG_INFO("Saved player data for {} at ({:.1f}, {:.1f}, {:.1f})",
+             playerData.playerName, playerData.position.x, playerData.position.y, playerData.position.z);
+    return true;
+}
+
+bool GameServer::loadPlayerData(const std::string& playerName, PlayerData& outPlayerData) {
+    std::string filename = "players/" + playerName + ".dat";
+
+    if (!std::filesystem::exists(filename)) {
+        LOG_DEBUG("No saved data found for player {}", playerName);
+        return false;
+    }
+
+    std::ifstream file(filename, std::ios::binary);
+    if (!file.is_open()) {
+        LOG_ERROR("Failed to load player data for {}", playerName);
+        return false;
+    }
+
+    // Read player data
+    uint32_t nameLength;
+    file.read(reinterpret_cast<char*>(&nameLength), sizeof(uint32_t));
+
+    std::string savedName(nameLength, '\0');
+    file.read(&savedName[0], nameLength);
+
+    file.read(reinterpret_cast<char*>(&outPlayerData.position), sizeof(glm::vec3));
+
+    uint32_t selectedSlot;
+    file.read(reinterpret_cast<char*>(&selectedSlot), sizeof(uint32_t));
+    outPlayerData.selectedHotbarSlot = static_cast<size_t>(selectedSlot);
+
+    file.read(reinterpret_cast<char*>(outPlayerData.inventory.data()),
+              outPlayerData.inventory.size() * sizeof(ItemStack));
+
+    file.close();
+
+    outPlayerData.playerName = savedName;
+
+    LOG_INFO("Loaded player data for {} at ({:.1f}, {:.1f}, {:.1f})",
+             playerName, outPlayerData.position.x, outPlayerData.position.y, outPlayerData.position.z);
+    return true;
 }
 
 } // namespace engine
