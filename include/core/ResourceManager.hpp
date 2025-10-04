@@ -95,10 +95,10 @@ public:
     static void clear();
 
 private:
-    static std::string s_assetRoot;
-    static std::unordered_map<std::string, std::string> s_shaders;
-    static std::unordered_map<std::string, std::string> s_textures;
-    static std::unordered_map<std::string, std::string> s_models;
+    static std::string s_assetRoot;  // NOLINT(readability-identifier-naming)
+    static std::unordered_map<std::string, std::string> s_shaders;  // NOLINT(readability-identifier-naming)
+    static std::unordered_map<std::string, std::string> s_textures;  // NOLINT(readability-identifier-naming)
+    static std::unordered_map<std::string, std::string> s_models;  // NOLINT(readability-identifier-naming)
 
     static std::string getPath(const std::unordered_map<std::string, std::string>& registry,
                                const std::string& name, const std::string& typeName);

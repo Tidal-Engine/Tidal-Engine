@@ -35,8 +35,8 @@ public:
      * @param z Local Z coordinate (0-31)
      * @return Reference to block at that position
      */
-    Block& getBlock(uint32_t x, uint32_t y, uint32_t z);
-    const Block& getBlock(uint32_t x, uint32_t y, uint32_t z) const;
+    Block& getBlock(uint32_t x, uint32_t y, uint32_t z);  // NOLINT(readability-identifier-length)
+    const Block& getBlock(uint32_t x, uint32_t y, uint32_t z) const;  // NOLINT(readability-identifier-length)
 
     /**
      * @brief Set block at local chunk coordinates
@@ -45,7 +45,7 @@ public:
      * @param z Local Z coordinate (0-31)
      * @param block Block to set
      */
-    void setBlock(uint32_t x, uint32_t y, uint32_t z, const Block& block);
+    void setBlock(uint32_t x, uint32_t y, uint32_t z, const Block& block);  // NOLINT(readability-identifier-length)
 
     /**
      * @brief Get chunk coordinate in world space
@@ -97,10 +97,10 @@ private:
      * @param z Local Z coordinate (0-31)
      * @return Array index
      */
-    static constexpr uint32_t getIndex(uint32_t x, uint32_t y, uint32_t z) {
+    static constexpr uint32_t getIndex(uint32_t x, uint32_t y, uint32_t z) {  // NOLINT(readability-identifier-length)
         // Layout: X varies fastest, then Z, then Y
         // This gives better cache locality for horizontal iteration
-        return y * (CHUNK_SIZE * CHUNK_SIZE) + z * CHUNK_SIZE + x;
+        return (y * (CHUNK_SIZE * CHUNK_SIZE)) + (z * CHUNK_SIZE) + x;
     }
 };
 

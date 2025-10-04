@@ -62,7 +62,7 @@ void PlayerCubeRenderer::draw(VkCommandBuffer commandBuffer, VkDescriptorSet ubo
             float yaw;
             glm::vec3 color;
             float pitch;
-        } pushConstants;
+        } pushConstants{};
 
         pushConstants.position = cube.position;
         pushConstants.yaw = cube.yaw;
@@ -362,7 +362,7 @@ void PlayerCubeRenderer::createBuffers() {
 
     vkBindBufferMemory(device, vertexBuffer, vertexBufferMemory, 0);
 
-    void* data;
+    void* data = nullptr;
     vkMapMemory(device, vertexBufferMemory, 0, bufferSize, 0, &data);
     std::memcpy(data, vertices.data(), bufferSize);
     vkUnmapMemory(device, vertexBufferMemory);
@@ -394,6 +394,7 @@ void PlayerCubeRenderer::createBuffers() {
     vkUnmapMemory(device, indexBufferMemory);
 }
 
+// NOLINTNEXTLINE(readability-convert-member-functions-to-static)
 std::vector<char> PlayerCubeRenderer::readFile(const std::string& filename) {
     std::ifstream file(filename, std::ios::ate | std::ios::binary);
 
@@ -416,9 +417,10 @@ VkShaderModule PlayerCubeRenderer::createShaderModule(const std::vector<char>& c
     VkShaderModuleCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
     createInfo.codeSize = code.size();
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     createInfo.pCode = reinterpret_cast<const uint32_t*>(code.data());
 
-    VkShaderModule shaderModule;
+    VkShaderModule shaderModule = VK_NULL_HANDLE;
     if (vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS) {
         throw std::runtime_error("Failed to create shader module");
     }
@@ -439,23 +441,31 @@ uint32_t PlayerCubeRenderer::findMemoryType(uint32_t typeFilter, VkMemoryPropert
     throw std::runtime_error("Failed to find suitable memory type");
 }
 
+// NOLINTNEXTLINE(readability-convert-member-functions-to-static)
 glm::vec3 PlayerCubeRenderer::getRainbowColor(uint32_t playerId, float time) {
     // Generate rainbow color that cycles over time
     // Start hue based on player ID for uniqueness, then animate
-    float baseHue = std::fmod(playerId * 137.508f, 360.0f);  // Golden angle for good distribution
-    float hue = std::fmod(baseHue + time * 60.0f, 360.0f);   // Cycle through rainbow (60 deg/sec)
+    float baseHue = std::fmod(static_cast<float>(playerId) * 137.508f, 360.0f);  // Golden angle for good distribution
+    float hue = std::fmod(baseHue + (time * 60.0f), 360.0f);   // Cycle through rainbow (60 deg/sec)
 
     // Convert HSV to RGB (S=1, V=1 for vibrant colors)
-    float h = hue / 60.0f;
-    float x = 1.0f - std::abs(std::fmod(h, 2.0f) - 1.0f);
+    float hue60 = hue / 60.0f;
+    float chromaX = 1.0f - std::abs(std::fmod(hue60, 2.0f) - 1.0f);
 
     glm::vec3 rgb;
-    if (h < 1.0f) rgb = glm::vec3(1.0f, x, 0.0f);
-    else if (h < 2.0f) rgb = glm::vec3(x, 1.0f, 0.0f);
-    else if (h < 3.0f) rgb = glm::vec3(0.0f, 1.0f, x);
-    else if (h < 4.0f) rgb = glm::vec3(0.0f, x, 1.0f);
-    else if (h < 5.0f) rgb = glm::vec3(x, 0.0f, 1.0f);
-    else rgb = glm::vec3(1.0f, 0.0f, x);
+    if (hue60 < 1.0f) {
+        rgb = glm::vec3(1.0f, chromaX, 0.0f);
+    } else if (hue60 < 2.0f) {
+        rgb = glm::vec3(chromaX, 1.0f, 0.0f);
+    } else if (hue60 < 3.0f) {
+        rgb = glm::vec3(0.0f, 1.0f, chromaX);
+    } else if (hue60 < 4.0f) {
+        rgb = glm::vec3(0.0f, chromaX, 1.0f);
+    } else if (hue60 < 5.0f) {
+        rgb = glm::vec3(chromaX, 0.0f, 1.0f);
+    } else {
+        rgb = glm::vec3(1.0f, 0.0f, chromaX);
+    }
 
     return rgb;
 }
@@ -525,7 +535,9 @@ void PlayerCubeRenderer::createTextureDescriptors() {
 void PlayerCubeRenderer::loadFaceTexture() {
     std::string facePath = "assets/texturepacks/misc/playerface.png";
 
-    int width, height, channels;
+    int width = 0;
+    int height = 0;
+    int channels = 0;
     unsigned char* pixels = stbi_load(facePath.c_str(), &width, &height, &channels, STBI_rgb_alpha);
 
     if (!pixels) {
@@ -543,11 +555,11 @@ void PlayerCubeRenderer::loadFaceTexture() {
 }
 
 void PlayerCubeRenderer::createTextureImage(const unsigned char* pixels, uint32_t width, uint32_t height) {
-    VkDeviceSize imageSize = width * height * 4;  // RGBA
+    VkDeviceSize imageSize = static_cast<VkDeviceSize>(width) * static_cast<VkDeviceSize>(height) * 4;  // RGBA
 
     // Create staging buffer
-    VkBuffer stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
+    VkBuffer stagingBuffer = VK_NULL_HANDLE;
+    VkDeviceMemory stagingBufferMemory = VK_NULL_HANDLE;
 
     VkBufferCreateInfo bufferInfo{};
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -574,7 +586,7 @@ void PlayerCubeRenderer::createTextureImage(const unsigned char* pixels, uint32_
 
     vkBindBufferMemory(device, stagingBuffer, stagingBufferMemory, 0);
 
-    void* data;
+    void* data = nullptr;
     vkMapMemory(device, stagingBufferMemory, 0, imageSize, 0, &data);
     std::memcpy(data, pixels, static_cast<size_t>(imageSize));
     vkUnmapMemory(device, stagingBufferMemory);
@@ -663,7 +675,7 @@ void PlayerCubeRenderer::transitionImageLayout(VkImage image, VkFormat format, V
     allocInfo.commandPool = commandPool;
     allocInfo.commandBufferCount = 1;
 
-    VkCommandBuffer commandBuffer;
+    VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
     vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer);
 
     VkCommandBufferBeginInfo beginInfo{};
@@ -685,8 +697,8 @@ void PlayerCubeRenderer::transitionImageLayout(VkImage image, VkFormat format, V
     barrier.subresourceRange.baseArrayLayer = 0;
     barrier.subresourceRange.layerCount = 1;
 
-    VkPipelineStageFlags sourceStage;
-    VkPipelineStageFlags destinationStage;
+    VkPipelineStageFlags sourceStage = 0;
+    VkPipelineStageFlags destinationStage = 0;
 
     if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
         barrier.srcAccessMask = 0;
@@ -724,7 +736,7 @@ void PlayerCubeRenderer::copyBufferToImage(VkBuffer buffer, VkImage image, uint3
     allocInfo.commandPool = commandPool;
     allocInfo.commandBufferCount = 1;
 
-    VkCommandBuffer commandBuffer;
+    VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
     vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer);
 
     VkCommandBufferBeginInfo beginInfo{};

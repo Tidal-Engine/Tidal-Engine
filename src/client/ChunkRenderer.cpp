@@ -79,6 +79,7 @@ void ChunkRenderer::uploadChunkMesh(const ChunkCoord& coord,
 }
 
 void ChunkRenderer::removeChunk(const ChunkCoord& coord) {
+    // NOLINTNEXTLINE(readability-identifier-length)
     auto it = chunkMeshes.find(coord);
     if (it != chunkMeshes.end()) {
         totalVertices -= static_cast<uint32_t>(it->second.vertices.size());
@@ -164,7 +165,7 @@ void ChunkRenderer::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceS
     allocInfo.commandPool = commandPool;
     allocInfo.commandBufferCount = 1;
 
-    VkCommandBuffer commandBuffer;
+    VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
     vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer);
 
     VkCommandBufferBeginInfo beginInfo{};
@@ -256,14 +257,14 @@ void ChunkRenderer::rebuildBatchedBuffers() {
     // Create vertex buffer
     auto vertexStart = std::chrono::high_resolution_clock::now();
     VkDeviceSize vertexBufferSize = sizeof(Vertex) * combinedVertices.size();
-    VkBuffer stagingBuffer;
-    VkDeviceMemory stagingMemory;
+    VkBuffer stagingBuffer = VK_NULL_HANDLE;
+    VkDeviceMemory stagingMemory = VK_NULL_HANDLE;
 
     createBuffer(vertexBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
                 stagingBuffer, stagingMemory);
 
-    void* data;
+    void* data = nullptr;
     vkMapMemory(device, stagingMemory, 0, vertexBufferSize, 0, &data);
     std::memcpy(data, combinedVertices.data(), vertexBufferSize);
     vkUnmapMemory(device, stagingMemory);

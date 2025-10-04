@@ -16,8 +16,11 @@ World::World() {
 void World::generateInitialChunks() {
     // Only generate a small spawn area (3x3x3) to reduce initial load time
     // Additional chunks will be generated dynamically as players explore
+    // NOLINTNEXTLINE(readability-identifier-length)
     for (int32_t x = -1; x <= 1; x++) {
+        // NOLINTNEXTLINE(readability-identifier-length)
         for (int32_t y = -1; y <= 1; y++) {
+            // NOLINTNEXTLINE(readability-identifier-length)
             for (int32_t z = -1; z <= 1; z++) {
                 loadChunk(ChunkCoord{x, y, z});
             }
@@ -35,9 +38,9 @@ void World::update() {
 Chunk* World::getChunk(const ChunkCoord& coord) {
     std::lock_guard<std::mutex> lock(chunksMutex);
 
-    auto it = chunks.find(coord);
-    if (it != chunks.end()) {
-        return it->second.get();
+    auto chunkIt = chunks.find(coord);
+    if (chunkIt != chunks.end()) {
+        return chunkIt->second.get();
     }
     return nullptr;
 }
@@ -45,9 +48,9 @@ Chunk* World::getChunk(const ChunkCoord& coord) {
 const Chunk* World::getChunk(const ChunkCoord& coord) const {
     std::lock_guard<std::mutex> lock(chunksMutex);
 
-    auto it = chunks.find(coord);
-    if (it != chunks.end()) {
-        return it->second.get();
+    auto chunkIt = chunks.find(coord);
+    if (chunkIt != chunks.end()) {
+        return chunkIt->second.get();
     }
     return nullptr;
 }
@@ -56,9 +59,9 @@ Chunk& World::loadChunk(const ChunkCoord& coord) {
     std::lock_guard<std::mutex> lock(chunksMutex);
 
     // Check if already loaded in memory
-    auto it = chunks.find(coord);
-    if (it != chunks.end()) {
-        return *it->second;
+    auto chunkIt = chunks.find(coord);
+    if (chunkIt != chunks.end()) {
+        return *chunkIt->second;
     }
 
     // Try to load from disk first
@@ -76,6 +79,7 @@ Chunk& World::loadChunk(const ChunkCoord& coord) {
             file.seekg(0, std::ios::beg);
 
             std::vector<uint8_t> data(fileSize);
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast,cppcoreguidelines-narrowing-conversions,bugprone-narrowing-conversions)
             file.read(reinterpret_cast<char*>(data.data()), fileSize);
             file.close();
 
@@ -102,17 +106,19 @@ Chunk& World::loadChunk(const ChunkCoord& coord) {
 void World::unloadChunk(const ChunkCoord& coord) {
     std::lock_guard<std::mutex> lock(chunksMutex);
 
-    auto it = chunks.find(coord);
-    if (it != chunks.end()) {
+    auto chunkIt = chunks.find(coord);
+    if (chunkIt != chunks.end()) {
         // TODO: Save chunk to disk if dirty
-        chunks.erase(it);
+        chunks.erase(chunkIt);
         LOG_TRACE("Unloaded chunk at ({}, {}, {})", coord.x, coord.y, coord.z);
     }
 }
 
 Block* World::getBlockAt(int32_t worldX, int32_t worldY, int32_t worldZ) {
     ChunkCoord chunkCoord;
-    uint32_t localX, localY, localZ;
+    uint32_t localX = 0;
+    uint32_t localY = 0;
+    uint32_t localZ = 0;
     worldToChunkLocal(worldX, worldY, worldZ, chunkCoord, localX, localY, localZ);
 
     Chunk* chunk = getChunk(chunkCoord);
@@ -125,7 +131,9 @@ Block* World::getBlockAt(int32_t worldX, int32_t worldY, int32_t worldZ) {
 
 const Block* World::getBlockAt(int32_t worldX, int32_t worldY, int32_t worldZ) const {
     ChunkCoord chunkCoord;
-    uint32_t localX, localY, localZ;
+    uint32_t localX = 0;
+    uint32_t localY = 0;
+    uint32_t localZ = 0;
     worldToChunkLocal(worldX, worldY, worldZ, chunkCoord, localX, localY, localZ);
 
     const Chunk* chunk = getChunk(chunkCoord);
@@ -138,7 +146,9 @@ const Block* World::getBlockAt(int32_t worldX, int32_t worldY, int32_t worldZ) c
 
 bool World::setBlockAt(int32_t worldX, int32_t worldY, int32_t worldZ, const Block& block) {
     ChunkCoord chunkCoord;
-    uint32_t localX, localY, localZ;
+    uint32_t localX = 0;
+    uint32_t localY = 0;
+    uint32_t localZ = 0;
     worldToChunkLocal(worldX, worldY, worldZ, chunkCoord, localX, localY, localZ);
 
     Chunk* chunk = getChunk(chunkCoord);
@@ -168,17 +178,23 @@ size_t World::getLoadedChunkCount() const {
     return chunks.size();
 }
 
+// NOLINTNEXTLINE(readability-convert-member-functions-to-static)
 std::unique_ptr<Chunk> World::generateChunk(const ChunkCoord& coord) {
     auto chunk = std::make_unique<Chunk>(coord);
 
     // Simple flat world generation
     // Fill everything below Y=0 with stone, Y=0 with dirt
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
     glm::vec3 worldOrigin = coord.toWorldPos();
 
+    // NOLINTNEXTLINE(readability-identifier-length)
     for (uint32_t x = 0; x < CHUNK_SIZE; x++) {
+        // NOLINTNEXTLINE(readability-identifier-length)
         for (uint32_t z = 0; z < CHUNK_SIZE; z++) {
+            // NOLINTNEXTLINE(readability-identifier-length)
             for (uint32_t y = 0; y < CHUNK_SIZE; y++) {
                 // Calculate world Y coordinate for this block
+                // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
                 int32_t worldY = static_cast<int32_t>(worldOrigin.y) + static_cast<int32_t>(y);
 
                 Block block;
@@ -215,9 +231,15 @@ void World::worldToChunkLocal(int32_t worldX, int32_t worldY, int32_t worldZ,
     outLocalZ = worldZ - (outChunkCoord.z * static_cast<int32_t>(CHUNK_SIZE));
 
     // Handle negative coordinates (modulo can give negative results)
-    if (outLocalX >= CHUNK_SIZE) outLocalX += CHUNK_SIZE;
-    if (outLocalY >= CHUNK_SIZE) outLocalY += CHUNK_SIZE;
-    if (outLocalZ >= CHUNK_SIZE) outLocalZ += CHUNK_SIZE;
+    if (outLocalX >= CHUNK_SIZE) {
+        outLocalX += CHUNK_SIZE;
+    }
+    if (outLocalY >= CHUNK_SIZE) {
+        outLocalY += CHUNK_SIZE;
+    }
+    if (outLocalZ >= CHUNK_SIZE) {
+        outLocalZ += CHUNK_SIZE;
+    }
 }
 
 size_t World::saveWorld(const std::string& worldDir) {
@@ -247,6 +269,7 @@ size_t World::saveWorld(const std::string& worldDir) {
         // Write to file
         std::ofstream file(filename, std::ios::binary);
         if (file.is_open()) {
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast,cppcoreguidelines-narrowing-conversions,bugprone-narrowing-conversions)
             file.write(reinterpret_cast<const char*>(serializedData.data()), serializedData.size());
             file.close();
             chunk->clearDirty();
@@ -265,6 +288,7 @@ size_t World::saveWorld(const std::string& worldDir) {
     return savedCount;
 }
 
+// NOLINTNEXTLINE(readability-convert-member-functions-to-static)
 std::vector<ChunkCoord> World::getChunksInRadius(const glm::vec3& centerPos, int32_t chunkRadius) const {
     std::vector<ChunkCoord> result;
 
@@ -273,15 +297,21 @@ std::vector<ChunkCoord> World::getChunksInRadius(const glm::vec3& centerPos, int
 
     // Get all chunks in a horizontal circle around the center (X-Z plane only)
     // Load all Y levels for each X-Z position
+    // NOLINTNEXTLINE(readability-identifier-length)
     for (int32_t x = centerChunk.x - chunkRadius; x <= centerChunk.x + chunkRadius; x++) {
+        // NOLINTNEXTLINE(readability-identifier-length)
         for (int32_t z = centerChunk.z - chunkRadius; z <= centerChunk.z + chunkRadius; z++) {
             // Check if within circular radius (Euclidean distance in XZ plane)
+            // NOLINTNEXTLINE(readability-identifier-length)
             int32_t dx = x - centerChunk.x;
+            // NOLINTNEXTLINE(readability-identifier-length)
             int32_t dz = z - centerChunk.z;
+            // NOLINTNEXTLINE(readability-math-missing-parentheses)
             float distanceXZ = std::sqrt(static_cast<float>(dx * dx + dz * dz));
 
             if (distanceXZ <= static_cast<float>(chunkRadius)) {
                 // Add all vertical chunks at this X-Z position (typically -1 to 1 for Y)
+                // NOLINTNEXTLINE(readability-identifier-length)
                 for (int32_t y = -1; y <= 1; y++) {
                     result.push_back(ChunkCoord{x, y, z});
                 }
@@ -302,8 +332,11 @@ size_t World::unloadDistantChunks(const std::vector<glm::vec3>& playerPositions,
         ChunkCoord playerChunk = ChunkCoord::fromWorldPos(pos);
 
         // Mark all chunks in radius around this player
+        // NOLINTNEXTLINE(readability-identifier-length)
         for (int32_t x = playerChunk.x - keepRadius; x <= playerChunk.x + keepRadius; x++) {
+            // NOLINTNEXTLINE(readability-identifier-length)
             for (int32_t y = playerChunk.y - keepRadius; y <= playerChunk.y + keepRadius; y++) {
+                // NOLINTNEXTLINE(readability-identifier-length)
                 for (int32_t z = playerChunk.z - keepRadius; z <= playerChunk.z + keepRadius; z++) {
                     chunksToKeep.insert(ChunkCoord{x, y, z});
                 }
@@ -316,7 +349,7 @@ size_t World::unloadDistantChunks(const std::vector<glm::vec3>& playerPositions,
     std::vector<ChunkCoord> toUnload;
 
     for (const auto& [coord, chunk] : chunks) {
-        if (chunksToKeep.find(coord) == chunksToKeep.end()) {
+        if (!chunksToKeep.contains(coord)) {
             toUnload.push_back(coord);
         }
     }
@@ -324,8 +357,8 @@ size_t World::unloadDistantChunks(const std::vector<glm::vec3>& playerPositions,
     // Unload chunks (do this outside the iteration to avoid iterator invalidation)
     for (const auto& coord : toUnload) {
         // Save chunk if dirty before unloading
-        auto it = chunks.find(coord);
-        if (it != chunks.end() && it->second->isDirty()) {
+        auto chunkIt = chunks.find(coord);
+        if (chunkIt != chunks.end() && chunkIt->second->isDirty()) {
             // Will be saved in next autosave
         }
         chunks.erase(coord);
@@ -369,6 +402,7 @@ size_t World::loadWorld(const std::string& worldDir) {
 
         // Read data
         std::vector<uint8_t> data(fileSize);
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast,cppcoreguidelines-narrowing-conversions,bugprone-narrowing-conversions)
         file.read(reinterpret_cast<char*>(data.data()), fileSize);
         file.close();
 
@@ -385,8 +419,11 @@ size_t World::loadWorld(const std::string& worldDir) {
             continue;
         }
 
+        // NOLINTNEXTLINE(readability-identifier-length)
         int32_t x = std::stoi(filename.substr(pos1 + 1, pos2 - pos1 - 1));
+        // NOLINTNEXTLINE(readability-identifier-length)
         int32_t y = std::stoi(filename.substr(pos2 + 1, pos3 - pos2 - 1));
+        // NOLINTNEXTLINE(readability-identifier-length)
         int32_t z = std::stoi(filename.substr(pos3 + 1, pos4 - pos3 - 1));
 
         ChunkCoord coord{x, y, z};

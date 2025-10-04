@@ -11,25 +11,25 @@ namespace engine {
  * Items represent what can be in inventory slots. Some items (blocks) can be placed in the world.
  * The enum values for blocks match BlockType to simplify conversion.
  */
-enum class ItemType : uint16_t {
+enum class ItemType : uint16_t {  // NOLINT(performance-enum-size, readability-enum-initial-value)
     // Special
-    Empty = 0,
+    Empty = 0,  // NOLINT(readability-identifier-naming)
 
     // Blocks (match BlockType enum values)
-    Stone = static_cast<uint16_t>(BlockType::Stone),
-    Dirt = static_cast<uint16_t>(BlockType::Dirt),
-    Cobblestone = static_cast<uint16_t>(BlockType::Cobblestone),
-    Wood = static_cast<uint16_t>(BlockType::Wood),
-    Sand = static_cast<uint16_t>(BlockType::Sand),
-    Brick = static_cast<uint16_t>(BlockType::Brick),
-    Snow = static_cast<uint16_t>(BlockType::Snow),
-    Grass = static_cast<uint16_t>(BlockType::Grass),
+    Stone = static_cast<uint16_t>(BlockType::Stone),  // NOLINT(readability-identifier-naming, readability-enum-initial-value)
+    Dirt = static_cast<uint16_t>(BlockType::Dirt),  // NOLINT(readability-identifier-naming, readability-enum-initial-value)
+    Cobblestone = static_cast<uint16_t>(BlockType::Cobblestone),  // NOLINT(readability-identifier-naming, readability-enum-initial-value)
+    Wood = static_cast<uint16_t>(BlockType::Wood),  // NOLINT(readability-identifier-naming, readability-enum-initial-value)
+    Sand = static_cast<uint16_t>(BlockType::Sand),  // NOLINT(readability-identifier-naming, readability-enum-initial-value)
+    Brick = static_cast<uint16_t>(BlockType::Brick),  // NOLINT(readability-identifier-naming, readability-enum-initial-value)
+    Snow = static_cast<uint16_t>(BlockType::Snow),  // NOLINT(readability-identifier-naming, readability-enum-initial-value)
+    Grass = static_cast<uint16_t>(BlockType::Grass),  // NOLINT(readability-identifier-naming, readability-enum-initial-value)
 
     // Future: Tools, consumables, etc.
     // Sword = 1000,
     // Pickaxe = 1001,
 
-    Count
+    Count  // NOLINT(readability-identifier-naming)
 };
 
 /**

@@ -290,14 +290,15 @@ void BlockOutlineRenderer::createVertexBuffer() {
 }
 
 void BlockOutlineRenderer::updateVertexBuffer(const glm::ivec3& blockPos) {
-    const float expand = 0.003f;  // Slight expansion to prevent z-fighting
-    glm::vec3 min = glm::vec3(blockPos) - glm::vec3(expand);
-    glm::vec3 max = glm::vec3(blockPos) + glm::vec3(1.0f + expand);
+    constexpr float EXPAND = 0.003f;  // Slight expansion to prevent z-fighting
+    glm::vec3 min = glm::vec3(blockPos) - glm::vec3(EXPAND);
+    glm::vec3 max = glm::vec3(blockPos) + glm::vec3(1.0f + EXPAND);
 
     // White color for all vertices
     glm::vec3 color(1.0f, 1.0f, 1.0f);
 
     // Define 12 edges (24 vertices total)
+    // NOLINTBEGIN(cppcoreguidelines-pro-type-union-access)
     std::array<LineVertex, 24> vertices = {{
         // Bottom face (4 edges)
         {{min.x, min.y, min.z}, color}, {{max.x, min.y, min.z}, color},  // Bottom-front
@@ -317,9 +318,10 @@ void BlockOutlineRenderer::updateVertexBuffer(const glm::ivec3& blockPos) {
         {{max.x, min.y, max.z}, color}, {{max.x, max.y, max.z}, color},  // Back-right
         {{min.x, min.y, max.z}, color}, {{min.x, max.y, max.z}, color}   // Back-left
     }};
+    // NOLINTEND(cppcoreguidelines-pro-type-union-access)
 
     // Map and copy vertices
-    void* data;
+    void* data = nullptr;
     vkMapMemory(device, vertexBufferMemory, 0, sizeof(vertices), 0, &data);
     memcpy(data, vertices.data(), sizeof(vertices));
     vkUnmapMemory(device, vertexBufferMemory);
@@ -347,9 +349,9 @@ VkShaderModule BlockOutlineRenderer::createShaderModule(const std::vector<char>&
     VkShaderModuleCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
     createInfo.codeSize = code.size();
-    createInfo.pCode = reinterpret_cast<const uint32_t*>(code.data());
+    createInfo.pCode = reinterpret_cast<const uint32_t*>(code.data()); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
 
-    VkShaderModule shaderModule;
+    VkShaderModule shaderModule = VK_NULL_HANDLE;
     if (vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS) {
         LOG_ERROR("Failed to create shader module");
         throw std::runtime_error("Failed to create shader module");

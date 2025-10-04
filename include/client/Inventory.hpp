@@ -22,6 +22,11 @@ public:
     Inventory();
     ~Inventory() = default;
 
+    Inventory(const Inventory&) = default;
+    Inventory& operator=(const Inventory&) = default;
+    Inventory(Inventory&&) noexcept = default;
+    Inventory& operator=(Inventory&&) noexcept = default;
+
     // Hotbar management
     /**
      * @brief Get the currently selected hotbar slot (0-8)

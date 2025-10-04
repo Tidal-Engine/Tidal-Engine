@@ -180,7 +180,7 @@ private:
     void recreateSwapchain();
     void cleanupImGui();
 
-    std::string loadUsername();
+    static std::string loadUsername();
 
     void createInstance();
     void createSurface();

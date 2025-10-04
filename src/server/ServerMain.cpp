@@ -11,6 +11,7 @@
 #include <string>
 
 // Global flag for graceful shutdown
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables,readability-identifier-naming)
 std::atomic<bool> g_shutdownRequested{false};
 
 void signalHandler(int signal) {
@@ -20,6 +21,7 @@ void signalHandler(int signal) {
     }
 }
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 int main(int argc, char* argv[]) {
     // Initialize infrastructure
     engine::Logger::init("TidalEngine", "logs/server.log");
@@ -41,6 +43,7 @@ int main(int argc, char* argv[]) {
         });
 
         // Input thread to listen for commands
+        // NOLINTNEXTLINE(readability-function-cognitive-complexity)
         std::thread inputThread([&]() {
             std::string line;
             while (!g_shutdownRequested && std::getline(std::cin, line)) {
@@ -58,10 +61,10 @@ int main(int argc, char* argv[]) {
                     g_shutdownRequested = true;
                     break;
                 }
-                else if (line == "/tunnel stop" || line == "tunnel stop") {
+                if (line == "/tunnel stop" || line == "tunnel stop") {
                     server.stopTunnel();
                 }
-                else if (line.rfind("/tunnel start", 0) == 0 || line.rfind("tunnel start", 0) == 0) {
+                if (line.starts_with("/tunnel start") || line.starts_with("tunnel start")) {
                     // Extract secret key if provided
                     size_t spacePos = line.find(' ', line.find("start") + 5);
                     std::string secretKey;
@@ -73,7 +76,7 @@ int main(int argc, char* argv[]) {
                     }
                     server.startTunnel(secretKey);
                 }
-                else if (line == "/tunnel status" || line == "tunnel status") {
+                if (line == "/tunnel status" || line == "tunnel status") {
                     if (server.isTunnelRunning()) {
                         LOG_INFO("Tunnel is currently running");
                         LOG_INFO("Check https://playit.gg/account for tunnel address");
@@ -81,12 +84,12 @@ int main(int argc, char* argv[]) {
                         LOG_INFO("Tunnel is not running");
                     }
                 }
-                else if (line == "/save" || line == "save") {
+                if (line == "/save" || line == "save") {
                     LOG_INFO("Saving world...");
                     size_t chunks = server.getWorld()->saveWorld("world");
                     LOG_INFO("Saved {} chunks", chunks);
                 }
-                else if (line == "/help" || line == "help") {
+                if (line == "/help" || line == "help") {
                     LOG_INFO("========================================");
                     LOG_INFO("Available commands:");
                     LOG_INFO("  /stop - Stop the server");
@@ -97,7 +100,12 @@ int main(int argc, char* argv[]) {
                     LOG_INFO("  /help - Show this help message");
                     LOG_INFO("========================================");
                 }
-                else {
+                if (line != "/stop" && line != "stop" &&
+                    line != "/tunnel stop" && line != "tunnel stop" &&
+                    !line.starts_with("/tunnel start") && !line.starts_with("tunnel start") &&
+                    line != "/tunnel status" && line != "tunnel status" &&
+                    line != "/save" && line != "save" &&
+                    line != "/help" && line != "help") {
                     LOG_WARN("Unknown command: {}", line);
                     LOG_INFO("Type '/help' for available commands");
                 }

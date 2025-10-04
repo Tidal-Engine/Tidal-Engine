@@ -35,6 +35,10 @@ public:
     TextureAtlas(const TextureAtlas&) = delete;
     TextureAtlas& operator=(const TextureAtlas&) = delete;
 
+    // Allow move
+    TextureAtlas(TextureAtlas&&) noexcept = default;
+    TextureAtlas& operator=(TextureAtlas&&) noexcept = default;
+
     /**
      * @brief Load block textures and build the atlas
      * @param texturePath Base path to texture directory

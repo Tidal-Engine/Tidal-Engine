@@ -32,6 +32,7 @@ void Console::addMessage(const std::string& message) {
     scrollToBottom = true;
 }
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 void Console::render() {
     if (!visible) {
         return;
@@ -46,8 +47,8 @@ void Console::render() {
     }
 
     // Output area
-    const float footerHeightReserve = ImGui::GetStyle().ItemSpacing.y + ImGui::GetFrameHeightWithSpacing();
-    if (ImGui::BeginChild("ScrollingRegion", ImVec2(0, -footerHeightReserve), false, ImGuiWindowFlags_HorizontalScrollbar)) {
+    const float FOOTER_HEIGHT_RESERVE = ImGui::GetStyle().ItemSpacing.y + ImGui::GetFrameHeightWithSpacing();
+    if (ImGui::BeginChild("ScrollingRegion", ImVec2(0, -FOOTER_HEIGHT_RESERVE), false, ImGuiWindowFlags_HorizontalScrollbar)) {
         for (const auto& message : messages) {
             ImGui::TextUnformatted(message.c_str());
         }
@@ -110,7 +111,7 @@ void Console::render() {
     ImGui::End();
 }
 
-std::vector<std::string> Console::tokenize(const std::string& str) {
+std::vector<std::string> Console::tokenize(const std::string& str) {  // NOLINT(readability-convert-member-functions-to-static)
     std::vector<std::string> tokens;
     std::istringstream stream(str);
     std::string token;

@@ -66,19 +66,18 @@ bool NetworkClient::connect(const std::string& host, const std::string& username
         connected = true;
 
         // Send join message with username
-        protocol::ClientJoinMessage joinMsg;
+        protocol::ClientJoinMessage joinMsg{};
         std::strncpy(joinMsg.playerName, username.c_str(), sizeof(joinMsg.playerName) - 1);
         joinMsg.playerName[sizeof(joinMsg.playerName) - 1] = '\0';  // Ensure null termination
         joinMsg.clientVersion = 1;
         sendMessage(protocol::MessageType::ClientJoin, &joinMsg, sizeof(joinMsg));
 
         return true;
-    } else {
-        LOG_ERROR("Connection to {}:{} failed (timeout)", host, port);
-        enet_peer_reset(serverPeer);
-        serverPeer = nullptr;
-        return false;
     }
+    LOG_ERROR("Connection to {}:{} failed (timeout)", host, port);
+    enet_peer_reset(serverPeer);
+    serverPeer = nullptr;
+    return false;
 }
 
 void NetworkClient::disconnect() {
@@ -147,9 +146,11 @@ void NetworkClient::update() {
 }
 
 void NetworkClient::sendPlayerMove(const glm::vec3& position, const glm::vec3& velocity, float yaw, float pitch) {
-    if (!connected) return;
+    if (!connected) {
+        return;
+    }
 
-    protocol::PlayerMoveMessage msg;
+    protocol::PlayerMoveMessage msg{};
     msg.position = position;
     msg.velocity = velocity;
     msg.yaw = yaw;
@@ -166,36 +167,40 @@ void NetworkClient::sendPlayerMove(const glm::vec3& position, const glm::vec3& v
     sendMessage(protocol::MessageType::PlayerMove, &msg, sizeof(msg));
 }
 
-void NetworkClient::sendBlockPlace(int32_t x, int32_t y, int32_t z, uint16_t blockType) {
-    if (!connected) return;
+void NetworkClient::sendBlockPlace(int32_t posX, int32_t posY, int32_t posZ, uint16_t blockType) {
+    if (!connected) {
+        return;
+    }
 
-    protocol::BlockPlaceMessage msg;
-    msg.x = x;
-    msg.y = y;
-    msg.z = z;
+    protocol::BlockPlaceMessage msg{};
+    msg.x = posX;
+    msg.y = posY;
+    msg.z = posZ;
     msg.blockType = blockType;
 
     sendMessage(protocol::MessageType::BlockPlace, &msg, sizeof(msg));
 }
 
-void NetworkClient::sendBlockBreak(int32_t x, int32_t y, int32_t z) {
+void NetworkClient::sendBlockBreak(int32_t posX, int32_t posY, int32_t posZ) {
     if (!connected) {
         LOG_WARN("CLIENT: Cannot send block break - not connected");
         return;
     }
 
-    LOG_INFO("CLIENT: Sending BlockBreak message for ({}, {}, {})", x, y, z);
+    LOG_INFO("CLIENT: Sending BlockBreak message for ({}, {}, {})", posX, posY, posZ);
 
-    protocol::BlockBreakMessage msg;
-    msg.x = x;
-    msg.y = y;
-    msg.z = z;
+    protocol::BlockBreakMessage msg{};
+    msg.x = posX;
+    msg.y = posY;
+    msg.z = posZ;
 
     sendMessage(protocol::MessageType::BlockBreak, &msg, sizeof(msg));
 }
 
 void NetworkClient::sendInventoryUpdate(const ItemStack hotbar[9], uint32_t selectedSlot) {
-    if (!connected) return;
+    if (!connected) {
+        return;
+    }
 
     protocol::InventoryUpdateMessage msg;
     std::memcpy(msg.hotbar, hotbar, 9 * sizeof(ItemStack));
@@ -206,13 +211,13 @@ void NetworkClient::sendInventoryUpdate(const ItemStack hotbar[9], uint32_t sele
 }
 
 Chunk* NetworkClient::getChunk(const ChunkCoord& coord) {
-    auto it = chunks.find(coord);
-    return (it != chunks.end()) ? it->second.get() : nullptr;
+    auto iter = chunks.find(coord);
+    return (iter != chunks.end()) ? iter->second.get() : nullptr;
 }
 
 const Chunk* NetworkClient::getChunk(const ChunkCoord& coord) const {
-    auto it = chunks.find(coord);
-    return (it != chunks.end()) ? it->second.get() : nullptr;
+    auto iter = chunks.find(coord);
+    return (iter != chunks.end()) ? iter->second.get() : nullptr;
 }
 
 void NetworkClient::handlePacket(ENetPacket* packet) {
@@ -222,9 +227,10 @@ void NetworkClient::handlePacket(ENetPacket* packet) {
     }
 
     // Read message header
-    protocol::MessageHeader header;
+    protocol::MessageHeader header{};
     std::memcpy(&header, packet->data, sizeof(protocol::MessageHeader));
 
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     const uint8_t* payload = packet->data + sizeof(protocol::MessageHeader);
     size_t payloadSize = packet->dataLength - sizeof(protocol::MessageHeader);
 
@@ -244,7 +250,7 @@ void NetworkClient::handlePacket(ENetPacket* packet) {
 
         case protocol::MessageType::BlockUpdate:
             if (payloadSize >= sizeof(protocol::BlockUpdateMessage)) {
-                protocol::BlockUpdateMessage msg;
+                protocol::BlockUpdateMessage msg{};
                 std::memcpy(&msg, payload, sizeof(msg));
                 handleBlockUpdate(msg);
             }
@@ -252,17 +258,20 @@ void NetworkClient::handlePacket(ENetPacket* packet) {
 
         case protocol::MessageType::PlayerSpawn:
             if (payloadSize >= sizeof(protocol::PlayerSpawnMessage)) {
-                protocol::PlayerSpawnMessage msg;
+                protocol::PlayerSpawnMessage msg{};
                 std::memcpy(&msg, payload, sizeof(msg));
+                // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
                 otherPlayers[msg.playerId] = PlayerData{msg.spawnPosition, 0.0f, 0.0f};
+                // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
                 LOG_INFO("Player {} spawned at ({:.1f}, {:.1f}, {:.1f})",
+                         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
                          msg.playerId, msg.spawnPosition.x, msg.spawnPosition.y, msg.spawnPosition.z);
             }
             break;
 
         case protocol::MessageType::PlayerPositionUpdate:
             if (payloadSize >= sizeof(protocol::PlayerPositionUpdateMessage)) {
-                protocol::PlayerPositionUpdateMessage msg;
+                protocol::PlayerPositionUpdateMessage msg{};
                 std::memcpy(&msg, payload, sizeof(msg));
                 otherPlayers[msg.playerId] = PlayerData{msg.position, msg.yaw, msg.pitch};
             }
@@ -270,7 +279,7 @@ void NetworkClient::handlePacket(ENetPacket* packet) {
 
         case protocol::MessageType::PlayerRemove:
             if (payloadSize >= sizeof(protocol::PlayerRemoveMessage)) {
-                protocol::PlayerRemoveMessage msg;
+                protocol::PlayerRemoveMessage msg{};
                 std::memcpy(&msg, payload, sizeof(msg));
                 otherPlayers.erase(msg.playerId);
                 LOG_INFO("Player {} disconnected and removed", msg.playerId);
@@ -284,7 +293,9 @@ void NetworkClient::handlePacket(ENetPacket* packet) {
                 if (onInventorySync) {
                     onInventorySync(msg.hotbar, msg.selectedHotbarSlot, msg.position, msg.yaw, msg.pitch);
                 }
+                // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
                 LOG_INFO("Received inventory sync from server: position ({:.1f}, {:.1f}, {:.1f}), yaw {:.1f}, pitch {:.1f}",
+                         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
                          msg.position.x, msg.position.y, msg.position.z, msg.yaw, msg.pitch);
             }
             break;
@@ -305,6 +316,7 @@ void NetworkClient::handleChunkData(const uint8_t* data, size_t size) {
     protocol::ChunkDataMessage header;
     std::memcpy(&header, data, sizeof(protocol::ChunkDataMessage));
 
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     const uint8_t* compressedData = data + sizeof(protocol::ChunkDataMessage);
     size_t compressedSize = size - sizeof(protocol::ChunkDataMessage);
 
@@ -329,10 +341,10 @@ void NetworkClient::handleChunkData(const uint8_t* data, size_t size) {
 }
 
 void NetworkClient::handleChunkUnload(const protocol::ChunkUnloadMessage& msg) {
-    auto it = chunks.find(msg.coord);
-    if (it != chunks.end()) {
+    auto iter = chunks.find(msg.coord);
+    if (iter != chunks.end()) {
         LOG_DEBUG("Unloading chunk ({}, {}, {})", msg.coord.x, msg.coord.y, msg.coord.z);
-        chunks.erase(it);
+        chunks.erase(iter);
 
         // Notify callback
         if (onChunkUnloaded) {
@@ -354,8 +366,11 @@ void NetworkClient::handleBlockUpdate(const protocol::BlockUpdateMessage& msg) {
 
     // Convert world coords to local chunk coords
     glm::vec3 worldOrigin = chunkCoord.toWorldPos();
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
     uint32_t localX = msg.x - static_cast<int32_t>(worldOrigin.x);
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
     uint32_t localY = msg.y - static_cast<int32_t>(worldOrigin.y);
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
     uint32_t localZ = msg.z - static_cast<int32_t>(worldOrigin.z);
 
     // Update block
@@ -385,13 +400,14 @@ void NetworkClient::sendMessage(protocol::MessageType type, const void* data, si
     ENetPacket* packet = enet_packet_create(nullptr, totalSize, ENET_PACKET_FLAG_RELIABLE);
 
     // Write header
-    protocol::MessageHeader header;
+    protocol::MessageHeader header{};
     header.type = type;
     header.payloadSize = static_cast<uint32_t>(size);
     std::memcpy(packet->data, &header, sizeof(protocol::MessageHeader));
 
     // Write payload
     if (size > 0 && data != nullptr) {
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         std::memcpy(packet->data + sizeof(protocol::MessageHeader), data, size);
     }
 

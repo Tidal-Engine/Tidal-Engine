@@ -33,6 +33,14 @@ public:
              VkCommandPool commandPool, VkQueue graphicsQueue);
     ~HotbarUI();
 
+    // Delete copy operations (manages Vulkan resources)
+    HotbarUI(const HotbarUI&) = delete;
+    HotbarUI& operator=(const HotbarUI&) = delete;
+
+    // Allow move operations
+    HotbarUI(HotbarUI&&) noexcept = default;
+    HotbarUI& operator=(HotbarUI&&) noexcept = default;
+
     /**
      * @brief Initialize textures (call after ImGui is initialized)
      */

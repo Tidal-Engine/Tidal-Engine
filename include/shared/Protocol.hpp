@@ -25,24 +25,24 @@ namespace engine::protocol {
  */
 enum class MessageType : uint8_t {
     // Client -> Server
-    ClientJoin = 0,
-    PlayerMove = 1,
-    BlockPlace = 2,
-    BlockBreak = 3,
-    InventoryUpdate = 4,
+    ClientJoin = 0,  // NOLINT(readability-identifier-naming)
+    PlayerMove = 1,  // NOLINT(readability-identifier-naming)
+    BlockPlace = 2,  // NOLINT(readability-identifier-naming)
+    BlockBreak = 3,  // NOLINT(readability-identifier-naming)
+    InventoryUpdate = 4,  // NOLINT(readability-identifier-naming)
 
     // Server -> Client
-    ChunkData = 10,
-    ChunkUnload = 11,
-    BlockUpdate = 12,
-    PlayerSpawn = 13,
-    PlayerPositionUpdate = 14,
-    PlayerRemove = 15,
-    InventorySync = 16,
+    ChunkData = 10,  // NOLINT(readability-identifier-naming)
+    ChunkUnload = 11,  // NOLINT(readability-identifier-naming)
+    BlockUpdate = 12,  // NOLINT(readability-identifier-naming)
+    PlayerSpawn = 13,  // NOLINT(readability-identifier-naming)
+    PlayerPositionUpdate = 14,  // NOLINT(readability-identifier-naming)
+    PlayerRemove = 15,  // NOLINT(readability-identifier-naming)
+    InventorySync = 16,  // NOLINT(readability-identifier-naming)
 
     // Bidirectional
-    Disconnect = 20,
-    KeepAlive = 21,
+    Disconnect = 20,  // NOLINT(readability-identifier-naming)
+    KeepAlive = 21,  // NOLINT(readability-identifier-naming)
 };
 
 /**
@@ -105,7 +105,7 @@ PACK_END
 PACK_BEGIN
 struct ChunkDataMessage {
     ChunkCoord coord;           ///< Chunk coordinates
-    uint32_t compressedSize;    ///< Size of compressed block data that follows in bytes
+    uint32_t compressedSize = 0;    ///< Size of compressed block data that follows in bytes
     // Compressed block data follows
 } PACKED;
 PACK_END
@@ -191,7 +191,7 @@ PACK_END
 PACK_BEGIN
 struct InventoryUpdateMessage {
     ItemStack hotbar[9];         ///< Hotbar inventory (9 slots)
-    uint32_t selectedHotbarSlot; ///< Currently selected hotbar slot (0-8)
+    uint32_t selectedHotbarSlot = 0; ///< Currently selected hotbar slot (0-8)
 } PACKED;
 PACK_END
 

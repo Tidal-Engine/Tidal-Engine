@@ -10,10 +10,10 @@
 
 namespace engine {
 
-HotbarUI::HotbarUI(Inventory* inv, VkDevice dev, VkPhysicalDevice physDev,
-                   VkCommandPool cmdPool, VkQueue queue)
-    : inventory(inv), device(dev), physicalDevice(physDev),
-      commandPool(cmdPool), graphicsQueue(queue) {
+HotbarUI::HotbarUI(Inventory* inventory, VkDevice device, VkPhysicalDevice physicalDevice,
+                   VkCommandPool commandPool, VkQueue graphicsQueue)
+    : inventory(inventory), device(device), physicalDevice(physicalDevice),
+      commandPool(commandPool), graphicsQueue(graphicsQueue) {
 }
 
 HotbarUI::~HotbarUI() {
@@ -37,11 +37,11 @@ void HotbarUI::init() {
 }
 
 void HotbarUI::render() {
-    ImGuiIO& io = ImGui::GetIO();
-    ImVec2 screenSize = io.DisplaySize;
+    ImGuiIO& imguiIo = ImGui::GetIO();
+    ImVec2 screenSize = imguiIo.DisplaySize;
 
     // Calculate hotbar dimensions
-    float totalWidth = (SLOT_SIZE + SLOT_PADDING) * Inventory::HOTBAR_SIZE - SLOT_PADDING;
+    float totalWidth = ((SLOT_SIZE + SLOT_PADDING) * Inventory::HOTBAR_SIZE) - SLOT_PADDING;
     float startX = (screenSize.x - totalWidth) * 0.5f;
     float startY = screenSize.y - SLOT_SIZE - HOTBAR_Y_OFFSET;
 
@@ -96,10 +96,11 @@ void HotbarUI::renderSlot(size_t index, bool selected) {
         auto textureIt = blockTextures.find(stack.type);
         if (textureIt != blockTextures.end()) {
             // Draw block texture (with small padding)
-            const float iconPadding = 4.0f;
-            ImVec2 iconMin = ImVec2(pos.x + iconPadding, pos.y + iconPadding);
-            ImVec2 iconMax = ImVec2(pos.x + SLOT_SIZE - iconPadding, pos.y + SLOT_SIZE - iconPadding);
-            drawList->AddImage((ImTextureID)textureIt->second, iconMin, iconMax);
+            constexpr float ICON_PADDING = 4.0f;
+            ImVec2 iconMin = ImVec2(pos.x + ICON_PADDING, pos.y + ICON_PADDING);
+            ImVec2 iconMax = ImVec2(pos.x + SLOT_SIZE - ICON_PADDING, pos.y + SLOT_SIZE - ICON_PADDING);
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+            drawList->AddImage(reinterpret_cast<ImTextureID>(textureIt->second), iconMin, iconMax);
         }
     }
 
@@ -142,7 +143,9 @@ void HotbarUI::handleInput(const InputManager* input) {
 
 void HotbarUI::loadBlockTexture(ItemType itemType, const std::string& texturePath) {
     // Load image using stb_image
-    int width, height, channels;
+    int width = 0;
+    int height = 0;
+    int channels = 0;
     unsigned char* pixels = stbi_load(texturePath.c_str(), &width, &height, &channels, STBI_rgb_alpha);
 
     if (!pixels) {
@@ -150,11 +153,11 @@ void HotbarUI::loadBlockTexture(ItemType itemType, const std::string& texturePat
         return;
     }
 
-    VkDeviceSize imageSize = width * height * 4;  // RGBA
+    VkDeviceSize imageSize = static_cast<VkDeviceSize>(width) * static_cast<VkDeviceSize>(height) * 4;  // RGBA
 
     // Create staging buffer
-    VkBuffer stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
+    VkBuffer stagingBuffer = VK_NULL_HANDLE;
+    VkDeviceMemory stagingBufferMemory = VK_NULL_HANDLE;
 
     VkBufferCreateInfo bufferInfo{};
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -176,7 +179,7 @@ void HotbarUI::loadBlockTexture(ItemType itemType, const std::string& texturePat
     vkAllocateMemory(device, &allocInfo, nullptr, &stagingBufferMemory);
     vkBindBufferMemory(device, stagingBuffer, stagingBufferMemory, 0);
 
-    void* data;
+    void* data = nullptr;
     vkMapMemory(device, stagingBufferMemory, 0, imageSize, 0, &data);
     memcpy(data, pixels, static_cast<size_t>(imageSize));
     vkUnmapMemory(device, stagingBufferMemory);
@@ -218,7 +221,7 @@ void HotbarUI::loadBlockTexture(ItemType itemType, const std::string& texturePat
     cmdAllocInfo.commandPool = commandPool;
     cmdAllocInfo.commandBufferCount = 1;
 
-    VkCommandBuffer commandBuffer;
+    VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
     vkAllocateCommandBuffers(device, &cmdAllocInfo, &commandBuffer);
 
     VkCommandBufferBeginInfo beginInfo{};

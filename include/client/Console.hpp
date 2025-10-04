@@ -22,6 +22,14 @@ public:
     Console();
     ~Console();
 
+    // Delete copy operations
+    Console(const Console&) = delete;
+    Console& operator=(const Console&) = delete;
+
+    // Allow move operations
+    Console(Console&&) noexcept = default;
+    Console& operator=(Console&&) noexcept = default;
+
     /**
      * @brief Toggle console visibility
      */
@@ -79,7 +87,7 @@ private:
     void cmdClear(const std::vector<std::string>& args);
 
     // Helper to split command into tokens
-    std::vector<std::string> tokenize(const std::string& str);
+    static std::vector<std::string> tokenize(const std::string& str);
 };
 
 } // namespace engine

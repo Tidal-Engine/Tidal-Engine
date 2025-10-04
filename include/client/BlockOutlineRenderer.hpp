@@ -36,6 +36,10 @@ public:
     BlockOutlineRenderer(const BlockOutlineRenderer&) = delete;
     BlockOutlineRenderer& operator=(const BlockOutlineRenderer&) = delete;
 
+    // Allow move operations
+    BlockOutlineRenderer(BlockOutlineRenderer&&) noexcept = default;
+    BlockOutlineRenderer& operator=(BlockOutlineRenderer&&) noexcept = default;
+
     /**
      * @brief Create rendering resources (pipeline, buffers)
      */
@@ -83,7 +87,7 @@ private:
     /**
      * @brief Read shader file
      */
-    std::vector<char> readFile(const std::string& filename);
+    static std::vector<char> readFile(const std::string& filename);
 
     /**
      * @brief Create shader module from SPIR-V code

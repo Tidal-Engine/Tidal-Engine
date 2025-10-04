@@ -63,12 +63,12 @@ public:
     /**
      * @brief Send block placement request
      */
-    void sendBlockPlace(int32_t x, int32_t y, int32_t z, uint16_t blockType);
+    void sendBlockPlace(int32_t x, int32_t y, int32_t z, uint16_t blockType);  // NOLINT(readability-identifier-length)
 
     /**
      * @brief Send block break request
      */
-    void sendBlockBreak(int32_t x, int32_t y, int32_t z);
+    void sendBlockBreak(int32_t x, int32_t y, int32_t z);  // NOLINT(readability-identifier-length)
 
     /**
      * @brief Send inventory update to server for persistence
@@ -90,21 +90,21 @@ public:
      * @brief Set callback for when new chunk is received
      */
     void setOnChunkReceived(std::function<void(const ChunkCoord&)> callback) {
-        onChunkReceived = callback;
+        onChunkReceived = std::move(callback);
     }
 
     /**
      * @brief Set callback for when chunk is unloaded
      */
     void setOnChunkUnloaded(std::function<void(const ChunkCoord&)> callback) {
-        onChunkUnloaded = callback;
+        onChunkUnloaded = std::move(callback);
     }
 
     /**
      * @brief Set callback for when inventory sync is received from server
      */
     void setOnInventorySync(std::function<void(const ItemStack[9], uint32_t, const glm::vec3&, float, float)> callback) {
-        onInventorySync = callback;
+        onInventorySync = std::move(callback);
     }
 
     /**

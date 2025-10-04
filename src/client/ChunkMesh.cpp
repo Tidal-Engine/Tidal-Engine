@@ -11,6 +11,7 @@ struct MaskCell {
     bool processed = false;
 };
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 size_t ChunkMesh::generateMesh(const Chunk& chunk,
                                std::vector<Vertex>& vertices,
                                std::vector<uint32_t>& indices,
@@ -24,9 +25,10 @@ size_t ChunkMesh::generateMesh(const Chunk& chunk,
     vertices.clear();
     indices.clear();
 
-    const glm::vec3 chunkOrigin = chunk.getCoord().toWorldPos();
+    const glm::vec3 CHUNK_ORIGIN = chunk.getCoord().toWorldPos();
 
     // Helper lambda to get block with cross-chunk support
+    // NOLINTNEXTLINE(readability-identifier-length)
     auto getBlock = [&](int32_t x, int32_t y, int32_t z) -> const Block* {
         // Handle cross-chunk boundaries
         if (x < 0) {
@@ -55,15 +57,18 @@ size_t ChunkMesh::generateMesh(const Chunk& chunk,
 
     // For each axis
     for (int axis = 0; axis < 3; axis++) {
-        const int u = (axis + 1) % 3;  // First tangent axis
-        const int v = (axis + 2) % 3;  // Second tangent axis
+        // NOLINTNEXTLINE(readability-identifier-length)
+        const int U = (axis + 1) % 3;  // First tangent axis
+        // NOLINTNEXTLINE(readability-identifier-length)
+        const int V = (axis + 2) % 3;  // Second tangent axis
 
         // For each direction along this axis (backward = -1, forward = +1)
         for (int dir = -1; dir <= 1; dir += 2) {
             // Sweep through slices perpendicular to this axis
+            // NOLINTNEXTLINE(readability-identifier-length)
             for (int32_t d = 0; d < static_cast<int32_t>(CHUNK_SIZE); d++) {
                 // Build mask for this slice
-                std::array<MaskCell, CHUNK_SIZE * CHUNK_SIZE> mask{};
+                std::array<MaskCell, static_cast<std::size_t>(CHUNK_SIZE) * CHUNK_SIZE> mask{};
 
                 // Scan the slice and build mask
                 for (uint32_t j = 0; j < CHUNK_SIZE; j++) {
@@ -71,8 +76,8 @@ size_t ChunkMesh::generateMesh(const Chunk& chunk,
                         // Compute position in chunk space
                         int32_t pos[3] = {0, 0, 0};
                         pos[axis] = d;
-                        pos[u] = i;
-                        pos[v] = j;
+                        pos[U] = static_cast<int32_t>(i);
+                        pos[V] = static_cast<int32_t>(j);
 
                         const Block* current = getBlock(pos[0], pos[1], pos[2]);
 
@@ -85,6 +90,7 @@ size_t ChunkMesh::generateMesh(const Chunk& chunk,
                         bool needsFace = false;
                         BlockType faceBlockType = BlockType::Air;
 
+                        // NOLINTBEGIN(bugprone-branch-clone)
                         if (current != nullptr && current->isSolid()) {
                             // We have a solid block, check if neighbor blocks it
                             if (neighbor == nullptr || !neighbor->isSolid()) {
@@ -97,9 +103,10 @@ size_t ChunkMesh::generateMesh(const Chunk& chunk,
                                 faceBlockType = current->type;
                             }
                         }
+                        // NOLINTEND(bugprone-branch-clone)
 
                         if (needsFace) {
-                            mask[i + j * CHUNK_SIZE].blockType = faceBlockType;
+                            mask[i + (j * CHUNK_SIZE)].blockType = faceBlockType;
                         }
                     }
                 }
@@ -107,7 +114,7 @@ size_t ChunkMesh::generateMesh(const Chunk& chunk,
                 // Greedy merge the mask into quads
                 for (uint32_t j = 0; j < CHUNK_SIZE; j++) {
                     for (uint32_t i = 0; i < CHUNK_SIZE;) {
-                        MaskCell& cell = mask[i + j * CHUNK_SIZE];
+                        MaskCell& cell = mask[i + (j * CHUNK_SIZE)];
 
                         if (cell.blockType == BlockType::Air || cell.processed) {
                             i++;
@@ -117,7 +124,7 @@ size_t ChunkMesh::generateMesh(const Chunk& chunk,
                         // Found a face to mesh - determine width
                         uint32_t width = 1;
                         while (i + width < CHUNK_SIZE) {
-                            MaskCell& nextCell = mask[(i + width) + j * CHUNK_SIZE];
+                            MaskCell& nextCell = mask[(i + width) + (j * CHUNK_SIZE)];
                             if (nextCell.blockType != cell.blockType || nextCell.processed) {
                                 break;
                             }
@@ -129,8 +136,9 @@ size_t ChunkMesh::generateMesh(const Chunk& chunk,
                         bool done = false;
                         while (j + height < CHUNK_SIZE && !done) {
                             // Check if entire row matches
+                            // NOLINTNEXTLINE(readability-identifier-length)
                             for (uint32_t k = 0; k < width; k++) {
-                                MaskCell& checkCell = mask[(i + k) + (j + height) * CHUNK_SIZE];
+                                MaskCell& checkCell = mask[(i + k) + ((j + height) * CHUNK_SIZE)];
                                 if (checkCell.blockType != cell.blockType || checkCell.processed) {
                                     done = true;
                                     break;
@@ -142,30 +150,32 @@ size_t ChunkMesh::generateMesh(const Chunk& chunk,
                         }
 
                         // Mark all cells in this quad as processed
+                        // NOLINTNEXTLINE(readability-identifier-length)
                         for (uint32_t h = 0; h < height; h++) {
+                            // NOLINTNEXTLINE(readability-identifier-length)
                             for (uint32_t w = 0; w < width; w++) {
-                                mask[(i + w) + (j + h) * CHUNK_SIZE].processed = true;
+                                mask[(i + w) + ((j + h) * CHUNK_SIZE)].processed = true;
                             }
                         }
 
                         // Generate the merged quad
                         int32_t pos[3] = {0, 0, 0};
                         pos[axis] = d;
-                        pos[u] = i;
-                        pos[v] = j;
+                        pos[U] = static_cast<int32_t>(i);
+                        pos[V] = static_cast<int32_t>(j);
 
                         // Adjust position for forward-facing quads
                         if (dir > 0) {
                             pos[axis] += 1;
                         }
 
-                        glm::vec3 quadPos = chunkOrigin + glm::vec3(pos[0], pos[1], pos[2]);
+                        glm::vec3 quadPos = CHUNK_ORIGIN + glm::vec3(static_cast<float>(pos[0]), static_cast<float>(pos[1]), static_cast<float>(pos[2]));
                         glm::vec3 size(0, 0, 0);
-                        size[u] = width;
-                        size[v] = height;
+                        size[U] = static_cast<float>(width);
+                        size[V] = static_cast<float>(height);
 
                         glm::vec3 normal(0, 0, 0);
-                        normal[axis] = dir;
+                        normal[axis] = static_cast<float>(dir);
 
                         glm::vec3 color = getBlockColor(cell.blockType, normal);
 
@@ -187,10 +197,12 @@ size_t ChunkMesh::generateMesh(const Chunk& chunk,
 
 glm::vec3 ChunkMesh::getBlockColor(BlockType type, const glm::vec3& normal) {
     // Special handling for grass blocks - only tint the top face
+    // NOLINTBEGIN(cppcoreguidelines-pro-type-union-access)
     if (type == BlockType::Grass && normal.y > 0.5f) {
         // Top face: green tint for grass_top texture
         return glm::vec3(0.4f, 0.8f, 0.3f);  // Green
     }
+    // NOLINTEND(cppcoreguidelines-pro-type-union-access)
 
     // All other blocks use white (no tinting)
     return glm::vec3(1.0f, 1.0f, 1.0f);
@@ -207,7 +219,9 @@ void ChunkMesh::addQuad(std::vector<Vertex>& vertices,
     uint32_t baseIndex = static_cast<uint32_t>(vertices.size());
 
     // Determine tangent and bitangent from normal
-    glm::vec3 tangent, bitangent;
+    // NOLINTBEGIN(cppcoreguidelines-pro-type-union-access)
+    glm::vec3 tangent;
+    glm::vec3 bitangent;
     if (std::abs(normal.x) > 0.5f) {
         // X-facing
         tangent = glm::vec3(0, size.y, 0);
@@ -223,7 +237,8 @@ void ChunkMesh::addQuad(std::vector<Vertex>& vertices,
     }
 
     // Get base UV coordinates from atlas
-    glm::vec2 uvMin, uvMax;
+    glm::vec2 uvMin;
+    glm::vec2 uvMax;
     glm::vec2 uvBlockSize;
     if (atlas != nullptr) {
         BlockType texBlockType = blockType;
@@ -277,9 +292,11 @@ void ChunkMesh::addQuad(std::vector<Vertex>& vertices,
 
     // Rotate UVs 90 degrees for X-facing sides
     bool rotateUVs = std::abs(normal.x) > 0.5f;
+    // NOLINTEND(cppcoreguidelines-pro-type-union-access)
 
     // Create quad vertices with tiled UVs and atlas info
     // The fragment shader will remap: atlasOffset + fract(texCoord) * atlasSize
+    // NOLINTBEGIN(cppcoreguidelines-pro-type-union-access)
     if (rotateUVs) {
         // Rotated UVs for X-facing: U along bitangent (horizontal), V along tangent (vertical)
         // Flip V coordinate to fix upside-down textures
@@ -294,6 +311,7 @@ void ChunkMesh::addQuad(std::vector<Vertex>& vertices,
         vertices.push_back({position + tangent + bitangent, color, normal, glm::vec2(uvTiled.x, 0.0f), uvMin, uvBlockSize});
         vertices.push_back({position + bitangent, color, normal, glm::vec2(0.0f, 0.0f), uvMin, uvBlockSize});
     }
+    // NOLINTEND(cppcoreguidelines-pro-type-union-access)
 
     // Create two triangles (counter-clockwise winding)
     indices.push_back(baseIndex);

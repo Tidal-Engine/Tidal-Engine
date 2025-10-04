@@ -18,7 +18,7 @@ struct ChunkCoord {
     int32_t z;
 
     ChunkCoord() : x(0), y(0), z(0) {}
-    ChunkCoord(int32_t x, int32_t y, int32_t z) : x(x), y(y), z(z) {}
+    ChunkCoord(int32_t x, int32_t y, int32_t z) : x(x), y(y), z(z) {}  // NOLINT(readability-identifier-length)
 
     /**
      * @brief Convert world position to chunk coordinate
@@ -29,9 +29,9 @@ struct ChunkCoord {
         // Integer division to get chunk coordinates
         // Note: Handles negative coordinates correctly with floor division
         return ChunkCoord(
-            static_cast<int32_t>(std::floor(worldPos.x / 32.0f)),
-            static_cast<int32_t>(std::floor(worldPos.y / 32.0f)),
-            static_cast<int32_t>(std::floor(worldPos.z / 32.0f))
+            static_cast<int32_t>(std::floor(worldPos.x / 32.0f)),  // NOLINT(cppcoreguidelines-pro-type-union-access)
+            static_cast<int32_t>(std::floor(worldPos.y / 32.0f)),  // NOLINT(cppcoreguidelines-pro-type-union-access)
+            static_cast<int32_t>(std::floor(worldPos.z / 32.0f))  // NOLINT(cppcoreguidelines-pro-type-union-access)
         );
     }
 
@@ -39,7 +39,7 @@ struct ChunkCoord {
      * @brief Get world position of chunk origin (0,0,0 block of chunk)
      */
     glm::vec3 toWorldPos() const {
-        return glm::vec3(x * 32.0f, y * 32.0f, z * 32.0f);
+        return glm::vec3(static_cast<float>(x) * 32.0f, static_cast<float>(y) * 32.0f, static_cast<float>(z) * 32.0f);  // NOLINT(cppcoreguidelines-narrowing-conversions)
     }
 
     // Comparison operators for use in maps/sets
@@ -53,8 +53,8 @@ struct ChunkCoord {
 
     // For ordered containers (std::map)
     bool operator<(const ChunkCoord& other) const {
-        if (x != other.x) return x < other.x;
-        if (y != other.y) return y < other.y;
+        if (x != other.x) { return x < other.x; }
+        if (y != other.y) { return y < other.y; }
         return z < other.z;
     }
 };
@@ -67,12 +67,12 @@ namespace std {
     struct hash<engine::ChunkCoord> {
         size_t operator()(const engine::ChunkCoord& coord) const {
             // Combine hashes using a simple mixing function
-            size_t h1 = std::hash<int32_t>{}(coord.x);
-            size_t h2 = std::hash<int32_t>{}(coord.y);
-            size_t h3 = std::hash<int32_t>{}(coord.z);
+            size_t hash1 = std::hash<int32_t>{}(coord.x);  // NOLINT(readability-identifier-length)
+            size_t hash2 = std::hash<int32_t>{}(coord.y);  // NOLINT(readability-identifier-length)
+            size_t hash3 = std::hash<int32_t>{}(coord.z);  // NOLINT(readability-identifier-length)
 
             // Mix the hashes together
-            return h1 ^ (h2 << 1) ^ (h3 << 2);
+            return hash1 ^ (hash2 << 1) ^ (hash3 << 2);
         }
     };
 }

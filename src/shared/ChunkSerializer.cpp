@@ -39,14 +39,14 @@ bool ChunkSerializer::deserialize(const uint8_t* buffer, size_t size, Chunk& out
 size_t ChunkSerializer::compressRLE(const Block* blocks, size_t count, std::vector<uint8_t>& outBuffer) {
     outBuffer.reserve(count * sizeof(Block) / 4); // Estimate 4:1 compression
 
-    size_t i = 0;
-    while (i < count) {
-        BlockType currentType = blocks[i].type;
+    size_t idx = 0;
+    while (idx < count) {
+        BlockType currentType = blocks[idx].type;  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         uint16_t runLength = 1;
 
         // Count consecutive blocks of same type
-        while (i + runLength < count &&
-               blocks[i + runLength].type == currentType &&
+        while (idx + runLength < count &&
+               blocks[idx + runLength].type == currentType &&  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
                runLength < UINT16_MAX) {
             runLength++;
         }
@@ -56,13 +56,13 @@ size_t ChunkSerializer::compressRLE(const Block* blocks, size_t count, std::vect
         uint16_t type = static_cast<uint16_t>(currentType);
 
         outBuffer.insert(outBuffer.end(),
-                        reinterpret_cast<uint8_t*>(&length),
-                        reinterpret_cast<uint8_t*>(&length) + sizeof(uint16_t));
+                        reinterpret_cast<uint8_t*>(&length),  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+                        reinterpret_cast<uint8_t*>(&length) + sizeof(uint16_t));  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast, cppcoreguidelines-pro-bounds-pointer-arithmetic)
         outBuffer.insert(outBuffer.end(),
-                        reinterpret_cast<uint8_t*>(&type),
-                        reinterpret_cast<uint8_t*>(&type) + sizeof(uint16_t));
+                        reinterpret_cast<uint8_t*>(&type),  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+                        reinterpret_cast<uint8_t*>(&type) + sizeof(uint16_t));  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast, cppcoreguidelines-pro-bounds-pointer-arithmetic)
 
-        i += runLength;
+        idx += runLength;
     }
 
     return outBuffer.size();
@@ -78,8 +78,8 @@ bool ChunkSerializer::decompressRLE(const uint8_t* buffer, size_t size, Block* o
             LOG_ERROR("Corrupted RLE data: unexpected end while reading run length");
             return false;
         }
-        uint16_t runLength;
-        std::memcpy(&runLength, buffer + bufferPos, sizeof(uint16_t));
+        uint16_t runLength = 0;
+        std::memcpy(&runLength, buffer + bufferPos, sizeof(uint16_t));  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         bufferPos += sizeof(uint16_t);
 
         // Read blockType
@@ -87,8 +87,8 @@ bool ChunkSerializer::decompressRLE(const uint8_t* buffer, size_t size, Block* o
             LOG_ERROR("Corrupted RLE data: unexpected end while reading block type");
             return false;
         }
-        uint16_t blockType;
-        std::memcpy(&blockType, buffer + bufferPos, sizeof(uint16_t));
+        uint16_t blockType = 0;
+        std::memcpy(&blockType, buffer + bufferPos, sizeof(uint16_t));  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         bufferPos += sizeof(uint16_t);
 
         // Validate we won't overflow output
@@ -100,8 +100,8 @@ bool ChunkSerializer::decompressRLE(const uint8_t* buffer, size_t size, Block* o
         // Write blocks
         Block block;
         block.type = static_cast<BlockType>(blockType);
-        for (uint16_t i = 0; i < runLength; i++) {
-            outBlocks[blockPos++] = block;
+        for (uint16_t idx = 0; idx < runLength; idx++) {
+            outBlocks[blockPos++] = block;  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         }
     }
 

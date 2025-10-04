@@ -27,7 +27,9 @@ void Camera::processMovement(bool forward, bool backward, bool left, bool right,
     float velocity = speed * deltaTime;
 
     // Calculate movement vectors in world XZ plane (ignore camera pitch)
+    // NOLINTBEGIN(cppcoreguidelines-pro-type-union-access)
     glm::vec3 forwardDir = glm::normalize(glm::vec3(front.x, 0.0f, front.z));
+    // NOLINTEND(cppcoreguidelines-pro-type-union-access)
     glm::vec3 rightDir = glm::normalize(glm::cross(forwardDir, worldUp));
 
     if (forward) {

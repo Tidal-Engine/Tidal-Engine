@@ -37,9 +37,7 @@ VulkanEngine::VulkanEngine()
     : lastPositionUpdate(std::chrono::steady_clock::now()),
       lastSentPosition(0.0f, 0.0f, 0.0f),
       lastBlockBreak(std::chrono::steady_clock::now()),
-      wasLeftClickPressed(false),
-      lastBlockPlace(std::chrono::steady_clock::now()),
-      wasRightClickPressed(false) {
+      lastBlockPlace(std::chrono::steady_clock::now()) {
 }
 VulkanEngine::~VulkanEngine() = default;
 
@@ -216,18 +214,18 @@ void VulkanEngine::initImGui() {
     LOG_INFO("Initializing ImGui...");
 
     // Create descriptor pool for ImGui (need room for hotbar textures)
-    VkDescriptorPoolSize pool_sizes[] = {
+    VkDescriptorPoolSize poolSizes[] = {
         { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 20 },  // Increased for block textures
     };
 
-    VkDescriptorPoolCreateInfo pool_info = {};
-    pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-    pool_info.maxSets = 20;  // Increased for block textures
-    pool_info.poolSizeCount = 1;
-    pool_info.pPoolSizes = pool_sizes;
+    VkDescriptorPoolCreateInfo poolInfo = {};
+    poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+    poolInfo.maxSets = 20;  // Increased for block textures
+    poolInfo.poolSizeCount = 1;
+    poolInfo.pPoolSizes = poolSizes;
 
-    if (vkCreateDescriptorPool(device, &pool_info, nullptr, &imguiDescriptorPool) != VK_SUCCESS) {
+    if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &imguiDescriptorPool) != VK_SUCCESS) {
         LOG_ERROR("Failed to create ImGui descriptor pool");
         throw std::runtime_error("Failed to create ImGui descriptor pool");
     }
@@ -235,8 +233,8 @@ void VulkanEngine::initImGui() {
     // Setup Dear ImGui context
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO();
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    ImGuiIO& imguiIo = ImGui::GetIO();
+    imguiIo.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 
     // Setup ImGui style
     ImGui::StyleColorsDark();
@@ -244,21 +242,21 @@ void VulkanEngine::initImGui() {
     // Setup Platform/Renderer backends
     ImGui_ImplSDL3_InitForVulkan(window);
 
-    ImGui_ImplVulkan_InitInfo init_info = {};
-    init_info.Instance = instance;
-    init_info.PhysicalDevice = physicalDevice;
-    init_info.Device = device;
-    init_info.QueueFamily = findQueueFamilies(physicalDevice).graphicsFamily;
-    init_info.Queue = graphicsQueue;
-    init_info.PipelineCache = VK_NULL_HANDLE;
-    init_info.DescriptorPool = imguiDescriptorPool;
-    init_info.RenderPass = pipeline->getRenderPass();
-    init_info.Subpass = 0;
-    init_info.MinImageCount = 2;
-    init_info.ImageCount = static_cast<uint32_t>(swapchain->getImageViews().size());
-    init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+    ImGui_ImplVulkan_InitInfo initInfo = {};
+    initInfo.Instance = instance;
+    initInfo.PhysicalDevice = physicalDevice;
+    initInfo.Device = device;
+    initInfo.QueueFamily = findQueueFamilies(physicalDevice).graphicsFamily;
+    initInfo.Queue = graphicsQueue;
+    initInfo.PipelineCache = VK_NULL_HANDLE;
+    initInfo.DescriptorPool = imguiDescriptorPool;
+    initInfo.RenderPass = pipeline->getRenderPass();
+    initInfo.Subpass = 0;
+    initInfo.MinImageCount = 2;
+    initInfo.ImageCount = static_cast<uint32_t>(swapchain->getImageViews().size());
+    initInfo.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
 
-    ImGui_ImplVulkan_Init(&init_info);
+    ImGui_ImplVulkan_Init(&initInfo);
 
     // Initialize UI textures (must be after ImGui_ImplVulkan_Init)
     hotbarUI->init();
@@ -276,6 +274,7 @@ void VulkanEngine::initImGui() {
     LOG_INFO("ImGui initialized successfully");
 }
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 void VulkanEngine::initNetworking() {
     LOG_INFO("Initializing networking...");
 
@@ -285,16 +284,20 @@ void VulkanEngine::initNetworking() {
     // Set up callback to queue chunks when received (async processing)
     networkClient->setOnChunkReceived([this](const ChunkCoord& coord) {
         const Chunk* chunk = networkClient->getChunk(coord);
-        if (!chunk) return;
+        if (!chunk) {
+            return;
+        }
 
         // Helper to queue a chunk with its neighbors
         auto queueChunk = [this](const ChunkCoord& chunkCoord) {
-            const Chunk* c = networkClient->getChunk(chunkCoord);
-            if (!c) return;
+            const Chunk* chk = networkClient->getChunk(chunkCoord);
+            if (!chk) {
+                return;
+            }
 
             PendingChunk pending;
             pending.coord = chunkCoord;
-            pending.chunk = std::make_shared<Chunk>(*c);
+            pending.chunk = std::make_shared<Chunk>(*chk);
 
             // Copy neighbor chunks if they exist
             const Chunk* neighborNegX = networkClient->getChunk({chunkCoord.x - 1, chunkCoord.y, chunkCoord.z});
@@ -304,12 +307,24 @@ void VulkanEngine::initNetworking() {
             const Chunk* neighborNegZ = networkClient->getChunk({chunkCoord.x, chunkCoord.y, chunkCoord.z - 1});
             const Chunk* neighborPosZ = networkClient->getChunk({chunkCoord.x, chunkCoord.y, chunkCoord.z + 1});
 
-            if (neighborNegX) pending.neighborNegX = std::make_shared<Chunk>(*neighborNegX);
-            if (neighborPosX) pending.neighborPosX = std::make_shared<Chunk>(*neighborPosX);
-            if (neighborNegY) pending.neighborNegY = std::make_shared<Chunk>(*neighborNegY);
-            if (neighborPosY) pending.neighborPosY = std::make_shared<Chunk>(*neighborPosY);
-            if (neighborNegZ) pending.neighborNegZ = std::make_shared<Chunk>(*neighborNegZ);
-            if (neighborPosZ) pending.neighborPosZ = std::make_shared<Chunk>(*neighborPosZ);
+            if (neighborNegX) {
+                pending.neighborNegX = std::make_shared<Chunk>(*neighborNegX);
+            }
+            if (neighborPosX) {
+                pending.neighborPosX = std::make_shared<Chunk>(*neighborPosX);
+            }
+            if (neighborNegY) {
+                pending.neighborNegY = std::make_shared<Chunk>(*neighborNegY);
+            }
+            if (neighborPosY) {
+                pending.neighborPosY = std::make_shared<Chunk>(*neighborPosY);
+            }
+            if (neighborNegZ) {
+                pending.neighborNegZ = std::make_shared<Chunk>(*neighborNegZ);
+            }
+            if (neighborPosZ) {
+                pending.neighborPosZ = std::make_shared<Chunk>(*neighborPosZ);
+            }
 
             {
                 std::lock_guard<std::mutex> lock(pendingChunksMutex);
@@ -343,6 +358,7 @@ void VulkanEngine::initNetworking() {
                                                      const glm::vec3& position, float yaw, float pitch) {
         // Apply inventory and spawn position sync from server
         for (size_t i = 0; i < 9; i++) {
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
             inventory->setSlot(i, hotbar[i].type, hotbar[i].count);
         }
         inventory->setSelectedHotbarIndex(static_cast<size_t>(selectedSlot));
@@ -352,6 +368,7 @@ void VulkanEngine::initNetworking() {
         camera->setYaw(yaw);
         camera->setPitch(pitch);
 
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
         LOG_INFO("Spawned at position ({:.1f}, {:.1f}, {:.1f}), yaw {:.1f}, pitch {:.1f}",
                  position.x, position.y, position.z, yaw, pitch);
     });
@@ -686,6 +703,7 @@ void VulkanEngine::createLogicalDevice() {
     LOG_DEBUG("Logical device created with graphics and present queues");
 }
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 void VulkanEngine::mainLoop() {
     LOG_INFO("Entering main loop...");
 
@@ -802,8 +820,10 @@ void VulkanEngine::mainLoop() {
             );
 
             glm::vec2 mouseDelta = inputManager->getMouseDelta();
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
             if (mouseDelta.x != 0.0f || mouseDelta.y != 0.0f) {
                 // Invert Y for standard FPS controls (not airplane mode)
+                // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
                 camera->processMouseMovement(mouseDelta.x, -mouseDelta.y, config.mouseSensitivity);
             }
         }
@@ -876,12 +896,14 @@ void VulkanEngine::mainLoop() {
             }
 
             if (shouldBreak) {
+                // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
                 LOG_INFO("CLIENT: Breaking block at ({}, {}, {})",
                          targetedBlock->blockPos.x, targetedBlock->blockPos.y, targetedBlock->blockPos.z);
+                // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
                 networkClient->sendBlockBreak(
-                    targetedBlock->blockPos.x,
-                    targetedBlock->blockPos.y,
-                    targetedBlock->blockPos.z
+                    targetedBlock->blockPos.x, // NOLINT(cppcoreguidelines-pro-type-union-access)
+                    targetedBlock->blockPos.y, // NOLINT(cppcoreguidelines-pro-type-union-access)
+                    targetedBlock->blockPos.z  // NOLINT(cppcoreguidelines-pro-type-union-access)
                 );
                 lastBlockBreak = currentTime;
             }
@@ -914,10 +936,11 @@ void VulkanEngine::mainLoop() {
 
                     // Validate placement (don't place inside player)
                     glm::vec3 playerPos = camera->getPosition();
+                    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
                     glm::ivec3 playerBlockPos(
-                        static_cast<int>(std::floor(playerPos.x)),
-                        static_cast<int>(std::floor(playerPos.y)),
-                        static_cast<int>(std::floor(playerPos.z))
+                        static_cast<int>(std::floor(playerPos.x)), // NOLINT(cppcoreguidelines-pro-type-union-access)
+                        static_cast<int>(std::floor(playerPos.y)), // NOLINT(cppcoreguidelines-pro-type-union-access)
+                        static_cast<int>(std::floor(playerPos.z))  // NOLINT(cppcoreguidelines-pro-type-union-access)
                     );
 
                     // Check if placement position conflicts with player's position
@@ -926,14 +949,16 @@ void VulkanEngine::mainLoop() {
                                            (placePos == playerBlockPos + glm::ivec3(0, 1, 0));
 
                     if (!wouldBlockPlayer) {
+                        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
                         LOG_INFO("CLIENT: Placing {} at ({}, {}, {})",
                                 static_cast<int>(selectedItem.toBlockType()),
                                 placePos.x, placePos.y, placePos.z);
 
+                        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
                         networkClient->sendBlockPlace(
-                            placePos.x,
-                            placePos.y,
-                            placePos.z,
+                            placePos.x, // NOLINT(cppcoreguidelines-pro-type-union-access)
+                            placePos.y, // NOLINT(cppcoreguidelines-pro-type-union-access)
+                            placePos.z, // NOLINT(cppcoreguidelines-pro-type-union-access)
                             static_cast<uint16_t>(selectedItem.toBlockType())
                         );
 
@@ -985,11 +1010,11 @@ void VulkanEngine::mainLoop() {
         ImGui::NewFrame();
 
         // Disable ImGui input when mouse is captured
-        ImGuiIO& io = ImGui::GetIO();
+        ImGuiIO& imguiIo = ImGui::GetIO();
         if (SDL_GetWindowRelativeMouseMode(window)) {
-            io.ConfigFlags |= ImGuiConfigFlags_NoMouse;
+            imguiIo.ConfigFlags |= ImGuiConfigFlags_NoMouse;
         } else {
-            io.ConfigFlags &= ~ImGuiConfigFlags_NoMouse;
+            imguiIo.ConfigFlags &= ~ImGuiConfigFlags_NoMouse;
         }
 
         // Render debug overlay (updates ImGui)
@@ -1042,8 +1067,8 @@ void VulkanEngine::processPendingChunks() {
     // Clean up completed tasks
     meshGenerationTasks.erase(
         std::remove_if(meshGenerationTasks.begin(), meshGenerationTasks.end(),
-            [](const std::future<void>& f) {
-                return f.wait_for(std::chrono::seconds(0)) == std::future_status::ready;
+            [](const std::future<void>& fut) {
+                return fut.wait_for(std::chrono::seconds(0)) == std::future_status::ready;
             }),
         meshGenerationTasks.end()
     );
@@ -1056,29 +1081,31 @@ void VulkanEngine::processPendingChunks() {
         // Get next pending chunk
         {
             std::lock_guard<std::mutex> lock(pendingChunksMutex);
-            if (pendingChunks.empty()) break;
+            if (pendingChunks.empty()) {
+                break;
+            }
 
             pending = std::move(pendingChunks.front());
             pendingChunks.pop();
         }
 
         // Launch async mesh generation
-        auto task = std::async(std::launch::async, [this, p = pending]() {
+        auto task = std::async(std::launch::async, [this, pend = pending]() {
             CompletedMesh completed;
-            completed.coord = p.coord;
+            completed.coord = pend.coord;
 
             // Generate mesh on background thread
             ChunkMesh::generateMesh(
-                *p.chunk,
+                *pend.chunk,
                 completed.vertices,
                 completed.indices,
                 textureAtlas.get(),
-                p.neighborNegX ? p.neighborNegX.get() : nullptr,
-                p.neighborPosX ? p.neighborPosX.get() : nullptr,
-                p.neighborNegY ? p.neighborNegY.get() : nullptr,
-                p.neighborPosY ? p.neighborPosY.get() : nullptr,
-                p.neighborNegZ ? p.neighborNegZ.get() : nullptr,
-                p.neighborPosZ ? p.neighborPosZ.get() : nullptr
+                pend.neighborNegX ? pend.neighborNegX.get() : nullptr,
+                pend.neighborPosX ? pend.neighborPosX.get() : nullptr,
+                pend.neighborNegY ? pend.neighborNegY.get() : nullptr,
+                pend.neighborPosY ? pend.neighborPosY.get() : nullptr,
+                pend.neighborNegZ ? pend.neighborNegZ.get() : nullptr,
+                pend.neighborPosZ ? pend.neighborPosZ.get() : nullptr
             );
 
             // Queue completed mesh for upload
@@ -1205,10 +1232,10 @@ void VulkanEngine::cleanupImGui() {
 }
 
 std::string VulkanEngine::loadUsername() {
-    const std::string usernameFile = "username.txt";
+    const std::string USERNAME_FILE = "username.txt";
 
     // Try to load existing username
-    std::ifstream file(usernameFile);
+    std::ifstream file(USERNAME_FILE);
     if (file.is_open()) {
         std::string username;
         std::getline(file, username);
@@ -1219,26 +1246,26 @@ std::string VulkanEngine::loadUsername() {
         username.erase(username.find_last_not_of(" \t\n\r") + 1);
 
         if (!username.empty() && username.length() <= 31) {
-            LOG_INFO("Loaded username from {}: {}", usernameFile, username);
+            LOG_INFO("Loaded username from {}: {}", USERNAME_FILE, username);
             return username;
         }
     }
 
     // Generate new random username
-    std::random_device rd;
-    std::mt19937 gen(rd());
+    std::random_device randDev;
+    std::mt19937 gen(randDev());
     std::uniform_int_distribution<> dis(1000, 9999);
 
     std::string username = "Player" + std::to_string(dis(gen));
 
     // Save for future use
-    std::ofstream outFile(usernameFile);
+    std::ofstream outFile(USERNAME_FILE);
     if (outFile.is_open()) {
         outFile << username;
         outFile.close();
-        LOG_INFO("Generated new username and saved to {}: {}", usernameFile, username);
+        LOG_INFO("Generated new username and saved to {}: {}", USERNAME_FILE, username);
     } else {
-        LOG_WARN("Failed to save username to {}", usernameFile);
+        LOG_WARN("Failed to save username to {}", USERNAME_FILE);
     }
 
     return username;

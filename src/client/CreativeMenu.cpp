@@ -11,10 +11,10 @@
 
 namespace engine {
 
-CreativeMenu::CreativeMenu(Inventory* inv, VkDevice dev, VkPhysicalDevice physDev,
-                           VkCommandPool cmdPool, VkQueue queue)
-    : inventory(inv), device(dev), physicalDevice(physDev),
-      commandPool(cmdPool), graphicsQueue(queue) {
+CreativeMenu::CreativeMenu(Inventory* inventory, VkDevice device, VkPhysicalDevice physicalDevice,
+                           VkCommandPool commandPool, VkQueue graphicsQueue)
+    : inventory(inventory), device(device), physicalDevice(physicalDevice),
+      commandPool(commandPool), graphicsQueue(graphicsQueue) {
 }
 
 CreativeMenu::~CreativeMenu() {
@@ -52,6 +52,7 @@ void CreativeMenu::render() {
         return;
     }
 
+    // NOLINTNEXTLINE(readability-identifier-length)
     ImGuiIO& io = ImGui::GetIO();
 
     // Centered box (like Minecraft) - 70% of screen size
@@ -79,7 +80,7 @@ void CreativeMenu::render() {
 }
 
 void CreativeMenu::renderSearchBar() {
-    ImGui::Text("Search:");
+    ImGui::Text("Search:");  // NOLINT(cppcoreguidelines-pro-type-vararg)
     ImGui::SameLine();
 
     char buffer[256];
@@ -91,6 +92,7 @@ void CreativeMenu::renderSearchBar() {
     }
 }
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 void CreativeMenu::renderItemGrid() {
     // Get all available blocks
     std::vector<ItemType> allBlocks = ItemRegistry::instance().getAllBlocks();
@@ -103,14 +105,14 @@ void CreativeMenu::renderItemGrid() {
         // Case-insensitive search
         std::string lowerSearch = searchFilter;
         std::transform(lowerSearch.begin(), lowerSearch.end(), lowerSearch.begin(),
-                      [](unsigned char c) { return std::tolower(c); });
+                      [](unsigned char c) { return std::tolower(c); });  // NOLINT(readability-identifier-length)
 
         for (ItemType type : allBlocks) {
             const ItemProperties* props = ItemRegistry::instance().getItem(type);
             if (props) {
                 std::string lowerName = props->name;
                 std::transform(lowerName.begin(), lowerName.end(), lowerName.begin(),
-                             [](unsigned char c) { return std::tolower(c); });
+                             [](unsigned char c) { return std::tolower(c); });  // NOLINT(readability-identifier-length)
 
                 if (lowerName.find(lowerSearch) != std::string::npos) {
                     filteredItems.push_back(type);
@@ -125,7 +127,7 @@ void CreativeMenu::renderItemGrid() {
     // Calculate how many items can fit per row based on window width
     float windowWidth = ImGui::GetContentRegionAvail().x;
     int itemsPerRow = static_cast<int>((windowWidth + ITEM_PADDING) / (ITEM_BUTTON_SIZE + ITEM_PADDING));
-    if (itemsPerRow < 1) itemsPerRow = 1;
+    itemsPerRow = std::max(itemsPerRow, 1);
 
     int itemsInRow = 0;
     for (ItemType type : filteredItems) {
@@ -184,15 +186,15 @@ bool CreativeMenu::renderItemButton(ItemType itemType) {
         ImVec2 buttonMax = ImGui::GetItemRectMax();
 
         // Draw texture with small padding
-        const float iconPadding = 4.0f;
-        ImVec2 iconMin = ImVec2(buttonMin.x + iconPadding, buttonMin.y + iconPadding);
-        ImVec2 iconMax = ImVec2(buttonMax.x - iconPadding, buttonMax.y - iconPadding);
-        drawList->AddImage((ImTextureID)textureIt->second, iconMin, iconMax);
+        const float ICON_PADDING = 4.0f;
+        ImVec2 iconMin = ImVec2(buttonMin.x + ICON_PADDING, buttonMin.y + ICON_PADDING);
+        ImVec2 iconMax = ImVec2(buttonMax.x - ICON_PADDING, buttonMax.y - ICON_PADDING);
+        drawList->AddImage(reinterpret_cast<ImTextureID>(textureIt->second), iconMin, iconMax);  // NOLINT(cppcoreguidelines-pro-type-cstyle-cast, cppcoreguidelines-pro-type-reinterpret-cast)
     }
 
     // Show tooltip on hover
     if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("%s", props->displayName.c_str());
+        ImGui::SetTooltip("%s", props->displayName.c_str());  // NOLINT(cppcoreguidelines-pro-type-vararg)
     }
 
     return clicked;
@@ -200,7 +202,9 @@ bool CreativeMenu::renderItemButton(ItemType itemType) {
 
 void CreativeMenu::loadBlockTexture(ItemType itemType, const std::string& texturePath) {
     // Load image using stb_image
-    int width, height, channels;
+    int width = 0;
+    int height = 0;
+    int channels = 0;
     unsigned char* pixels = stbi_load(texturePath.c_str(), &width, &height, &channels, STBI_rgb_alpha);
 
     if (!pixels) {
@@ -208,11 +212,11 @@ void CreativeMenu::loadBlockTexture(ItemType itemType, const std::string& textur
         return;
     }
 
-    VkDeviceSize imageSize = width * height * 4;  // RGBA
+    VkDeviceSize imageSize = static_cast<VkDeviceSize>(width) * height * 4;  // RGBA
 
     // Create staging buffer
-    VkBuffer stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
+    VkBuffer stagingBuffer = VK_NULL_HANDLE;
+    VkDeviceMemory stagingBufferMemory = VK_NULL_HANDLE;
 
     VkBufferCreateInfo bufferInfo{};
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -234,7 +238,7 @@ void CreativeMenu::loadBlockTexture(ItemType itemType, const std::string& textur
     vkAllocateMemory(device, &allocInfo, nullptr, &stagingBufferMemory);
     vkBindBufferMemory(device, stagingBuffer, stagingBufferMemory, 0);
 
-    void* data;
+    void* data = nullptr;
     vkMapMemory(device, stagingBufferMemory, 0, imageSize, 0, &data);
     std::memcpy(data, pixels, static_cast<size_t>(imageSize));
     vkUnmapMemory(device, stagingBufferMemory);
@@ -276,7 +280,7 @@ void CreativeMenu::loadBlockTexture(ItemType itemType, const std::string& textur
     cmdAllocInfo.commandPool = commandPool;
     cmdAllocInfo.commandBufferCount = 1;
 
-    VkCommandBuffer commandBuffer;
+    VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
     vkAllocateCommandBuffers(device, &cmdAllocInfo, &commandBuffer);
 
     VkCommandBufferBeginInfo beginInfo{};

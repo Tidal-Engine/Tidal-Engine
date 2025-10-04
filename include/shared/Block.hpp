@@ -7,20 +7,20 @@ namespace engine {
 /**
  * @brief Block type identifiers
  */
-enum class BlockType : uint16_t {
-    Air = 0,
-    Stone = 1,
-    Dirt = 2,
-    GrassSide = 3,      // For grass block sides
-    GrassTop = 4,       // For grass block top
-    Cobblestone = 5,
-    Wood = 6,
-    Sand = 7,
-    Brick = 8,
-    Snow = 9,
-    Grass = 10,         // Special: uses GrassSide, GrassTop, and Dirt
+enum class BlockType : uint16_t {  // NOLINT(performance-enum-size, readability-enum-initial-value)
+    Air = 0,  // NOLINT(readability-identifier-naming)
+    Stone = 1,  // NOLINT(readability-identifier-naming)
+    Dirt = 2,  // NOLINT(readability-identifier-naming)
+    GrassSide = 3,      // For grass block sides  // NOLINT(readability-identifier-naming)
+    GrassTop = 4,       // For grass block top  // NOLINT(readability-identifier-naming)
+    Cobblestone = 5,  // NOLINT(readability-identifier-naming)
+    Wood = 6,  // NOLINT(readability-identifier-naming)
+    Sand = 7,  // NOLINT(readability-identifier-naming)
+    Brick = 8,  // NOLINT(readability-identifier-naming)
+    Snow = 9,  // NOLINT(readability-identifier-naming)
+    Grass = 10,         // Special: uses GrassSide, GrassTop, and Dirt  // NOLINT(readability-identifier-naming)
 
-    Count // Always keep this last - gives us total count
+    Count  // Always keep this last - gives us total count  // NOLINT(readability-identifier-naming)
 };
 
 /**

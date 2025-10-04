@@ -69,6 +69,8 @@ private:
     // Delete copy/move
     ItemRegistry(const ItemRegistry&) = delete;
     ItemRegistry& operator=(const ItemRegistry&) = delete;
+    ItemRegistry(ItemRegistry&&) = delete;
+    ItemRegistry& operator=(ItemRegistry&&) = delete;
 
     std::unordered_map<ItemType, ItemProperties> items;
     bool initialized = false;

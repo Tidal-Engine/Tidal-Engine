@@ -25,6 +25,11 @@ public:
     DebugOverlay();
     ~DebugOverlay() = default;
 
+    DebugOverlay(const DebugOverlay&) = default;
+    DebugOverlay& operator=(const DebugOverlay&) = default;
+    DebugOverlay(DebugOverlay&&) noexcept = default;
+    DebugOverlay& operator=(DebugOverlay&&) noexcept = default;
+
     /**
      * @brief Toggle the debug overlay on/off
      */

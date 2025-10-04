@@ -27,6 +27,10 @@ public:
     PlayerCubeRenderer(const PlayerCubeRenderer&) = delete;
     PlayerCubeRenderer& operator=(const PlayerCubeRenderer&) = delete;
 
+    // Allow move operations
+    PlayerCubeRenderer(PlayerCubeRenderer&&) noexcept = default;
+    PlayerCubeRenderer& operator=(PlayerCubeRenderer&&) noexcept = default;
+
     /**
      * @brief Create rendering resources (pipeline, buffers)
      */
@@ -124,7 +128,7 @@ void PlayerCubeRenderer::update(const std::unordered_map<uint32_t, PlayerData>& 
     float time = std::chrono::duration<float>(currentTime - startTime).count();
 
     // Interpolation speed (higher = faster interpolation)
-    const float interpSpeed = 10.0f;
+    const float INTERP_SPEED = 10.0f;  // NOLINT(readability-identifier-naming)
     static auto lastUpdateTime = currentTime;
     float deltaTime = std::chrono::duration<float>(currentTime - lastUpdateTime).count();
     lastUpdateTime = currentTime;
@@ -150,18 +154,18 @@ void PlayerCubeRenderer::update(const std::unordered_map<uint32_t, PlayerData>& 
         state.targetPitch = data.pitch;
 
         // Interpolate position
-        state.position = glm::mix(state.position, state.targetPosition, std::min(interpSpeed * deltaTime, 1.0f));
+        state.position = glm::mix(state.position, state.targetPosition, std::min(INTERP_SPEED * deltaTime, 1.0f));
 
         // Interpolate rotation (handle wrapping for yaw)
         float yawDiff = state.targetYaw - state.yaw;
-        if (yawDiff > 180.0f) yawDiff -= 360.0f;
-        if (yawDiff < -180.0f) yawDiff += 360.0f;
-        state.yaw += yawDiff * std::min(interpSpeed * deltaTime, 1.0f);
+        if (yawDiff > 180.0f) { yawDiff -= 360.0f; }
+        if (yawDiff < -180.0f) { yawDiff += 360.0f; }
+        state.yaw += yawDiff * std::min(INTERP_SPEED * deltaTime, 1.0f);
 
-        state.pitch = glm::mix(state.pitch, state.targetPitch, std::min(interpSpeed * deltaTime, 1.0f));
+        state.pitch = glm::mix(state.pitch, state.targetPitch, std::min(INTERP_SPEED * deltaTime, 1.0f));
 
         // Add to render list
-        PlayerCube cube;
+        PlayerCube cube{};
         cube.position = state.position;
         cube.yaw = state.yaw;
         cube.pitch = state.pitch;

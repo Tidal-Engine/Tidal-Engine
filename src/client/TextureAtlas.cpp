@@ -48,16 +48,18 @@ void TextureAtlas::loadTextures(const std::string& texturePath) {
         "snow"
     };
 
-    const uint32_t numTextures = textureNames.size();
-    atlasWidth = textureSize * numTextures;
+    const uint32_t NUM_TEXTURES = textureNames.size();
+    atlasWidth = textureSize * NUM_TEXTURES;
     atlasHeight = textureSize;
 
     // Allocate atlas buffer
-    std::vector<unsigned char> atlasData(atlasWidth * atlasHeight * 4, 0);
+    std::vector<unsigned char> atlasData(static_cast<size_t>(atlasWidth) * atlasHeight * 4, 0);
 
     // Load each texture
-    int width, height, channels;
-    for (uint32_t i = 0; i < numTextures; ++i) {
+    int width = 0;
+    int height = 0;
+    int channels = 0;
+    for (uint32_t i = 0; i < NUM_TEXTURES; ++i) {
         std::string texPath = texturePath + "/default/blocks/" + textureNames[i] + ".png";
         unsigned char* pixels = stbi_load(texPath.c_str(), &width, &height, &channels, STBI_rgb_alpha);
 
@@ -69,14 +71,26 @@ void TextureAtlas::loadTextures(const std::string& texturePath) {
         LOG_INFO("Loaded {}.png: {}x{} with {} channels", textureNames[i], width, height, channels);
 
         // Copy texture to atlas at position (i * textureSize, 0)
-        for (uint32_t y = 0; y < textureSize; ++y) {
-            for (uint32_t x = 0; x < textureSize; ++x) {
-                uint32_t atlasIndex = (y * atlasWidth + (i * textureSize + x)) * 4;
-                uint32_t srcIndex = (y * width + x) * 4;
-                atlasData[atlasIndex + 0] = pixels[srcIndex + 0];
-                atlasData[atlasIndex + 1] = pixels[srcIndex + 1];
-                atlasData[atlasIndex + 2] = pixels[srcIndex + 2];
-                atlasData[atlasIndex + 3] = pixels[srcIndex + 3];
+        for (uint32_t yy = 0; yy < textureSize; ++yy) {
+            for (uint32_t xx = 0; xx < textureSize; ++xx) {
+                const uint32_t ATLAS_INDEX = (yy * atlasWidth + (i * textureSize + xx)) * 4;
+                const uint32_t SRC_INDEX = (yy * static_cast<uint32_t>(width) + xx) * 4;
+                const size_t ATLAS_IDX_0 = ATLAS_INDEX + 0;
+                const size_t ATLAS_IDX_1 = ATLAS_INDEX + 1;
+                const size_t ATLAS_IDX_2 = ATLAS_INDEX + 2;
+                const size_t ATLAS_IDX_3 = ATLAS_INDEX + 3;
+                const size_t SRC_IDX_0 = SRC_INDEX + 0;
+                const size_t SRC_IDX_1 = SRC_INDEX + 1;
+                const size_t SRC_IDX_2 = SRC_INDEX + 2;
+                const size_t SRC_IDX_3 = SRC_INDEX + 3;
+                // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+                atlasData.at(ATLAS_IDX_0) = pixels[SRC_IDX_0];
+                // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+                atlasData.at(ATLAS_IDX_1) = pixels[SRC_IDX_1];
+                // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+                atlasData.at(ATLAS_IDX_2) = pixels[SRC_IDX_2];
+                // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+                atlasData.at(ATLAS_IDX_3) = pixels[SRC_IDX_3];
             }
         }
         stbi_image_free(pixels);
@@ -84,19 +98,20 @@ void TextureAtlas::loadTextures(const std::string& texturePath) {
 
     // Calculate UV coordinates for each block type
     // Atlas layout: [stone | dirt | grass_side | grass_top | cobblestone | wood | sand | brick | snow]
-    blockUVs[BlockType::Stone] = calculateUVs(0, numTextures);
-    blockUVs[BlockType::Dirt] = calculateUVs(1, numTextures);
-    blockUVs[BlockType::GrassSide] = calculateUVs(2, numTextures);
-    blockUVs[BlockType::GrassTop] = calculateUVs(3, numTextures);
-    blockUVs[BlockType::Cobblestone] = calculateUVs(4, numTextures);
-    blockUVs[BlockType::Wood] = calculateUVs(5, numTextures);
-    blockUVs[BlockType::Sand] = calculateUVs(6, numTextures);
-    blockUVs[BlockType::Brick] = calculateUVs(7, numTextures);
-    blockUVs[BlockType::Snow] = calculateUVs(8, numTextures);
+    blockUVs[BlockType::Stone] = calculateUVs(0, NUM_TEXTURES);
+    blockUVs[BlockType::Dirt] = calculateUVs(1, NUM_TEXTURES);
+    blockUVs[BlockType::GrassSide] = calculateUVs(2, NUM_TEXTURES);
+    blockUVs[BlockType::GrassTop] = calculateUVs(3, NUM_TEXTURES);
+    blockUVs[BlockType::Cobblestone] = calculateUVs(4, NUM_TEXTURES);
+    blockUVs[BlockType::Wood] = calculateUVs(5, NUM_TEXTURES);
+    blockUVs[BlockType::Sand] = calculateUVs(6, NUM_TEXTURES);
+    blockUVs[BlockType::Brick] = calculateUVs(7, NUM_TEXTURES);
+    blockUVs[BlockType::Snow] = calculateUVs(8, NUM_TEXTURES);
 
     LOG_INFO("Texture atlas created: {}x{}", atlasWidth, atlasHeight);
-    for (uint32_t i = 0; i < numTextures; ++i) {
-        auto uvs = calculateUVs(i, numTextures);
+    for (uint32_t i = 0; i < NUM_TEXTURES; ++i) {
+        auto uvs = calculateUVs(i, NUM_TEXTURES);
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
         LOG_INFO("{} UVs: ({}, {}) to ({}, {})", textureNames[i], uvs.x, uvs.y, uvs.z, uvs.w);
     }
 
@@ -107,9 +122,9 @@ void TextureAtlas::loadTextures(const std::string& texturePath) {
 }
 
 glm::vec4 TextureAtlas::getBlockUVs(BlockType type) const {
-    auto it = blockUVs.find(type);
-    if (it != blockUVs.end()) {
-        return it->second;
+    auto iter = blockUVs.find(type);
+    if (iter != blockUVs.end()) {
+        return iter->second;
     }
 
     // Fallback to dirt if block type not found
@@ -125,11 +140,11 @@ glm::vec4 TextureAtlas::getBlockUVs(BlockType type) const {
 }
 
 void TextureAtlas::createTextureImage(const unsigned char* pixels, uint32_t width, uint32_t height) {
-    VkDeviceSize imageSize = width * height * 4;
+    VkDeviceSize imageSize = static_cast<VkDeviceSize>(width) * height * 4;
 
     // Create staging buffer
-    VkBuffer stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
+    VkBuffer stagingBuffer = VK_NULL_HANDLE;
+    VkDeviceMemory stagingBufferMemory = VK_NULL_HANDLE;
 
     VkBufferCreateInfo bufferInfo{};
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -159,7 +174,7 @@ void TextureAtlas::createTextureImage(const unsigned char* pixels, uint32_t widt
     vkBindBufferMemory(device, stagingBuffer, stagingBufferMemory, 0);
 
     // Copy pixel data to staging buffer
-    void* data;
+    void* data = nullptr;
     vkMapMemory(device, stagingBufferMemory, 0, imageSize, 0, &data);
     std::memcpy(data, pixels, static_cast<size_t>(imageSize));
     vkUnmapMemory(device, stagingBufferMemory);
@@ -218,7 +233,7 @@ void TextureAtlas::transitionImageLayout(VkImage image, VkFormat format,
     allocInfo.commandPool = commandPool;
     allocInfo.commandBufferCount = 1;
 
-    VkCommandBuffer commandBuffer;
+    VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
     vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer);
 
     VkCommandBufferBeginInfo beginInfo{};
@@ -240,8 +255,8 @@ void TextureAtlas::transitionImageLayout(VkImage image, VkFormat format,
     barrier.subresourceRange.baseArrayLayer = 0;
     barrier.subresourceRange.layerCount = 1;
 
-    VkPipelineStageFlags sourceStage;
-    VkPipelineStageFlags destinationStage;
+    VkPipelineStageFlags sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+    VkPipelineStageFlags destinationStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
 
     if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
         barrier.srcAccessMask = 0;
@@ -279,7 +294,7 @@ void TextureAtlas::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t wi
     allocInfo.commandPool = commandPool;
     allocInfo.commandBufferCount = 1;
 
-    VkCommandBuffer commandBuffer;
+    VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
     vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer);
 
     VkCommandBufferBeginInfo beginInfo{};

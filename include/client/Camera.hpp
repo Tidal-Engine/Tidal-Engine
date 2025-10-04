@@ -53,7 +53,7 @@ public:
      * @param speed Movement speed
      */
     void processMovement(bool forward, bool backward, bool left, bool right,
-                        bool up, bool down, float deltaTime, float speed);
+                        bool up, bool down, float deltaTime, float speed);  // NOLINT(readability-identifier-length)
 
     /**
      * @brief Process mouse input for looking around

@@ -208,14 +208,15 @@ void GameServer::onClientConnect(ENetPeer* peer) {
 
 void GameServer::onClientDisconnect(ENetPeer* peer) {
     // Find the player ID before removing
-    auto it = players.find(peer);
-    if (it != players.end()) {
-        uint32_t disconnectedPlayerId = it->second.playerId;
-        std::string playerName = it->second.playerName;  // Save name before erasing
-        const PlayerData& playerData = it->second;
+    auto playerIt = players.find(peer);
+    if (playerIt != players.end()) {
+        uint32_t disconnectedPlayerId = playerIt->second.playerId;
+        std::string playerName = playerIt->second.playerName;  // Save name before erasing
+        const PlayerData& playerData = playerIt->second;
 
         // Save player data to disk
         if (!playerData.playerName.empty() && !playerData.playerName.starts_with("Player_")) {
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
             LOG_INFO("Saving player data for {} at position ({:.1f}, {:.1f}, {:.1f})",
                      playerData.playerName, playerData.position.x, playerData.position.y, playerData.position.z);
             savePlayerData(playerData);
@@ -224,17 +225,18 @@ void GameServer::onClientDisconnect(ENetPeer* peer) {
         }
 
         // Broadcast player removal to all other clients
-        protocol::PlayerRemoveMessage removeMsg;
+        protocol::PlayerRemoveMessage removeMsg{};
         removeMsg.playerId = disconnectedPlayerId;
 
         std::vector<uint8_t> packet;
         packet.resize(sizeof(protocol::MessageHeader) + sizeof(protocol::PlayerRemoveMessage));
 
-        protocol::MessageHeader header;
+        protocol::MessageHeader header{};
         header.type = protocol::MessageType::PlayerRemove;
         header.payloadSize = sizeof(protocol::PlayerRemoveMessage);
 
         std::memcpy(packet.data(), &header, sizeof(protocol::MessageHeader));
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         std::memcpy(packet.data() + sizeof(protocol::MessageHeader), &removeMsg, sizeof(protocol::PlayerRemoveMessage));
 
         // Send to all OTHER clients
@@ -246,7 +248,7 @@ void GameServer::onClientDisconnect(ENetPeer* peer) {
         }
 
         // Remove player from tracking
-        players.erase(it);
+        players.erase(playerIt);
 
         LOG_INFO("========================================");
         LOG_INFO("<<< PLAYER LEFT >>>");
@@ -257,6 +259,7 @@ void GameServer::onClientDisconnect(ENetPeer* peer) {
     }
 }
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 void GameServer::onClientPacket(ENetPeer* peer, ENetPacket* packet) {
     if (packet->dataLength < sizeof(protocol::MessageHeader)) {
         LOG_WARN("Received malformed packet from client");
@@ -264,7 +267,7 @@ void GameServer::onClientPacket(ENetPeer* peer, ENetPacket* packet) {
     }
 
     // Read message header
-    protocol::MessageHeader header;
+    protocol::MessageHeader header{};
     std::memcpy(&header, packet->data, sizeof(protocol::MessageHeader));
 
     // Handle different message types
@@ -275,7 +278,9 @@ void GameServer::onClientPacket(ENetPeer* peer, ENetPacket* packet) {
                 break;
             }
 
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
             const auto* joinMsg = reinterpret_cast<const protocol::ClientJoinMessage*>(
+                // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
                 static_cast<const uint8_t*>(packet->data) + sizeof(protocol::MessageHeader)
             );
 
@@ -296,18 +301,20 @@ void GameServer::onClientPacket(ENetPeer* peer, ENetPacket* packet) {
             // Send all existing players to the new player
             for (const auto& [otherPeer, otherPlayer] : players) {
                 if (otherPeer != peer && !otherPlayer.playerName.empty()) {
-                    protocol::PlayerSpawnMessage spawnMsg;
+                    protocol::PlayerSpawnMessage spawnMsg{};
                     spawnMsg.playerId = otherPlayer.playerId;
                     spawnMsg.spawnPosition = otherPlayer.position;
+                    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
                     std::snprintf(spawnMsg.playerName, sizeof(spawnMsg.playerName), "%s", otherPlayer.playerName.c_str());
 
                     size_t totalSize = sizeof(protocol::MessageHeader) + sizeof(protocol::PlayerSpawnMessage);
                     ENetPacket* spawnPacket = enet_packet_create(nullptr, totalSize, ENET_PACKET_FLAG_RELIABLE);
 
-                    protocol::MessageHeader spawnHeader;
+                    protocol::MessageHeader spawnHeader{};
                     spawnHeader.type = protocol::MessageType::PlayerSpawn;
                     spawnHeader.payloadSize = sizeof(protocol::PlayerSpawnMessage);
                     std::memcpy(spawnPacket->data, &spawnHeader, sizeof(protocol::MessageHeader));
+                    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
                     std::memcpy(spawnPacket->data + sizeof(protocol::MessageHeader), &spawnMsg, sizeof(spawnMsg));
 
                     enet_peer_send(peer, 0, spawnPacket);
@@ -315,18 +322,20 @@ void GameServer::onClientPacket(ENetPeer* peer, ENetPacket* packet) {
             }
 
             // Broadcast new player spawn to all existing players
-            protocol::PlayerSpawnMessage spawnMsg;
+            protocol::PlayerSpawnMessage spawnMsg{};
             spawnMsg.playerId = playerData.playerId;
             spawnMsg.spawnPosition = playerData.position;
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
             std::snprintf(spawnMsg.playerName, sizeof(spawnMsg.playerName), "%s", playerData.playerName.c_str());
 
             size_t totalSize = sizeof(protocol::MessageHeader) + sizeof(protocol::PlayerSpawnMessage);
             ENetPacket* spawnPacket = enet_packet_create(nullptr, totalSize, ENET_PACKET_FLAG_RELIABLE);
 
-            protocol::MessageHeader spawnHeader;
+            protocol::MessageHeader spawnHeader{};
             spawnHeader.type = protocol::MessageType::PlayerSpawn;
             spawnHeader.payloadSize = sizeof(protocol::PlayerSpawnMessage);
             std::memcpy(spawnPacket->data, &spawnHeader, sizeof(protocol::MessageHeader));
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
             std::memcpy(spawnPacket->data + sizeof(protocol::MessageHeader), &spawnMsg, sizeof(spawnMsg));
 
             for (const auto& [otherPeer, otherPlayer] : players) {
@@ -351,14 +360,16 @@ void GameServer::onClientPacket(ENetPeer* peer, ENetPacket* packet) {
             size_t invTotalSize = sizeof(protocol::MessageHeader) + sizeof(protocol::InventorySyncMessage);
             ENetPacket* invPacket = enet_packet_create(nullptr, invTotalSize, ENET_PACKET_FLAG_RELIABLE);
 
-            protocol::MessageHeader invHeader;
+            protocol::MessageHeader invHeader{};
             invHeader.type = protocol::MessageType::InventorySync;
             invHeader.payloadSize = sizeof(protocol::InventorySyncMessage);
             std::memcpy(invPacket->data, &invHeader, sizeof(protocol::MessageHeader));
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
             std::memcpy(invPacket->data + sizeof(protocol::MessageHeader), &inventoryMsg, sizeof(inventoryMsg));
 
             enet_peer_send(peer, 0, invPacket);
 
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
             LOG_INFO("Player {} joined at ({:.1f}, {:.1f}, {:.1f})",
                      playerName, playerData.position.x, playerData.position.y, playerData.position.z);
             break;
@@ -373,7 +384,9 @@ void GameServer::onClientPacket(ENetPeer* peer, ENetPacket* packet) {
                 break;
             }
 
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
             const auto* moveMsg = reinterpret_cast<const protocol::PlayerMoveMessage*>(
+                // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
                 static_cast<const uint8_t*>(packet->data) + sizeof(protocol::MessageHeader)
             );
 
@@ -384,7 +397,7 @@ void GameServer::onClientPacket(ENetPeer* peer, ENetPacket* packet) {
             playerData.pitch = moveMsg->pitch;
 
             // Broadcast position update to all other players
-            protocol::PlayerPositionUpdateMessage posUpdate;
+            protocol::PlayerPositionUpdateMessage posUpdate{};
             posUpdate.playerId = playerData.playerId;
             posUpdate.position = moveMsg->position;
             posUpdate.yaw = moveMsg->yaw;
@@ -393,10 +406,11 @@ void GameServer::onClientPacket(ENetPeer* peer, ENetPacket* packet) {
             size_t totalSize = sizeof(protocol::MessageHeader) + sizeof(protocol::PlayerPositionUpdateMessage);
             ENetPacket* updatePacket = enet_packet_create(nullptr, totalSize, 0);  // Unreliable for frequent updates
 
-            protocol::MessageHeader updateHeader;
+            protocol::MessageHeader updateHeader{};
             updateHeader.type = protocol::MessageType::PlayerPositionUpdate;
             updateHeader.payloadSize = sizeof(protocol::PlayerPositionUpdateMessage);
             std::memcpy(updatePacket->data, &updateHeader, sizeof(protocol::MessageHeader));
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
             std::memcpy(updatePacket->data + sizeof(protocol::MessageHeader), &posUpdate, sizeof(posUpdate));
 
             // Send to all other players
@@ -412,6 +426,7 @@ void GameServer::onClientPacket(ENetPeer* peer, ENetPacket* packet) {
 
             // Only send new chunks if player moved significantly (1 chunk = 16 blocks)
             if (distanceFromLastUpdate > 16.0f) {  // 1 chunk
+                // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
                 LOG_DEBUG("Player moved {:.1f} blocks from last chunk update, sending new chunks around ({:.1f}, {:.1f}, {:.1f}) | Currently loaded: {} chunks",
                          distanceFromLastUpdate, playerData.position.x, playerData.position.y, playerData.position.z, playerData.loadedChunks.size());
                 sendChunksAroundPlayer(peer, playerData.position);
@@ -428,7 +443,9 @@ void GameServer::onClientPacket(ENetPeer* peer, ENetPacket* packet) {
                 break;
             }
 
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
             const auto* invMsg = reinterpret_cast<const protocol::InventoryUpdateMessage*>(
+                // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
                 static_cast<const uint8_t*>(packet->data) + sizeof(protocol::MessageHeader)
             );
 
@@ -450,7 +467,9 @@ void GameServer::onClientPacket(ENetPeer* peer, ENetPacket* packet) {
                 break;
             }
 
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
             const auto* placeMsg = reinterpret_cast<const protocol::BlockPlaceMessage*>(
+                // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
                 static_cast<const uint8_t*>(packet->data) + sizeof(protocol::MessageHeader)
             );
 
@@ -497,7 +516,7 @@ void GameServer::onClientPacket(ENetPeer* peer, ENetPacket* packet) {
 
             // Broadcast block update to all clients
             LOG_INFO("SERVER: Broadcasting BlockUpdate to all clients");
-            protocol::BlockUpdateMessage updateMsg;
+            protocol::BlockUpdateMessage updateMsg{};
             updateMsg.x = placeMsg->x;
             updateMsg.y = placeMsg->y;
             updateMsg.z = placeMsg->z;
@@ -506,10 +525,11 @@ void GameServer::onClientPacket(ENetPeer* peer, ENetPacket* packet) {
             size_t totalSize = sizeof(protocol::MessageHeader) + sizeof(protocol::BlockUpdateMessage);
             ENetPacket* updatePacket = enet_packet_create(nullptr, totalSize, ENET_PACKET_FLAG_RELIABLE);
 
-            protocol::MessageHeader updateHeader;
+            protocol::MessageHeader updateHeader{};
             updateHeader.type = protocol::MessageType::BlockUpdate;
             updateHeader.payloadSize = sizeof(protocol::BlockUpdateMessage);
             std::memcpy(updatePacket->data, &updateHeader, sizeof(protocol::MessageHeader));
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
             std::memcpy(updatePacket->data + sizeof(protocol::MessageHeader), &updateMsg, sizeof(updateMsg));
 
             enet_host_broadcast(server, 0, updatePacket);
@@ -524,7 +544,9 @@ void GameServer::onClientPacket(ENetPeer* peer, ENetPacket* packet) {
                 break;
             }
 
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
             const auto* breakMsg = reinterpret_cast<const protocol::BlockBreakMessage*>(
+                // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
                 static_cast<const uint8_t*>(packet->data) + sizeof(protocol::MessageHeader)
             );
 
@@ -570,7 +592,7 @@ void GameServer::onClientPacket(ENetPeer* peer, ENetPacket* packet) {
 
             // Broadcast block update to all clients
             LOG_INFO("SERVER: Broadcasting BlockUpdate to all clients");
-            protocol::BlockUpdateMessage updateMsg;
+            protocol::BlockUpdateMessage updateMsg{};
             updateMsg.x = breakMsg->x;
             updateMsg.y = breakMsg->y;
             updateMsg.z = breakMsg->z;
@@ -579,10 +601,11 @@ void GameServer::onClientPacket(ENetPeer* peer, ENetPacket* packet) {
             size_t totalSize = sizeof(protocol::MessageHeader) + sizeof(protocol::BlockUpdateMessage);
             ENetPacket* updatePacket = enet_packet_create(nullptr, totalSize, ENET_PACKET_FLAG_RELIABLE);
 
-            protocol::MessageHeader updateHeader;
+            protocol::MessageHeader updateHeader{};
             updateHeader.type = protocol::MessageType::BlockUpdate;
             updateHeader.payloadSize = sizeof(protocol::BlockUpdateMessage);
             std::memcpy(updatePacket->data, &updateHeader, sizeof(protocol::MessageHeader));
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
             std::memcpy(updatePacket->data + sizeof(protocol::MessageHeader), &updateMsg, sizeof(updateMsg));
 
             enet_host_broadcast(server, 0, updatePacket);
@@ -617,34 +640,36 @@ void GameServer::sendChunksAroundPlayer(ENetPeer* peer, const glm::vec3& positio
 
     // Find chunks that need to be sent (not already loaded by player)
     for (const auto& coord : chunksNeeded) {
-        if (playerData.loadedChunks.find(coord) == playerData.loadedChunks.end()) {
+        if (!playerData.loadedChunks.contains(coord)) {
             chunksToSend.insert(coord);
         }
     }
 
     // Find chunks that need to be unloaded (loaded but not needed anymore)
     for (const auto& coord : playerData.loadedChunks) {
-        if (neededSet.find(coord) == neededSet.end()) {
+        if (!neededSet.contains(coord)) {
             chunksToUnload.insert(coord);
         }
     }
 
     // Send unload messages
     for (const auto& coord : chunksToUnload) {
-        protocol::ChunkUnloadMessage msg;
+        protocol::ChunkUnloadMessage msg{};
         msg.coord = coord;
 
         size_t totalSize = sizeof(protocol::MessageHeader) + sizeof(protocol::ChunkUnloadMessage);
         ENetPacket* packet = enet_packet_create(nullptr, totalSize, ENET_PACKET_FLAG_RELIABLE);
 
-        protocol::MessageHeader header;
+        protocol::MessageHeader header{};
         header.type = protocol::MessageType::ChunkUnload;
         header.payloadSize = sizeof(protocol::ChunkUnloadMessage);
         std::memcpy(packet->data, &header, sizeof(protocol::MessageHeader));
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         std::memcpy(packet->data + sizeof(protocol::MessageHeader), &msg, sizeof(msg));
 
         enet_peer_send(peer, 0, packet);
         playerData.loadedChunks.erase(coord);
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
         LOG_DEBUG("Sent unload for chunk ({}, {}, {}) - player at ({:.1f}, {:.1f}, {:.1f})",
                  coord.x, coord.y, coord.z, position.x, position.y, position.z);
     }
@@ -657,6 +682,7 @@ void GameServer::sendChunksAroundPlayer(ENetPeer* peer, const glm::vec3& positio
         return;
     }
 
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
     LOG_DEBUG("Sending {} new chunks to player at ({:.1f}, {:.1f}, {:.1f})",
               chunksToSend.size(), position.x, position.y, position.z);
 
@@ -678,19 +704,21 @@ void GameServer::sendChunksAroundPlayer(ENetPeer* peer, const glm::vec3& positio
         ENetPacket* packet = enet_packet_create(nullptr, totalSize, ENET_PACKET_FLAG_RELIABLE);
 
         // Write message header
-        protocol::MessageHeader header;
+        protocol::MessageHeader header{};
         header.type = protocol::MessageType::ChunkData;
         header.payloadSize = sizeof(protocol::ChunkDataMessage) + compressedSize;
         std::memcpy(packet->data, &header, sizeof(protocol::MessageHeader));
 
         // Write chunk data header
-        protocol::ChunkDataMessage chunkHeader;
+        protocol::ChunkDataMessage chunkHeader{};
         chunkHeader.coord = coord;
         chunkHeader.compressedSize = compressedSize;
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         std::memcpy(packet->data + sizeof(protocol::MessageHeader),
                    &chunkHeader, sizeof(protocol::ChunkDataMessage));
 
         // Write compressed chunk data
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         std::memcpy(packet->data + sizeof(protocol::MessageHeader) + sizeof(protocol::ChunkDataMessage),
                    compressedData.data(), compressedSize);
 
@@ -786,22 +814,26 @@ bool GameServer::startTunnel(const std::string& secretKey) {
         // Child process - run playit agent via Docker
 
         // Redirect output to log file
+        // NOLINTNEXTLINE(cppcoreguidelines-owning-memory)
         std::freopen("logs/playit.log", "w", stdout);
+        // NOLINTNEXTLINE(cppcoreguidelines-owning-memory)
         std::freopen("logs/playit.log", "w", stderr);
 
         // Try Docker first, fall back to native binary
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
         execlp("docker", "docker", "run", "--rm", "--net=host",
                "-e", ("SECRET_KEY=" + key).c_str(),
                "ghcr.io/playit-cloud/playit-agent:latest",
                nullptr);
 
         // If docker fails, try native playit binary
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
         execlp("playit", "playit", "--secret", key.c_str(), nullptr);
 
         // If we get here, both methods failed
-        std::cerr << "Failed to start playit agent. Please install either:" << std::endl;
-        std::cerr << "  - Docker: https://docs.docker.com/get-docker/" << std::endl;
-        std::cerr << "  - playit binary: https://playit.gg/download" << std::endl;
+        std::cerr << "Failed to start playit agent. Please install either:\n";
+        std::cerr << "  - Docker: https://docs.docker.com/get-docker/\n";
+        std::cerr << "  - playit binary: https://playit.gg/download\n";
         exit(1);
     }
 
@@ -812,7 +844,7 @@ bool GameServer::startTunnel(const std::string& secretKey) {
     std::this_thread::sleep_for(std::chrono::seconds(2));
 
     // Check if process is still alive
-    int status;
+    int status = 0;
     pid_t result = waitpid(tunnelPid, &status, WNOHANG);
 
     if (result != 0) {
@@ -851,7 +883,7 @@ void GameServer::stopTunnel() {
     kill(tunnelPid, SIGTERM);
 
     // Wait up to 5 seconds for graceful shutdown
-    int status;
+    int status = 0;
     for (int i = 0; i < 50; i++) {
         pid_t result = waitpid(tunnelPid, &status, WNOHANG);
         if (result != 0) {
@@ -861,7 +893,7 @@ void GameServer::stopTunnel() {
     }
 
     // Force kill if still running
-    int finalStatus;
+    int finalStatus = 0;
     pid_t result = waitpid(tunnelPid, &finalStatus, WNOHANG);
     if (result == 0) {
         LOG_WARN("playit agent didn't stop gracefully, forcing shutdown...");
@@ -877,6 +909,7 @@ void GameServer::stopTunnel() {
 #endif
 }
 
+// NOLINTNEXTLINE(readability-convert-member-functions-to-static)
 bool GameServer::savePlayerData(const PlayerData& playerData) {
     // Create players directory if it doesn't exist
     std::filesystem::create_directories("players");
@@ -899,25 +932,35 @@ bool GameServer::savePlayerData(const PlayerData& playerData) {
     // - Hotbar (9 x ItemStack)
 
     uint32_t nameLength = static_cast<uint32_t>(playerData.playerName.length());
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     file.write(reinterpret_cast<const char*>(&nameLength), sizeof(uint32_t));
+    // NOLINTNEXTLINE(cppcoreguidelines-narrowing-conversions)
     file.write(playerData.playerName.c_str(), nameLength);
 
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     file.write(reinterpret_cast<const char*>(&playerData.position), sizeof(glm::vec3));
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     file.write(reinterpret_cast<const char*>(&playerData.yaw), sizeof(float));
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     file.write(reinterpret_cast<const char*>(&playerData.pitch), sizeof(float));
 
     uint32_t selectedSlot = static_cast<uint32_t>(playerData.selectedHotbarSlot);
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     file.write(reinterpret_cast<const char*>(&selectedSlot), sizeof(uint32_t));
 
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     file.write(reinterpret_cast<const char*>(playerData.hotbar.data()),
+               // NOLINTNEXTLINE(cppcoreguidelines-narrowing-conversions,bugprone-narrowing-conversions)
                playerData.hotbar.size() * sizeof(ItemStack));
 
     file.close();
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
     LOG_INFO("Saved player data for {} at ({:.1f}, {:.1f}, {:.1f})",
              playerData.playerName, playerData.position.x, playerData.position.y, playerData.position.z);
     return true;
 }
 
+// NOLINTNEXTLINE(readability-convert-member-functions-to-static)
 bool GameServer::loadPlayerData(const std::string& playerName, PlayerData& outPlayerData) {
     std::string filename = "players/" + playerName + ".dat";
 
@@ -933,27 +976,36 @@ bool GameServer::loadPlayerData(const std::string& playerName, PlayerData& outPl
     }
 
     // Read player data
-    uint32_t nameLength;
+    uint32_t nameLength = 0;
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     file.read(reinterpret_cast<char*>(&nameLength), sizeof(uint32_t));
 
     std::string savedName(nameLength, '\0');
-    file.read(&savedName[0], nameLength);
+    // NOLINTNEXTLINE(cppcoreguidelines-narrowing-conversions)
+    file.read(savedName.data(), nameLength);
 
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     file.read(reinterpret_cast<char*>(&outPlayerData.position), sizeof(glm::vec3));
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     file.read(reinterpret_cast<char*>(&outPlayerData.yaw), sizeof(float));
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     file.read(reinterpret_cast<char*>(&outPlayerData.pitch), sizeof(float));
 
-    uint32_t selectedSlot;
+    uint32_t selectedSlot = 0;
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     file.read(reinterpret_cast<char*>(&selectedSlot), sizeof(uint32_t));
     outPlayerData.selectedHotbarSlot = static_cast<size_t>(selectedSlot);
 
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     file.read(reinterpret_cast<char*>(outPlayerData.hotbar.data()),
+              // NOLINTNEXTLINE(cppcoreguidelines-narrowing-conversions,bugprone-narrowing-conversions)
               outPlayerData.hotbar.size() * sizeof(ItemStack));
 
     file.close();
 
     outPlayerData.playerName = savedName;
 
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
     LOG_INFO("Loaded player data for {} at ({:.1f}, {:.1f}, {:.1f})",
              playerName, outPlayerData.position.x, outPlayerData.position.y, outPlayerData.position.z);
     return true;

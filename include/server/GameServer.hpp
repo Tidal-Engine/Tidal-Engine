@@ -98,7 +98,6 @@ private:
 
     static constexpr int32_t CHUNK_LOAD_RADIUS = 10;  ///< Radius to load chunks around player (10 chunks = 160 blocks)
 
-private:
     ENetHost* server = nullptr;
     std::unique_ptr<World> world;
 

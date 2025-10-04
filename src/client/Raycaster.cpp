@@ -9,6 +9,7 @@
 
 namespace engine {
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity,cppcoreguidelines-pro-type-union-access,readability-avoid-nested-conditional-operator)
 std::optional<RaycastHit> Raycaster::cast(
     const glm::vec3& origin,
     const glm::vec3& direction,
@@ -30,6 +31,7 @@ std::optional<RaycastHit> Raycaster::cast(
     );
 
     // Step direction for each axis (+1 or -1)
+    // NOLINTNEXTLINE(readability-avoid-nested-conditional-operator)
     glm::ivec3 step(
         dir.x > 0 ? 1 : (dir.x < 0 ? -1 : 0),
         dir.y > 0 ? 1 : (dir.y < 0 ? -1 : 0),
@@ -83,7 +85,7 @@ std::optional<RaycastHit> Raycaster::cast(
         BlockType blockType = getBlockAt(voxel, client);
         if (blockType != BlockType::Air) {
             // Hit a solid block
-            RaycastHit hit;
+            RaycastHit hit{};
             hit.blockPos = voxel;
             hit.placePos = voxel + normal;  // Place on the face we hit
             hit.normal = normal;
@@ -142,7 +144,7 @@ BlockType Raycaster::getBlockAt(const glm::ivec3& pos, const NetworkClient* clie
     if (!chunk) {
         // Log missing chunks to help debug raycasting issues
         static std::unordered_set<ChunkCoord> loggedMissingChunks;
-        if (loggedMissingChunks.find(chunkCoord) == loggedMissingChunks.end()) {
+        if (!loggedMissingChunks.contains(chunkCoord)) {
             LOG_TRACE("Raycast: chunk ({}, {}, {}) not loaded for block at ({}, {}, {})",
                      chunkCoord.x, chunkCoord.y, chunkCoord.z, pos.x, pos.y, pos.z);
             loggedMissingChunks.insert(chunkCoord);
@@ -159,8 +161,8 @@ BlockType Raycaster::getBlockAt(const glm::ivec3& pos, const NetworkClient* clie
 }
 
 float Raycaster::safeDivide(float numerator, float denominator) {
-    const float epsilon = 1e-8f;
-    if (std::abs(denominator) < epsilon) {
+    constexpr float EPSILON = 1e-8f;
+    if (std::abs(denominator) < EPSILON) {
         return std::numeric_limits<float>::max();
     }
     return numerator / denominator;

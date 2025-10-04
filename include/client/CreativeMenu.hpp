@@ -34,6 +34,14 @@ public:
                  VkCommandPool commandPool, VkQueue graphicsQueue);
     ~CreativeMenu();
 
+    // Delete copy operations (manages Vulkan resources)
+    CreativeMenu(const CreativeMenu&) = delete;
+    CreativeMenu& operator=(const CreativeMenu&) = delete;
+
+    // Allow move operations
+    CreativeMenu(CreativeMenu&&) noexcept = default;
+    CreativeMenu& operator=(CreativeMenu&&) noexcept = default;
+
     /**
      * @brief Initialize textures (call after ImGui is initialized)
      */
@@ -69,7 +77,7 @@ public:
      * @brief Set callback for when inventory is modified via creative menu
      */
     void setOnInventoryChanged(std::function<void()> callback) {
-        onInventoryChanged = callback;
+        onInventoryChanged = std::move(callback);
     }
 
 private:

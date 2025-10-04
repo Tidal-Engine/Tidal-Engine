@@ -18,9 +18,9 @@ void ItemRegistry::registerItem(const ItemProperties& props) {
 }
 
 const ItemProperties* ItemRegistry::getItem(ItemType type) const {
-    auto it = items.find(type);
-    if (it != items.end()) {
-        return &it->second;
+    auto iter = items.find(type);
+    if (iter != items.end()) {
+        return &iter->second;
     }
     return nullptr;
 }

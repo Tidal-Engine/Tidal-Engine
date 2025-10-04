@@ -19,6 +19,7 @@ void DebugOverlay::toggle() {
     isVisible = !isVisible;
 }
 
+// NOLINTBEGIN(cppcoreguidelines-pro-type-vararg, cppcoreguidelines-pro-type-union-access)
 void DebugOverlay::render(const Camera* camera,
                          const PerformanceMetrics* metrics,
                          const NetworkClient* networkClient,
@@ -53,8 +54,13 @@ void DebugOverlay::render(const Camera* camera,
             const auto& hit = targetedBlock->value();
             ImGui::Text("Targeted Block");
             ImGui::Text("  Position: %d, %d, %d", hit.blockPos.x, hit.blockPos.y, hit.blockPos.z);
-            ImGui::Text("  Type: %s", hit.blockType == BlockType::Stone ? "Stone" :
-                                      hit.blockType == BlockType::Dirt ? "Dirt" : "Unknown");
+            const char* blockTypeName = "Unknown";
+            if (hit.blockType == BlockType::Stone) {
+                blockTypeName = "Stone";
+            } else if (hit.blockType == BlockType::Dirt) {
+                blockTypeName = "Dirt";
+            }
+            ImGui::Text("  Type: %s", blockTypeName);
             ImGui::Text("  Distance: %.2f", hit.distance);
             ImGui::Text("  Face: %d, %d, %d", hit.normal.x, hit.normal.y, hit.normal.z);
             ImGui::Separator();
@@ -70,7 +76,9 @@ void DebugOverlay::render(const Camera* camera,
     }
     ImGui::End();
 }
+// NOLINTEND(cppcoreguidelines-pro-type-vararg, cppcoreguidelines-pro-type-union-access)
 
+// NOLINTBEGIN(cppcoreguidelines-pro-type-vararg, cppcoreguidelines-pro-type-union-access, readability-convert-member-functions-to-static)
 void DebugOverlay::renderCameraInfo(const Camera* camera) {
     if (!camera) {
         LOG_WARN("DebugOverlay: Camera pointer is null");
@@ -170,84 +178,87 @@ void DebugOverlay::renderNetworkInfo(const NetworkClient* networkClient) {
 std::string DebugOverlay::formatNumber(uint32_t num) {
     if (num >= 1000000) {
         return std::to_string(num / 1000000) + "." + std::to_string((num / 100000) % 10) + "M";
-    } else if (num >= 1000) {
+    }
+    if (num >= 1000) {
         return std::to_string(num / 1000) + "." + std::to_string((num / 100) % 10) + "K";
     }
     return std::to_string(num);
 }
 
 void DebugOverlay::renderCrosshair() {
+    // NOLINTNEXTLINE(readability-identifier-length)
     ImGuiIO& io = ImGui::GetIO();
     ImVec2 center(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f);
 
     ImDrawList* drawList = ImGui::GetForegroundDrawList();
 
     // Crosshair parameters
-    const float crosshairSize = 10.0f;
-    const float crosshairThickness = 2.0f;
-    const float crosshairGap = 3.0f;
-    const ImU32 crosshairColor = IM_COL32(255, 255, 255, 200); // White with slight transparency
-    const ImU32 outlineColor = IM_COL32(0, 0, 0, 150); // Black outline
+    const float CROSSHAIR_SIZE = 10.0f;
+    const float CROSSHAIR_THICKNESS = 2.0f;
+    const float CROSSHAIR_GAP = 3.0f;
+    const ImU32 CROSSHAIR_COLOR = IM_COL32(255, 255, 255, 200); // White with slight transparency
+    const ImU32 OUTLINE_COLOR = IM_COL32(0, 0, 0, 150); // Black outline
 
     // Draw outline (thicker, black lines)
     // Horizontal line (left)
     drawList->AddLine(
-        ImVec2(center.x - crosshairSize - crosshairGap, center.y),
-        ImVec2(center.x - crosshairGap, center.y),
-        outlineColor,
-        crosshairThickness + 2.0f
+        ImVec2(center.x - CROSSHAIR_SIZE - CROSSHAIR_GAP, center.y),
+        ImVec2(center.x - CROSSHAIR_GAP, center.y),
+        OUTLINE_COLOR,
+        CROSSHAIR_THICKNESS + 2.0f
     );
     // Horizontal line (right)
     drawList->AddLine(
-        ImVec2(center.x + crosshairGap, center.y),
-        ImVec2(center.x + crosshairSize + crosshairGap, center.y),
-        outlineColor,
-        crosshairThickness + 2.0f
+        ImVec2(center.x + CROSSHAIR_GAP, center.y),
+        ImVec2(center.x + CROSSHAIR_SIZE + CROSSHAIR_GAP, center.y),
+        OUTLINE_COLOR,
+        CROSSHAIR_THICKNESS + 2.0f
     );
     // Vertical line (top)
     drawList->AddLine(
-        ImVec2(center.x, center.y - crosshairSize - crosshairGap),
-        ImVec2(center.x, center.y - crosshairGap),
-        outlineColor,
-        crosshairThickness + 2.0f
+        ImVec2(center.x, center.y - CROSSHAIR_SIZE - CROSSHAIR_GAP),
+        ImVec2(center.x, center.y - CROSSHAIR_GAP),
+        OUTLINE_COLOR,
+        CROSSHAIR_THICKNESS + 2.0f
     );
     // Vertical line (bottom)
     drawList->AddLine(
-        ImVec2(center.x, center.y + crosshairGap),
-        ImVec2(center.x, center.y + crosshairSize + crosshairGap),
-        outlineColor,
-        crosshairThickness + 2.0f
+        ImVec2(center.x, center.y + CROSSHAIR_GAP),
+        ImVec2(center.x, center.y + CROSSHAIR_SIZE + CROSSHAIR_GAP),
+        OUTLINE_COLOR,
+        CROSSHAIR_THICKNESS + 2.0f
     );
 
     // Draw crosshair (white lines on top)
     // Horizontal line (left)
     drawList->AddLine(
-        ImVec2(center.x - crosshairSize - crosshairGap, center.y),
-        ImVec2(center.x - crosshairGap, center.y),
-        crosshairColor,
-        crosshairThickness
+        ImVec2(center.x - CROSSHAIR_SIZE - CROSSHAIR_GAP, center.y),
+        ImVec2(center.x - CROSSHAIR_GAP, center.y),
+        CROSSHAIR_COLOR,
+        CROSSHAIR_THICKNESS
     );
     // Horizontal line (right)
     drawList->AddLine(
-        ImVec2(center.x + crosshairGap, center.y),
-        ImVec2(center.x + crosshairSize + crosshairGap, center.y),
-        crosshairColor,
-        crosshairThickness
+        ImVec2(center.x + CROSSHAIR_GAP, center.y),
+        ImVec2(center.x + CROSSHAIR_SIZE + CROSSHAIR_GAP, center.y),
+        CROSSHAIR_COLOR,
+        CROSSHAIR_THICKNESS
     );
     // Vertical line (top)
     drawList->AddLine(
-        ImVec2(center.x, center.y - crosshairSize - crosshairGap),
-        ImVec2(center.x, center.y - crosshairGap),
-        crosshairColor,
-        crosshairThickness
+        ImVec2(center.x, center.y - CROSSHAIR_SIZE - CROSSHAIR_GAP),
+        ImVec2(center.x, center.y - CROSSHAIR_GAP),
+        CROSSHAIR_COLOR,
+        CROSSHAIR_THICKNESS
     );
     // Vertical line (bottom)
     drawList->AddLine(
-        ImVec2(center.x, center.y + crosshairGap),
-        ImVec2(center.x, center.y + crosshairSize + crosshairGap),
-        crosshairColor,
-        crosshairThickness
+        ImVec2(center.x, center.y + CROSSHAIR_GAP),
+        ImVec2(center.x, center.y + CROSSHAIR_SIZE + CROSSHAIR_GAP),
+        CROSSHAIR_COLOR,
+        CROSSHAIR_THICKNESS
     );
 }
+// NOLINTEND(cppcoreguidelines-pro-type-vararg, cppcoreguidelines-pro-type-union-access, readability-convert-member-functions-to-static)
 
 } // namespace engine

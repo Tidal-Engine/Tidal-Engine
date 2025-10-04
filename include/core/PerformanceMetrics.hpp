@@ -17,6 +17,11 @@ public:
     PerformanceMetrics();
     ~PerformanceMetrics() = default;
 
+    PerformanceMetrics(const PerformanceMetrics&) = default;
+    PerformanceMetrics& operator=(const PerformanceMetrics&) = default;
+    PerformanceMetrics(PerformanceMetrics&&) noexcept = default;
+    PerformanceMetrics& operator=(PerformanceMetrics&&) noexcept = default;
+
     /**
      * @brief Start timing a new frame
      */
