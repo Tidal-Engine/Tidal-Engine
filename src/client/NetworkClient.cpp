@@ -265,6 +265,17 @@ void NetworkClient::handlePacket(ENetPacket* packet) {
             }
             break;
 
+        case protocol::MessageType::InventorySync:
+            if (payloadSize >= sizeof(protocol::InventorySyncMessage)) {
+                protocol::InventorySyncMessage msg;
+                std::memcpy(&msg, payload, sizeof(msg));
+                if (onInventorySync) {
+                    onInventorySync(msg.hotbar, msg.selectedHotbarSlot);
+                }
+                LOG_INFO("Received inventory sync from server (selected slot: {})", msg.selectedHotbarSlot);
+            }
+            break;
+
         default:
             LOG_TRACE("Received unhandled message type: {}", static_cast<int>(header.type));
             break;

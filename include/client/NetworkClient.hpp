@@ -95,6 +95,13 @@ public:
     }
 
     /**
+     * @brief Set callback for when inventory sync is received from server
+     */
+    void setOnInventorySync(std::function<void(const ItemStack[9], uint32_t)> callback) {
+        onInventorySync = callback;
+    }
+
+    /**
      * @brief Get all other players' positions
      */
     struct PlayerData {
@@ -119,6 +126,7 @@ private:
     // Callbacks
     std::function<void(const ChunkCoord&)> onChunkReceived;
     std::function<void(const ChunkCoord&)> onChunkUnloaded;
+    std::function<void(const ItemStack[9], uint32_t)> onInventorySync;
 
     /**
      * @brief Handle received packet from server

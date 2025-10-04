@@ -328,6 +328,16 @@ void VulkanEngine::initNetworking() {
                  coord.x, coord.y, coord.z, chunkRenderer->getLoadedChunkCount());
     });
 
+    networkClient->setOnInventorySync([this](const ItemStack hotbar[9], uint32_t selectedSlot) {
+        // Apply inventory sync from server
+        for (size_t i = 0; i < 9; i++) {
+            inventory->setSlot(i, hotbar[i].type, hotbar[i].count);
+        }
+        inventory->setSelectedHotbarIndex(static_cast<size_t>(selectedSlot));
+        LOG_INFO("Inventory synced from server: {} items in slot 0, selected slot {}",
+                 hotbar[0].count, selectedSlot);
+    });
+
     // Connect to localhost (integrated server for now)
     if (!networkClient->connect("127.0.0.1", 25565, 5000)) {
         LOG_ERROR("Failed to connect to server!");

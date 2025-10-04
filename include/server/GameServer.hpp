@@ -83,7 +83,7 @@ private:
         glm::vec3 position{0.0f, 5.0f, 0.0f};  ///< Player world position (spawn at Y=5)
         glm::vec3 lastChunkUpdatePos{0.0f, 5.0f, 0.0f};  ///< Last position where chunks were sent
         std::unordered_set<ChunkCoord> loadedChunks;  ///< Chunks this player has loaded
-        std::array<ItemStack, 36> inventory;   ///< Player inventory (9 hotbar + 27 main)
+        std::array<ItemStack, 9> hotbar;       ///< Player hotbar inventory (9 slots)
         size_t selectedHotbarSlot = 0;         ///< Currently selected hotbar slot (0-8)
     };
 

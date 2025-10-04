@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <glm/glm.hpp>
 #include "shared/ChunkCoord.hpp"
+#include "shared/Item.hpp"
 
 // Cross-platform struct packing macros
 // Use #pragma pack on all platforms for consistent behavior
@@ -36,6 +37,7 @@ enum class MessageType : uint8_t {
     PlayerSpawn = 13,
     PlayerPositionUpdate = 14,
     PlayerRemove = 15,
+    InventorySync = 16,
 
     // Bidirectional
     Disconnect = 20,
@@ -164,6 +166,17 @@ PACK_END
 PACK_BEGIN
 struct KeepAliveMessage {
     uint64_t timestamp;         ///< Unix timestamp in milliseconds for RTT measurement
+} PACKED;
+PACK_END
+
+/**
+ * @brief Inventory sync (server -> client)
+ * Sends hotbar inventory to client
+ */
+PACK_BEGIN
+struct InventorySyncMessage {
+    ItemStack hotbar[9];         ///< Hotbar inventory (9 slots)
+    uint32_t selectedHotbarSlot; ///< Currently selected hotbar slot (0-8)
 } PACKED;
 PACK_END
 

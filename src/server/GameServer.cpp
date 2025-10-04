@@ -180,9 +180,9 @@ void GameServer::onClientConnect(ENetPeer* peer) {
     playerData.playerName = "Player_" + std::to_string(playerData.playerId);  // Temporary until ClientJoin received
     playerData.position = glm::vec3(0.0f, 5.0f, 0.0f);
 
-    // Initialize default inventory (stone and dirt in first two slots)
-    playerData.inventory[0] = ItemStack::fromBlock(BlockType::Stone, 64);
-    playerData.inventory[1] = ItemStack::fromBlock(BlockType::Dirt, 64);
+    // Initialize default hotbar (stone and dirt in first two slots)
+    playerData.hotbar[0] = ItemStack::fromBlock(BlockType::Stone, 64);
+    playerData.hotbar[1] = ItemStack::fromBlock(BlockType::Dirt, 64);
 
     players[peer] = playerData;
 
@@ -324,6 +324,22 @@ void GameServer::onClientPacket(ENetPeer* peer, ENetPacket* packet) {
             // Send chunks in radius around spawn point
             sendChunksAroundPlayer(peer, playerData.position);
             players[peer].lastChunkUpdatePos = playerData.position;
+
+            // Send inventory sync to client
+            protocol::InventorySyncMessage inventoryMsg;
+            std::memcpy(inventoryMsg.hotbar, playerData.hotbar.data(), 9 * sizeof(ItemStack));
+            inventoryMsg.selectedHotbarSlot = static_cast<uint32_t>(playerData.selectedHotbarSlot);
+
+            size_t invTotalSize = sizeof(protocol::MessageHeader) + sizeof(protocol::InventorySyncMessage);
+            ENetPacket* invPacket = enet_packet_create(nullptr, invTotalSize, ENET_PACKET_FLAG_RELIABLE);
+
+            protocol::MessageHeader invHeader;
+            invHeader.type = protocol::MessageType::InventorySync;
+            invHeader.payloadSize = sizeof(protocol::InventorySyncMessage);
+            std::memcpy(invPacket->data, &invHeader, sizeof(protocol::MessageHeader));
+            std::memcpy(invPacket->data + sizeof(protocol::MessageHeader), &inventoryMsg, sizeof(inventoryMsg));
+
+            enet_peer_send(peer, 0, invPacket);
 
             LOG_INFO("Player {} joined at ({:.1f}, {:.1f}, {:.1f})",
                      playerName, playerData.position.x, playerData.position.y, playerData.position.z);
@@ -836,7 +852,7 @@ bool GameServer::savePlayerData(const PlayerData& playerData) {
     // - Name length (uint32_t) + name string
     // - Position (3 x float)
     // - Selected hotbar slot (uint32_t)
-    // - Inventory (36 x ItemStack)
+    // - Hotbar (9 x ItemStack)
 
     uint32_t nameLength = static_cast<uint32_t>(playerData.playerName.length());
     file.write(reinterpret_cast<const char*>(&nameLength), sizeof(uint32_t));
@@ -847,8 +863,8 @@ bool GameServer::savePlayerData(const PlayerData& playerData) {
     uint32_t selectedSlot = static_cast<uint32_t>(playerData.selectedHotbarSlot);
     file.write(reinterpret_cast<const char*>(&selectedSlot), sizeof(uint32_t));
 
-    file.write(reinterpret_cast<const char*>(playerData.inventory.data()),
-               playerData.inventory.size() * sizeof(ItemStack));
+    file.write(reinterpret_cast<const char*>(playerData.hotbar.data()),
+               playerData.hotbar.size() * sizeof(ItemStack));
 
     file.close();
     LOG_INFO("Saved player data for {} at ({:.1f}, {:.1f}, {:.1f})",
@@ -883,8 +899,8 @@ bool GameServer::loadPlayerData(const std::string& playerName, PlayerData& outPl
     file.read(reinterpret_cast<char*>(&selectedSlot), sizeof(uint32_t));
     outPlayerData.selectedHotbarSlot = static_cast<size_t>(selectedSlot);
 
-    file.read(reinterpret_cast<char*>(outPlayerData.inventory.data()),
-              outPlayerData.inventory.size() * sizeof(ItemStack));
+    file.read(reinterpret_cast<char*>(outPlayerData.hotbar.data()),
+              outPlayerData.hotbar.size() * sizeof(ItemStack));
 
     file.close();
 
