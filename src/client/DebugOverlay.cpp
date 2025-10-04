@@ -134,8 +134,8 @@ void DebugOverlay::renderPerformanceInfo(const PerformanceMetrics* metrics) {
     fpsHistory[fpsHistoryIndex] = fps;
     fpsHistoryIndex = (fpsHistoryIndex + 1) % FPS_HISTORY_SIZE;
 
-    // Draw FPS graph
-    ImGui::PlotLines("",
+    // Draw FPS graph (use ## to hide label but provide unique ID)
+    ImGui::PlotLines("##fpsGraph",
                      fpsHistory.data(),
                      static_cast<int>(fpsHistory.size()),
                      static_cast<int>(fpsHistoryIndex),
