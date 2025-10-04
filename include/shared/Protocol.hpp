@@ -5,15 +5,15 @@
 #include "shared/ChunkCoord.hpp"
 
 // Cross-platform struct packing macros
+// Use #pragma pack on all platforms for consistent behavior
 #ifdef _MSC_VER
-    // MSVC uses #pragma pack
     #define PACK_BEGIN __pragma(pack(push, 1))
     #define PACK_END __pragma(pack(pop))
     #define PACKED
 #else
-    // GCC/Clang use __attribute__
-    #define PACK_BEGIN
-    #define PACK_END
+    // GCC/Clang: use both pragma pack and attribute for maximum compatibility
+    #define PACK_BEGIN _Pragma("pack(push, 1)")
+    #define PACK_END _Pragma("pack(pop)")
     #define PACKED __attribute__((packed))
 #endif
 
