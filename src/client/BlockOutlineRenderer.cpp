@@ -184,7 +184,7 @@ void BlockOutlineRenderer::createPipeline(VkRenderPass renderPass, VkExtent2D sw
     rasterizer.depthClampEnable = VK_FALSE;
     rasterizer.rasterizerDiscardEnable = VK_FALSE;
     rasterizer.polygonMode = VK_POLYGON_MODE_FILL;  // Lines don't use polygonMode
-    rasterizer.lineWidth = 2.0f;  // Line width (NOTE: may require GPU feature)
+    rasterizer.lineWidth = 1.0f;  // 2.0 requires wideLines GPU feature
     rasterizer.cullMode = VK_CULL_MODE_NONE;  // No culling for lines
     rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     rasterizer.depthBiasEnable = VK_FALSE;
