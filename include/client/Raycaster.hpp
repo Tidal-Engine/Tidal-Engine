@@ -14,7 +14,9 @@ class NetworkClient;
  */
 struct RaycastHit {
     glm::ivec3 blockPos;      ///< Position of the hit block
+    glm::ivec3 placePos;      ///< Position where a new block should be placed (blockPos + normal)
     glm::ivec3 normal;        ///< Face normal of the hit (-1, 0, or 1 for each axis)
+    glm::vec3 hitPoint;       ///< Exact hit point on the block face
     float distance;           ///< Distance from ray origin to hit point
     BlockType blockType;      ///< Type of block that was hit
 };

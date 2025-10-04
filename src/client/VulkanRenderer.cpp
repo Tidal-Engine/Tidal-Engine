@@ -2,6 +2,7 @@
 #include "client/VulkanEngine.hpp"
 #include "client/ChunkRenderer.hpp"
 #include "client/BlockOutlineRenderer.hpp"
+#include "client/PlayerCubeRenderer.hpp"
 #include "vulkan/VulkanBuffer.hpp"
 #include "core/Logger.hpp"
 
@@ -183,6 +184,11 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
     // Draw block outline (if block outline renderer is set)
     if (blockOutlineRenderer != nullptr && blockOutlineRenderer->hasOutline()) {
         blockOutlineRenderer->draw(commandBuffer, descriptorSets[currentFrame]);
+    }
+
+    // Draw player cubes (if player cube renderer is set)
+    if (playerCubeRenderer != nullptr) {
+        playerCubeRenderer->draw(commandBuffer, descriptorSets[currentFrame]);
     }
 
     // Draw ImGui

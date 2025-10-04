@@ -11,8 +11,14 @@ enum class BlockType : uint16_t {
     Air = 0,
     Stone = 1,
     Dirt = 2,
-
-    // Add more block types here as needed
+    GrassSide = 3,      // For grass block sides
+    GrassTop = 4,       // For grass block top
+    Cobblestone = 5,
+    Wood = 6,
+    Sand = 7,
+    Brick = 8,
+    Snow = 9,
+    Grass = 10,         // Special: uses GrassSide, GrassTop, and Dirt
 
     Count // Always keep this last - gives us total count
 };

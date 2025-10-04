@@ -7,6 +7,7 @@ void InputManager::beginFrame() {
     // Clear per-frame state
     keyPressedThisFrame.clear();
     mouseDelta = glm::vec2(0.0f, 0.0f);
+    mouseWheelDelta = 0.0f;
 }
 
 void InputManager::handleEvent(const SDL_Event& event) {
@@ -39,6 +40,11 @@ void InputManager::handleEvent(const SDL_Event& event) {
             mouseDelta.y += event.motion.yrel;  // NOLINT(cppcoreguidelines-pro-type-union-access)
             break;
 
+        case SDL_EVENT_MOUSE_WHEEL:
+            // Union access required by SDL3 API
+            mouseWheelDelta += event.wheel.y;  // NOLINT(cppcoreguidelines-pro-type-union-access)
+            break;
+
         default:
             // Unknown/unhandled event type - not necessarily an error
             break;
@@ -63,6 +69,7 @@ bool InputManager::isMouseButtonPressed(uint8_t button) const {
 void InputManager::endFrame() {
     keyPressedThisFrame.clear();
     mouseDelta = glm::vec2(0.0f, 0.0f);
+    mouseWheelDelta = 0.0f;
 }
 
 } // namespace engine

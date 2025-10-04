@@ -231,6 +231,33 @@ void NetworkClient::handlePacket(ENetPacket* packet) {
             }
             break;
 
+        case protocol::MessageType::PlayerSpawn:
+            if (payloadSize >= sizeof(protocol::PlayerSpawnMessage)) {
+                protocol::PlayerSpawnMessage msg;
+                std::memcpy(&msg, payload, sizeof(msg));
+                otherPlayers[msg.playerId] = PlayerData{msg.spawnPosition, 0.0f, 0.0f};
+                LOG_INFO("Player {} spawned at ({:.1f}, {:.1f}, {:.1f})",
+                         msg.playerId, msg.spawnPosition.x, msg.spawnPosition.y, msg.spawnPosition.z);
+            }
+            break;
+
+        case protocol::MessageType::PlayerPositionUpdate:
+            if (payloadSize >= sizeof(protocol::PlayerPositionUpdateMessage)) {
+                protocol::PlayerPositionUpdateMessage msg;
+                std::memcpy(&msg, payload, sizeof(msg));
+                otherPlayers[msg.playerId] = PlayerData{msg.position, msg.yaw, msg.pitch};
+            }
+            break;
+
+        case protocol::MessageType::PlayerRemove:
+            if (payloadSize >= sizeof(protocol::PlayerRemoveMessage)) {
+                protocol::PlayerRemoveMessage msg;
+                std::memcpy(&msg, payload, sizeof(msg));
+                otherPlayers.erase(msg.playerId);
+                LOG_INFO("Player {} disconnected and removed", msg.playerId);
+            }
+            break;
+
         default:
             LOG_TRACE("Received unhandled message type: {}", static_cast<int>(header.type));
             break;

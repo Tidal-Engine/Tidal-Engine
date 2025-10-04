@@ -35,82 +35,70 @@ TextureAtlas::~TextureAtlas() {
 void TextureAtlas::loadTextures(const std::string& texturePath) {
     LOG_INFO("Loading texture atlas from: {}", texturePath);
 
-    // For now, create a simple 2x1 atlas with dirt and stone
-    // Atlas layout: [Dirt | Stone]
-    const uint32_t numTextures = 2;
-    atlasWidth = textureSize * numTextures;  // 320 pixels wide
-    atlasHeight = textureSize;               // 160 pixels tall
+    // Define all block textures to load (order matters for texture IDs)
+    std::vector<std::string> textureNames = {
+        "stone",
+        "dirt",
+        "grass_side",
+        "grass_top",
+        "cobblestone",
+        "wood",
+        "sand",
+        "brick",
+        "snow"
+    };
+
+    const uint32_t numTextures = textureNames.size();
+    atlasWidth = textureSize * numTextures;
+    atlasHeight = textureSize;
 
     // Allocate atlas buffer
     std::vector<unsigned char> atlasData(atlasWidth * atlasHeight * 4, 0);
 
-    // Load dirt texture
+    // Load each texture
     int width, height, channels;
-    std::string dirtPath = texturePath + "/dirt.png";
-    unsigned char* dirtPixels = stbi_load(dirtPath.c_str(), &width, &height, &channels, STBI_rgb_alpha);
+    for (uint32_t i = 0; i < numTextures; ++i) {
+        std::string texPath = texturePath + "/default/blocks/" + textureNames[i] + ".png";
+        unsigned char* pixels = stbi_load(texPath.c_str(), &width, &height, &channels, STBI_rgb_alpha);
 
-    if (!dirtPixels) {
-        LOG_ERROR("Failed to load dirt texture: {}", dirtPath);
-        throw std::runtime_error("Failed to load dirt texture");
-    }
-
-    LOG_INFO("Loaded dirt.png: {}x{} with {} channels", width, height, channels);
-
-    // Copy dirt to atlas at position (0, 0)
-    for (uint32_t y = 0; y < textureSize; ++y) {
-        for (uint32_t x = 0; x < textureSize; ++x) {
-            uint32_t atlasIndex = (y * atlasWidth + x) * 4;
-            uint32_t srcIndex = (y * width + x) * 4;
-            atlasData[atlasIndex + 0] = dirtPixels[srcIndex + 0];
-            atlasData[atlasIndex + 1] = dirtPixels[srcIndex + 1];
-            atlasData[atlasIndex + 2] = dirtPixels[srcIndex + 2];
-            atlasData[atlasIndex + 3] = dirtPixels[srcIndex + 3];
+        if (!pixels) {
+            LOG_ERROR("Failed to load texture: {}", texPath);
+            throw std::runtime_error("Failed to load texture: " + texPath);
         }
-    }
-    stbi_image_free(dirtPixels);
 
-    // Load stone texture
-    std::string stonePath = texturePath + "/stone.png";
-    unsigned char* stonePixels = stbi_load(stonePath.c_str(), &width, &height, &channels, STBI_rgb_alpha);
+        LOG_INFO("Loaded {}.png: {}x{} with {} channels", textureNames[i], width, height, channels);
 
-    if (!stonePixels) {
-        LOG_ERROR("Failed to load stone texture: {}", stonePath);
-        throw std::runtime_error("Failed to load stone texture");
-    }
-
-    LOG_INFO("Loaded stone.png: {}x{} with {} channels", width, height, channels);
-
-    // Copy stone to atlas at position (textureSize, 0)
-    for (uint32_t y = 0; y < textureSize; ++y) {
-        for (uint32_t x = 0; x < textureSize; ++x) {
-            uint32_t atlasIndex = (y * atlasWidth + (x + textureSize)) * 4;
-            uint32_t srcIndex = (y * width + x) * 4;
-            atlasData[atlasIndex + 0] = stonePixels[srcIndex + 0];
-            atlasData[atlasIndex + 1] = stonePixels[srcIndex + 1];
-            atlasData[atlasIndex + 2] = stonePixels[srcIndex + 2];
-            atlasData[atlasIndex + 3] = stonePixels[srcIndex + 3];
+        // Copy texture to atlas at position (i * textureSize, 0)
+        for (uint32_t y = 0; y < textureSize; ++y) {
+            for (uint32_t x = 0; x < textureSize; ++x) {
+                uint32_t atlasIndex = (y * atlasWidth + (i * textureSize + x)) * 4;
+                uint32_t srcIndex = (y * width + x) * 4;
+                atlasData[atlasIndex + 0] = pixels[srcIndex + 0];
+                atlasData[atlasIndex + 1] = pixels[srcIndex + 1];
+                atlasData[atlasIndex + 2] = pixels[srcIndex + 2];
+                atlasData[atlasIndex + 3] = pixels[srcIndex + 3];
+            }
         }
+        stbi_image_free(pixels);
     }
-    stbi_image_free(stonePixels);
 
     // Calculate UV coordinates for each block type
-    // Dirt is at (0, 0) to (textureSize, textureSize)
-    float dirtUMin = 0.0f;
-    float dirtUMax = (float)textureSize / (float)atlasWidth;
-    float dirtVMin = 0.0f;
-    float dirtVMax = 1.0f;
-    blockUVs[BlockType::Dirt] = glm::vec4(dirtUMin, dirtVMin, dirtUMax, dirtVMax);
-
-    // Stone is at (textureSize, 0) to (textureSize*2, textureSize)
-    float stoneUMin = (float)textureSize / (float)atlasWidth;
-    float stoneUMax = (float)(textureSize * 2) / (float)atlasWidth;
-    float stoneVMin = 0.0f;
-    float stoneVMax = 1.0f;
-    blockUVs[BlockType::Stone] = glm::vec4(stoneUMin, stoneVMin, stoneUMax, stoneVMax);
+    // Atlas layout: [stone | dirt | grass_side | grass_top | cobblestone | wood | sand | brick | snow]
+    blockUVs[BlockType::Stone] = calculateUVs(0, numTextures);
+    blockUVs[BlockType::Dirt] = calculateUVs(1, numTextures);
+    blockUVs[BlockType::GrassSide] = calculateUVs(2, numTextures);
+    blockUVs[BlockType::GrassTop] = calculateUVs(3, numTextures);
+    blockUVs[BlockType::Cobblestone] = calculateUVs(4, numTextures);
+    blockUVs[BlockType::Wood] = calculateUVs(5, numTextures);
+    blockUVs[BlockType::Sand] = calculateUVs(6, numTextures);
+    blockUVs[BlockType::Brick] = calculateUVs(7, numTextures);
+    blockUVs[BlockType::Snow] = calculateUVs(8, numTextures);
 
     LOG_INFO("Texture atlas created: {}x{}", atlasWidth, atlasHeight);
-    LOG_INFO("Dirt UVs: ({}, {}) to ({}, {})", dirtUMin, dirtVMin, dirtUMax, dirtVMax);
-    LOG_INFO("Stone UVs: ({}, {}) to ({}, {})", stoneUMin, stoneVMin, stoneUMax, stoneVMax);
+    for (uint32_t i = 0; i < numTextures; ++i) {
+        auto uvs = calculateUVs(i, numTextures);
+        LOG_INFO("{} UVs: ({}, {}) to ({}, {})", textureNames[i], uvs.x, uvs.y, uvs.z, uvs.w);
+    }
 
     // Create Vulkan texture from atlas
     createTextureImage(atlasData.data(), atlasWidth, atlasHeight);
@@ -367,6 +355,14 @@ void TextureAtlas::createTextureSampler() {
         LOG_ERROR("Failed to create texture sampler");
         throw std::runtime_error("Failed to create texture sampler");
     }
+}
+
+glm::vec4 TextureAtlas::calculateUVs(uint32_t index, uint32_t totalTextures) const {
+    float uMin = static_cast<float>(index * textureSize) / static_cast<float>(atlasWidth);
+    float uMax = static_cast<float>((index + 1) * textureSize) / static_cast<float>(atlasWidth);
+    float vMin = 0.0f;
+    float vMax = 1.0f;
+    return glm::vec4(uMin, vMin, uMax, vMax);
 }
 
 } // namespace engine

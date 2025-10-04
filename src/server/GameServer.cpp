@@ -10,6 +10,13 @@
 #include <thread>
 #include <stdexcept>
 #include <cstring>
+#include <fstream>
+#include <sstream>
+#include <iostream>
+#include <sys/wait.h>
+#include <unistd.h>
+#include <signal.h>
+#include <filesystem>
 
 namespace engine {
 
@@ -40,6 +47,11 @@ GameServer::GameServer(uint16_t port, double tickRate)
 GameServer::~GameServer() {
     if (running) {
         stop();
+    }
+
+    // Stop tunnel if running
+    if (tunnelRunning) {
+        stopTunnel();
     }
 
     // Save world before shutting down
@@ -161,16 +173,61 @@ void GameServer::processNetworkEvents() {
 void GameServer::onClientConnect(ENetPeer* peer) {
     // Create player data (spawn at origin, Y=5)
     PlayerData playerData;
+    playerData.playerId = nextPlayerId++;
     playerData.position = glm::vec3(0.0f, 5.0f, 0.0f);
     players[peer] = playerData;
 
     LOG_INFO("========================================");
     LOG_INFO(">>> PLAYER JOINED <<<");
+    LOG_INFO("Player ID: {}", playerData.playerId);
     LOG_INFO("Address: {}:{}", peer->address.host, peer->address.port);
     LOG_INFO("Spawn position: ({:.1f}, {:.1f}, {:.1f})",
              playerData.position.x, playerData.position.y, playerData.position.z);
     LOG_INFO("Players online: {}", players.size());
     LOG_INFO("========================================");
+
+    // Send all existing players to the new player
+    for (const auto& [otherPeer, otherPlayer] : players) {
+        if (otherPeer != peer) {
+            protocol::PlayerSpawnMessage spawnMsg;
+            spawnMsg.playerId = otherPlayer.playerId;
+            spawnMsg.spawnPosition = otherPlayer.position;
+            std::snprintf(spawnMsg.playerName, sizeof(spawnMsg.playerName), "Player %u", otherPlayer.playerId);
+
+            size_t totalSize = sizeof(protocol::MessageHeader) + sizeof(protocol::PlayerSpawnMessage);
+            ENetPacket* packet = enet_packet_create(nullptr, totalSize, ENET_PACKET_FLAG_RELIABLE);
+
+            protocol::MessageHeader header;
+            header.type = protocol::MessageType::PlayerSpawn;
+            header.payloadSize = sizeof(protocol::PlayerSpawnMessage);
+            std::memcpy(packet->data, &header, sizeof(protocol::MessageHeader));
+            std::memcpy(packet->data + sizeof(protocol::MessageHeader), &spawnMsg, sizeof(spawnMsg));
+
+            enet_peer_send(peer, 0, packet);
+        }
+    }
+
+    // Broadcast new player spawn to all existing players
+    protocol::PlayerSpawnMessage spawnMsg;
+    spawnMsg.playerId = playerData.playerId;
+    spawnMsg.spawnPosition = playerData.position;
+    std::snprintf(spawnMsg.playerName, sizeof(spawnMsg.playerName), "Player %u", playerData.playerId);
+
+    size_t totalSize = sizeof(protocol::MessageHeader) + sizeof(protocol::PlayerSpawnMessage);
+    ENetPacket* packet = enet_packet_create(nullptr, totalSize, ENET_PACKET_FLAG_RELIABLE);
+
+    protocol::MessageHeader header;
+    header.type = protocol::MessageType::PlayerSpawn;
+    header.payloadSize = sizeof(protocol::PlayerSpawnMessage);
+    std::memcpy(packet->data, &header, sizeof(protocol::MessageHeader));
+    std::memcpy(packet->data + sizeof(protocol::MessageHeader), &spawnMsg, sizeof(spawnMsg));
+
+    for (const auto& [otherPeer, otherPlayer] : players) {
+        if (otherPeer != peer) {
+            enet_peer_send(otherPeer, 0, enet_packet_create(packet->data, packet->dataLength, ENET_PACKET_FLAG_RELIABLE));
+        }
+    }
+    enet_packet_destroy(packet);
 
     // Send chunks in radius around spawn point
     sendChunksAroundPlayer(peer, playerData.position);
@@ -178,14 +235,43 @@ void GameServer::onClientConnect(ENetPeer* peer) {
 }
 
 void GameServer::onClientDisconnect(ENetPeer* peer) {
-    // Remove player from tracking
-    players.erase(peer);
+    // Find the player ID before removing
+    auto it = players.find(peer);
+    if (it != players.end()) {
+        uint32_t disconnectedPlayerId = it->second.playerId;
 
-    LOG_INFO("========================================");
-    LOG_INFO("<<< PLAYER LEFT >>>");
-    LOG_INFO("Address: {}:{}", peer->address.host, peer->address.port);
-    LOG_INFO("Players remaining: {}", players.size());
-    LOG_INFO("========================================");
+        // Broadcast player removal to all other clients
+        protocol::PlayerRemoveMessage removeMsg;
+        removeMsg.playerId = disconnectedPlayerId;
+
+        std::vector<uint8_t> packet;
+        packet.resize(sizeof(protocol::MessageHeader) + sizeof(protocol::PlayerRemoveMessage));
+
+        protocol::MessageHeader header;
+        header.type = protocol::MessageType::PlayerRemove;
+        header.payloadSize = sizeof(protocol::PlayerRemoveMessage);
+
+        std::memcpy(packet.data(), &header, sizeof(protocol::MessageHeader));
+        std::memcpy(packet.data() + sizeof(protocol::MessageHeader), &removeMsg, sizeof(protocol::PlayerRemoveMessage));
+
+        // Send to all OTHER clients
+        for (const auto& [otherPeer, playerData] : players) {
+            if (otherPeer != peer) {
+                ENetPacket* enetPacket = enet_packet_create(packet.data(), packet.size(), ENET_PACKET_FLAG_RELIABLE);
+                enet_peer_send(otherPeer, 0, enetPacket);
+            }
+        }
+
+        // Remove player from tracking
+        players.erase(it);
+
+        LOG_INFO("========================================");
+        LOG_INFO("<<< PLAYER LEFT >>>");
+        LOG_INFO("Player ID: {}", disconnectedPlayerId);
+        LOG_INFO("Address: {}:{}", peer->address.host, peer->address.port);
+        LOG_INFO("Players remaining: {}", players.size());
+        LOG_INFO("========================================");
+    }
 }
 
 void GameServer::onClientPacket(ENetPeer* peer, ENetPacket* packet) {
@@ -197,9 +283,6 @@ void GameServer::onClientPacket(ENetPeer* peer, ENetPacket* packet) {
     // Read message header
     protocol::MessageHeader header;
     std::memcpy(&header, packet->data, sizeof(protocol::MessageHeader));
-
-    LOG_TRACE("Received {} message from client ({} bytes)",
-             static_cast<int>(header.type), packet->dataLength);
 
     // Handle different message types
     switch (header.type) {
@@ -221,6 +304,30 @@ void GameServer::onClientPacket(ENetPeer* peer, ENetPacket* packet) {
             auto& playerData = players[peer];
             playerData.position = moveMsg->position;
 
+            // Broadcast position update to all other players
+            protocol::PlayerPositionUpdateMessage posUpdate;
+            posUpdate.playerId = playerData.playerId;
+            posUpdate.position = moveMsg->position;
+            posUpdate.yaw = moveMsg->yaw;
+            posUpdate.pitch = moveMsg->pitch;
+
+            size_t totalSize = sizeof(protocol::MessageHeader) + sizeof(protocol::PlayerPositionUpdateMessage);
+            ENetPacket* updatePacket = enet_packet_create(nullptr, totalSize, 0);  // Unreliable for frequent updates
+
+            protocol::MessageHeader updateHeader;
+            updateHeader.type = protocol::MessageType::PlayerPositionUpdate;
+            updateHeader.payloadSize = sizeof(protocol::PlayerPositionUpdateMessage);
+            std::memcpy(updatePacket->data, &updateHeader, sizeof(protocol::MessageHeader));
+            std::memcpy(updatePacket->data + sizeof(protocol::MessageHeader), &posUpdate, sizeof(posUpdate));
+
+            // Send to all other players
+            for (const auto& [otherPeer, otherPlayer] : players) {
+                if (otherPeer != peer) {
+                    enet_peer_send(otherPeer, 0, enet_packet_create(updatePacket->data, updatePacket->dataLength, 0));
+                }
+            }
+            enet_packet_destroy(updatePacket);
+
             // Check distance from last chunk update position
             float distanceFromLastUpdate = glm::distance(playerData.lastChunkUpdatePos, playerData.position);
 
@@ -234,9 +341,79 @@ void GameServer::onClientPacket(ENetPeer* peer, ENetPacket* packet) {
             break;
         }
 
-        case protocol::MessageType::BlockPlace:
-            // TODO: Implement block placement
+        case protocol::MessageType::BlockPlace: {
+            LOG_INFO("SERVER: Received BlockPlace message");
+
+            if (packet->dataLength < sizeof(protocol::MessageHeader) + sizeof(protocol::BlockPlaceMessage)) {
+                LOG_WARN("SERVER: Invalid BlockPlace message (too small)");
+                break;
+            }
+
+            const auto* placeMsg = reinterpret_cast<const protocol::BlockPlaceMessage*>(
+                static_cast<const uint8_t*>(packet->data) + sizeof(protocol::MessageHeader)
+            );
+
+            LOG_INFO("SERVER: Processing block place at ({}, {}, {}) | Type: {}",
+                     placeMsg->x, placeMsg->y, placeMsg->z, placeMsg->blockType);
+
+            // Validate player is close enough (10 block reach + 5 block buffer)
+            auto& playerData = players[peer];
+            float distance = glm::distance(
+                playerData.position,
+                glm::vec3(placeMsg->x, placeMsg->y, placeMsg->z)
+            );
+            if (distance > 15.0f) {
+                LOG_WARN("Player tried to place block too far away ({:.1f} blocks)", distance);
+                break;
+            }
+
+            // Get chunk containing this block
+            ChunkCoord chunkCoord = ChunkCoord::fromWorldPos(glm::vec3(placeMsg->x, placeMsg->y, placeMsg->z));
+            Chunk* chunk = world->getChunk(chunkCoord);
+            if (!chunk) {
+                LOG_WARN("Player tried to place block in unloaded chunk ({}, {}, {})",
+                         chunkCoord.x, chunkCoord.y, chunkCoord.z);
+                break;
+            }
+
+            // Calculate local block position within chunk
+            int localX = placeMsg->x - (chunkCoord.x * 32);
+            int localY = placeMsg->y - (chunkCoord.y * 32);
+            int localZ = placeMsg->z - (chunkCoord.z * 32);
+
+            // Get current block type
+            Block currentBlock = chunk->getBlock(localX, localY, localZ);
+            if (currentBlock.type != BlockType::Air) {
+                LOG_DEBUG("Player tried to place block in occupied space at ({}, {}, {})",
+                         placeMsg->x, placeMsg->y, placeMsg->z);
+                break;
+            }
+
+            // Place the block
+            chunk->setBlock(localX, localY, localZ, Block{static_cast<BlockType>(placeMsg->blockType)});
+            LOG_INFO("SERVER: Player placed block at ({}, {}, {}) | Type: {}",
+                     placeMsg->x, placeMsg->y, placeMsg->z, placeMsg->blockType);
+
+            // Broadcast block update to all clients
+            LOG_INFO("SERVER: Broadcasting BlockUpdate to all clients");
+            protocol::BlockUpdateMessage updateMsg;
+            updateMsg.x = placeMsg->x;
+            updateMsg.y = placeMsg->y;
+            updateMsg.z = placeMsg->z;
+            updateMsg.blockType = placeMsg->blockType;
+
+            size_t totalSize = sizeof(protocol::MessageHeader) + sizeof(protocol::BlockUpdateMessage);
+            ENetPacket* updatePacket = enet_packet_create(nullptr, totalSize, ENET_PACKET_FLAG_RELIABLE);
+
+            protocol::MessageHeader updateHeader;
+            updateHeader.type = protocol::MessageType::BlockUpdate;
+            updateHeader.payloadSize = sizeof(protocol::BlockUpdateMessage);
+            std::memcpy(updatePacket->data, &updateHeader, sizeof(protocol::MessageHeader));
+            std::memcpy(updatePacket->data + sizeof(protocol::MessageHeader), &updateMsg, sizeof(updateMsg));
+
+            enet_host_broadcast(server, 0, updatePacket);
             break;
+        }
 
         case protocol::MessageType::BlockBreak: {
             LOG_INFO("SERVER: Received BlockBreak message");
@@ -450,6 +627,142 @@ void GameServer::updatePlayerChunks() {
 
     // Unload chunks that are far from all players
     world->unloadDistantChunks(playerPositions, CHUNK_LOAD_RADIUS + 2);  // +2 buffer for hysteresis
+}
+
+bool GameServer::startTunnel(const std::string& secretKey) {
+    if (tunnelRunning) {
+        LOG_WARN("Tunnel is already running");
+        return false;
+    }
+
+    LOG_INFO("========================================");
+    LOG_INFO("Starting playit.gg tunnel...");
+
+    std::string key = secretKey;
+
+    // If no secret key provided, try to load from .playit-secret file
+    if (key.empty()) {
+        std::ifstream secretFile(".playit-secret");
+        if (secretFile.is_open()) {
+            std::getline(secretFile, key);
+            secretFile.close();
+
+            // Trim whitespace
+            key.erase(0, key.find_first_not_of(" \t\n\r"));
+            key.erase(key.find_last_not_of(" \t\n\r") + 1);
+
+            if (!key.empty()) {
+                LOG_INFO("Loaded secret key from .playit-secret");
+            }
+        }
+    }
+
+    if (key.empty()) {
+        LOG_ERROR("No secret key provided!");
+        LOG_INFO("Please either:");
+        LOG_INFO("  1. Create a .playit-secret file with your key");
+        LOG_INFO("  2. Use: /tunnel start <your-secret-key>");
+        LOG_INFO("Get your secret key at: https://playit.gg/account/agents/new-docker");
+        LOG_INFO("========================================");
+        return false;
+    }
+
+    // Fork process to run playit agent
+    tunnelPid = fork();
+
+    if (tunnelPid == -1) {
+        LOG_ERROR("Failed to fork process for playit agent");
+        LOG_INFO("========================================");
+        return false;
+    }
+
+    if (tunnelPid == 0) {
+        // Child process - run playit agent via Docker
+
+        // Redirect output to log file
+        std::freopen("logs/playit.log", "w", stdout);
+        std::freopen("logs/playit.log", "w", stderr);
+
+        // Try Docker first, fall back to native binary
+        execlp("docker", "docker", "run", "--rm", "--net=host",
+               "-e", ("SECRET_KEY=" + key).c_str(),
+               "ghcr.io/playit-cloud/playit-agent:latest",
+               nullptr);
+
+        // If docker fails, try native playit binary
+        execlp("playit", "playit", "--secret", key.c_str(), nullptr);
+
+        // If we get here, both methods failed
+        std::cerr << "Failed to start playit agent. Please install either:" << std::endl;
+        std::cerr << "  - Docker: https://docs.docker.com/get-docker/" << std::endl;
+        std::cerr << "  - playit binary: https://playit.gg/download" << std::endl;
+        exit(1);
+    }
+
+    // Parent process
+    tunnelRunning = true;
+
+    // Give the agent a moment to start
+    std::this_thread::sleep_for(std::chrono::seconds(2));
+
+    // Check if process is still alive
+    int status;
+    pid_t result = waitpid(tunnelPid, &status, WNOHANG);
+
+    if (result != 0) {
+        // Process already exited
+        LOG_ERROR("playit agent failed to start");
+        LOG_INFO("Check logs/playit.log for details");
+        tunnelRunning = false;
+        tunnelPid = -1;
+        LOG_INFO("========================================");
+        return false;
+    }
+
+    LOG_INFO("playit.gg tunnel started successfully!");
+    LOG_INFO("Check https://playit.gg/account to see your tunnel address");
+    LOG_INFO("Output is being logged to logs/playit.log");
+    LOG_INFO("========================================");
+
+    return true;
+}
+
+void GameServer::stopTunnel() {
+    if (!tunnelRunning || tunnelPid == -1) {
+        LOG_INFO("No tunnel is running");
+        return;
+    }
+
+    LOG_INFO("========================================");
+    LOG_INFO("Stopping playit.gg tunnel...");
+
+    // Send SIGTERM to gracefully stop the agent
+    kill(tunnelPid, SIGTERM);
+
+    // Wait up to 5 seconds for graceful shutdown
+    int status;
+    for (int i = 0; i < 50; i++) {
+        pid_t result = waitpid(tunnelPid, &status, WNOHANG);
+        if (result != 0) {
+            break;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+
+    // Force kill if still running
+    int finalStatus;
+    pid_t result = waitpid(tunnelPid, &finalStatus, WNOHANG);
+    if (result == 0) {
+        LOG_WARN("playit agent didn't stop gracefully, forcing shutdown...");
+        kill(tunnelPid, SIGKILL);
+        waitpid(tunnelPid, &finalStatus, 0);
+    }
+
+    tunnelRunning = false;
+    tunnelPid = -1;
+
+    LOG_INFO("playit.gg tunnel stopped");
+    LOG_INFO("========================================");
 }
 
 } // namespace engine

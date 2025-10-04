@@ -82,6 +82,18 @@ public:
      */
     void setPosition(const glm::vec3& pos) { position = pos; }
 
+    /**
+     * @brief Get camera yaw angle
+     * @return Yaw angle in degrees
+     */
+    float getYaw() const { return yaw; }
+
+    /**
+     * @brief Get camera pitch angle
+     * @return Pitch angle in degrees
+     */
+    float getPitch() const { return pitch; }
+
 private:
     // Camera attributes
     glm::vec3 position;

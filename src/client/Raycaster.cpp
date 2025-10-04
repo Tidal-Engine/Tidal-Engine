@@ -85,7 +85,9 @@ std::optional<RaycastHit> Raycaster::cast(
             // Hit a solid block
             RaycastHit hit;
             hit.blockPos = voxel;
+            hit.placePos = voxel + normal;  // Place on the face we hit
             hit.normal = normal;
+            hit.hitPoint = origin + dir * distance;
             hit.distance = distance;
             hit.blockType = blockType;
             return hit;

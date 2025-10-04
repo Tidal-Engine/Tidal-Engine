@@ -42,6 +42,8 @@ void main() {
 
     // Sample texture and combine with lighting
     vec4 texColor = texture(texSampler, atlasUV);
-    vec3 result = (ambient + diffuse + specular) * texColor.rgb;
+    // Apply vertex color tinting (for biome-based grass coloring)
+    vec3 tintedColor = texColor.rgb * fragColor;
+    vec3 result = (ambient + diffuse + specular) * tintedColor;
     outColor = vec4(result, 1.0);
 }

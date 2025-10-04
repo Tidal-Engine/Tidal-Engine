@@ -80,6 +80,14 @@ private:
     void createTextureSampler();
 
     /**
+     * @brief Calculate UV coordinates for a texture in the atlas
+     * @param index Texture index in the atlas
+     * @param totalTextures Total number of textures in the atlas
+     * @return glm::vec4 UV coordinates (uMin, vMin, uMax, vMax)
+     */
+    glm::vec4 calculateUVs(uint32_t index, uint32_t totalTextures) const;
+
+    /**
      * @brief Transition image layout using pipeline barrier
      * @param image Image to transition
      * @param format Image format

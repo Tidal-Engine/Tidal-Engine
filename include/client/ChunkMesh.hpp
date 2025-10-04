@@ -46,8 +46,10 @@ public:
 
     /**
      * @brief Get color tint for a block type (used for vertex colors alongside textures)
+     * @param type Block type to get color for
+     * @param normal Face normal direction (used for grass top face detection)
      */
-    static glm::vec3 getBlockColor(BlockType type);
+    static glm::vec3 getBlockColor(BlockType type, const glm::vec3& normal);
 
 private:
     /**

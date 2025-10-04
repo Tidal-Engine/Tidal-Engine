@@ -35,6 +35,7 @@ enum class MessageType : uint8_t {
     BlockUpdate = 12,
     PlayerSpawn = 13,
     PlayerPositionUpdate = 14,
+    PlayerRemove = 15,
 
     // Bidirectional
     Disconnect = 20,
@@ -145,6 +146,15 @@ struct PlayerPositionUpdateMessage {
     glm::vec3 position;         ///< Current player position in world coordinates
     float yaw;                  ///< Camera yaw angle in degrees
     float pitch;                ///< Camera pitch angle in degrees
+} PACKED;
+PACK_END
+
+/**
+ * @brief Player removal notification (server -> client)
+ */
+PACK_BEGIN
+struct PlayerRemoveMessage {
+    uint32_t playerId;          ///< Unique player identifier to remove
 } PACKED;
 PACK_END
 

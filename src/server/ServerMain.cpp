@@ -39,14 +39,60 @@ int main(int argc, char* argv[]) {
             server.run();
         });
 
-        // Input thread to listen for /stop command
+        // Input thread to listen for commands
         std::thread inputThread([&]() {
             std::string line;
             while (!g_shutdownRequested && std::getline(std::cin, line)) {
+                // Trim whitespace
+                line.erase(0, line.find_first_not_of(" \t\n\r"));
+                line.erase(line.find_last_not_of(" \t\n\r") + 1);
+
+                if (line.empty()) {
+                    continue;
+                }
+
+                // Handle commands
                 if (line == "/stop" || line == "stop") {
                     LOG_INFO("Stop command received");
                     g_shutdownRequested = true;
                     break;
+                }
+                else if (line == "/tunnel stop" || line == "tunnel stop") {
+                    server.stopTunnel();
+                }
+                else if (line.rfind("/tunnel start", 0) == 0 || line.rfind("tunnel start", 0) == 0) {
+                    // Extract secret key if provided
+                    size_t spacePos = line.find(' ', line.find("start") + 5);
+                    std::string secretKey;
+                    if (spacePos != std::string::npos) {
+                        secretKey = line.substr(spacePos + 1);
+                        // Trim whitespace from key
+                        secretKey.erase(0, secretKey.find_first_not_of(" \t\n\r"));
+                        secretKey.erase(secretKey.find_last_not_of(" \t\n\r") + 1);
+                    }
+                    server.startTunnel(secretKey);
+                }
+                else if (line == "/tunnel status" || line == "tunnel status") {
+                    if (server.isTunnelRunning()) {
+                        LOG_INFO("Tunnel is currently running");
+                        LOG_INFO("Check https://playit.gg/account for tunnel address");
+                    } else {
+                        LOG_INFO("Tunnel is not running");
+                    }
+                }
+                else if (line == "/help" || line == "help") {
+                    LOG_INFO("========================================");
+                    LOG_INFO("Available commands:");
+                    LOG_INFO("  /stop - Stop the server");
+                    LOG_INFO("  /tunnel start [secret-key] - Start playit.gg tunnel");
+                    LOG_INFO("  /tunnel stop - Stop playit.gg tunnel");
+                    LOG_INFO("  /tunnel status - Check tunnel status");
+                    LOG_INFO("  /help - Show this help message");
+                    LOG_INFO("========================================");
+                }
+                else {
+                    LOG_WARN("Unknown command: {}", line);
+                    LOG_INFO("Type '/help' for available commands");
                 }
             }
         });

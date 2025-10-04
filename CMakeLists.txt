@@ -163,6 +163,12 @@ add_executable(TidalClient
     src/client/DebugOverlay.cpp
     src/client/Raycaster.cpp
     src/client/BlockOutlineRenderer.cpp
+    src/client/Inventory.cpp
+    src/client/ItemRegistry.cpp
+    src/client/HotbarUI.cpp
+    src/client/CreativeMenu.cpp
+    src/client/Console.cpp
+    src/client/PlayerCubeRenderer.cpp
     src/vulkan/VulkanBuffer.cpp
     src/vulkan/VulkanSwapchain.cpp
     src/vulkan/VulkanPipeline.cpp

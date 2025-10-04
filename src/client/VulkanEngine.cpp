@@ -11,6 +11,12 @@
 #include "client/Camera.hpp"
 #include "client/DebugOverlay.hpp"
 #include "client/BlockOutlineRenderer.hpp"
+#include "client/Inventory.hpp"
+#include "client/ItemRegistry.hpp"
+#include "client/HotbarUI.hpp"
+#include "client/CreativeMenu.hpp"
+#include "client/Console.hpp"
+#include "client/PlayerCubeRenderer.hpp"
 #include "vulkan/CubeGeometry.hpp"
 #include "core/Logger.hpp"
 #include "core/ResourceManager.hpp"
@@ -29,7 +35,9 @@ VulkanEngine::VulkanEngine()
     : lastPositionUpdate(std::chrono::steady_clock::now()),
       lastSentPosition(0.0f, 0.0f, 0.0f),
       lastBlockBreak(std::chrono::steady_clock::now()),
-      wasLeftClickPressed(false) {
+      wasLeftClickPressed(false),
+      lastBlockPlace(std::chrono::steady_clock::now()),
+      wasRightClickPressed(false) {
 }
 VulkanEngine::~VulkanEngine() = default;
 
@@ -145,6 +153,27 @@ void VulkanEngine::initRenderingResources() {
     // Create debug overlay
     debugOverlay = std::make_unique<DebugOverlay>();
 
+    // Initialize item registry (singleton - happens once)
+    ItemRegistry::instance();
+
+    // Create inventory and UI components
+    inventory = std::make_unique<Inventory>();
+    hotbarUI = std::make_unique<HotbarUI>(inventory.get(), device, physicalDevice,
+                                          renderer->getCommandPool(), graphicsQueue);
+    creativeMenu = std::make_unique<CreativeMenu>(inventory.get(), device, physicalDevice,
+                                                   renderer->getCommandPool(), graphicsQueue);
+
+    // Create console
+    console = std::make_unique<Console>();
+    console->setNetworkClient(networkClient.get());
+
+    // Create player cube renderer
+    playerCubeRenderer = std::make_unique<PlayerCubeRenderer>(device, physicalDevice,
+                                                              renderer->getCommandPool(),
+                                                              graphicsQueue);
+    playerCubeRenderer->init(pipeline->getRenderPass(), swapchain->getExtent(),
+                            pipeline->getDescriptorSetLayout());
+
     // Create block outline renderer
     blockOutlineRenderer = std::make_unique<BlockOutlineRenderer>(device, physicalDevice,
                                                                   renderer->getCommandPool(),
@@ -154,6 +183,9 @@ void VulkanEngine::initRenderingResources() {
 
     // Give renderer access to block outline renderer
     renderer->setBlockOutlineRenderer(blockOutlineRenderer.get());
+
+    // Give renderer access to player cube renderer
+    renderer->setPlayerCubeRenderer(playerCubeRenderer.get());
 
     // Create framebuffers
     swapchain->createFramebuffers(pipeline->getRenderPass(), renderer->getDepthImageView());
@@ -182,15 +214,15 @@ void VulkanEngine::initRenderingResources() {
 void VulkanEngine::initImGui() {
     LOG_INFO("Initializing ImGui...");
 
-    // Create descriptor pool for ImGui
+    // Create descriptor pool for ImGui (need room for hotbar textures)
     VkDescriptorPoolSize pool_sizes[] = {
-        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1 },
+        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 20 },  // Increased for block textures
     };
 
     VkDescriptorPoolCreateInfo pool_info = {};
     pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-    pool_info.maxSets = 1;
+    pool_info.maxSets = 20;  // Increased for block textures
     pool_info.poolSizeCount = 1;
     pool_info.pPoolSizes = pool_sizes;
 
@@ -226,6 +258,10 @@ void VulkanEngine::initImGui() {
     init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
 
     ImGui_ImplVulkan_Init(&init_info);
+
+    // Initialize UI textures (must be after ImGui_ImplVulkan_Init)
+    hotbarUI->init();
+    creativeMenu->init();
 
     LOG_INFO("ImGui initialized successfully");
 }
@@ -564,6 +600,10 @@ void VulkanEngine::recreateSwapchain() {
     blockOutlineRenderer->init(pipeline->getRenderPass(), swapchain->getExtent(),
                               pipeline->getDescriptorSetLayout());
 
+    // Recreate PlayerCubeRenderer pipeline with new extent
+    playerCubeRenderer->recreatePipeline(pipeline->getRenderPass(), swapchain->getExtent(),
+                                        pipeline->getDescriptorSetLayout());
+
     framebufferResized = false;
 
     LOG_INFO("Swapchain recreation complete");
@@ -643,14 +683,21 @@ void VulkanEngine::mainLoop() {
                 LOG_DEBUG("Window size changed (event type: {})", event.type);
                 framebufferResized = true;
             } else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
-                // Enable relative mouse mode when user clicks in the window
-                if (!SDL_GetWindowRelativeMouseMode(window)) {
+                // Enable relative mouse mode when user clicks in the window (but not when menu/console is open)
+                if (!SDL_GetWindowRelativeMouseMode(window) && !creativeMenu->isMenuOpen() && !console->isOpen()) {
                     SDL_SetWindowRelativeMouseMode(window, true);
+                    mouseJustCaptured = true;  // Flag that mouse was just captured
+                    wasLeftClickPressed = true;  // Mark as already pressed to prevent action
+                    wasRightClickPressed = true;
                     LOG_INFO("Mouse captured - press ESC to release");
                 }
             } else if (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_ESCAPE) {
-                // Release mouse capture on ESC key
-                if (SDL_GetWindowRelativeMouseMode(window)) {
+                // Close console first, then creative menu, or release mouse capture
+                if (console->isOpen()) {
+                    console->toggle();
+                } else if (creativeMenu->isMenuOpen()) {
+                    creativeMenu->close();
+                } else if (SDL_GetWindowRelativeMouseMode(window)) {
                     SDL_SetWindowRelativeMouseMode(window, false);
                     LOG_INFO("Mouse released - click to recapture");
                 }
@@ -658,6 +705,16 @@ void VulkanEngine::mainLoop() {
                 // Toggle debug overlay on F3
                 debugOverlay->toggle();
                 LOG_DEBUG("Debug overlay toggled: {}", debugOverlay->getVisible() ? "ON" : "OFF");
+            } else if (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_GRAVE) {
+                // Toggle console on ~ key
+                console->toggle();
+
+                // Release mouse when opening console
+                if (console->isOpen() && SDL_GetWindowRelativeMouseMode(window)) {
+                    SDL_SetWindowRelativeMouseMode(window, false);
+                }
+
+                LOG_DEBUG("Console toggled: {}", console->isOpen() ? "ON" : "OFF");
             }
 
             // Always pass events to input manager (it will handle them appropriately)
@@ -673,8 +730,8 @@ void VulkanEngine::mainLoop() {
         // Upload completed meshes to GPU
         uploadCompletedMeshes();
 
-        // Only update camera if mouse is captured
-        if (SDL_GetWindowRelativeMouseMode(window)) {
+        // Only update camera if mouse is captured and console is closed
+        if (SDL_GetWindowRelativeMouseMode(window) && !console->isOpen()) {
             // Update camera with noclip movement
             // Apply 8x speed boost when Ctrl is held
             float speedMultiplier = inputManager->isKeyPressed(SDL_SCANCODE_LCTRL) ||
@@ -698,6 +755,29 @@ void VulkanEngine::mainLoop() {
             }
         }
 
+        // Handle creative menu toggle (E key) - must be before endFrame() and only when console is closed
+        if (inputManager->isKeyJustPressed(SDL_SCANCODE_E) && !console->isOpen()) {
+            creativeMenu->toggle();
+            LOG_DEBUG("Creative menu toggled: {}", creativeMenu->isMenuOpen() ? "OPEN" : "CLOSED");
+
+            if (creativeMenu->isMenuOpen()) {
+                // Release mouse when opening creative menu
+                SDL_SetWindowRelativeMouseMode(window, false);
+            } else {
+                // Recapture mouse when closing creative menu
+                SDL_SetWindowRelativeMouseMode(window, true);
+                mouseJustCaptured = true;  // Prevent this frame's input from registering
+                wasLeftClickPressed = true;  // Mark as already pressed to prevent action
+                wasRightClickPressed = true;
+                LOG_INFO("Mouse recaptured after closing menu");
+            }
+        }
+
+        // Handle hotbar input (only when creative menu and console are closed)
+        if (!creativeMenu->isMenuOpen() && !console->isOpen()) {
+            hotbarUI->handleInput(inputManager.get());
+        }
+
         inputManager->endFrame();
 
         // Send position updates to server (throttled to avoid spam)
@@ -710,8 +790,8 @@ void VulkanEngine::mainLoop() {
             networkClient->sendPlayerMove(
                 camera->getPosition(),
                 glm::vec3(0.0f),  // velocity (not used yet)
-                0.0f,  // yaw (not used yet)
-                0.0f   // pitch (not used yet)
+                camera->getYaw(),
+                camera->getPitch()
             );
             lastPositionUpdate = currentTime;
             lastSentPosition = camera->getPosition();
@@ -725,10 +805,10 @@ void VulkanEngine::mainLoop() {
             networkClient.get()
         );
 
-        // Handle block breaking (left click)
+        // Handle block breaking (left click) - only when mouse is captured and console is closed
         // Allows spam clicking at any speed, but limits held clicks to cooldown rate
         bool leftClick = inputManager->isMouseButtonPressed(SDL_BUTTON_LEFT);
-        if (leftClick && targetedBlock.has_value()) {
+        if (leftClick && targetedBlock.has_value() && SDL_GetWindowRelativeMouseMode(window) && !mouseJustCaptured && !console->isOpen()) {
             bool shouldBreak = false;
 
             if (!wasLeftClickPressed) {
@@ -755,8 +835,74 @@ void VulkanEngine::mainLoop() {
         }
         wasLeftClickPressed = leftClick;
 
+        // Handle block placing (right click) - only when console is closed
+        // Allows spam clicking at any speed, but limits held clicks to cooldown rate
+        bool rightClick = inputManager->isMouseButtonPressed(SDL_BUTTON_RIGHT);
+        if (rightClick && targetedBlock.has_value() && SDL_GetWindowRelativeMouseMode(window) && !mouseJustCaptured && !console->isOpen()) {
+            const ItemStack& selectedItem = inventory->getSelectedSlot();
+
+            if (!selectedItem.isEmpty() && selectedItem.isBlock()) {
+                bool shouldPlace = false;
+
+                if (!wasRightClickPressed) {
+                    // New click detected - always allow
+                    shouldPlace = true;
+                    wasRightClickPressed = true;
+                } else {
+                    // Button is still held - check cooldown
+                    auto timeSinceLastPlace = std::chrono::duration<float>(currentTime - lastBlockPlace).count();
+                    if (timeSinceLastPlace >= BLOCK_PLACE_COOLDOWN) {
+                        shouldPlace = true;
+                    }
+                }
+
+                if (shouldPlace) {
+                    const glm::ivec3& placePos = targetedBlock->placePos;
+
+                    // Validate placement (don't place inside player)
+                    glm::vec3 playerPos = camera->getPosition();
+                    glm::ivec3 playerBlockPos(
+                        static_cast<int>(std::floor(playerPos.x)),
+                        static_cast<int>(std::floor(playerPos.y)),
+                        static_cast<int>(std::floor(playerPos.z))
+                    );
+
+                    // Check if placement position conflicts with player's position
+                    // (Player occupies 2 blocks vertically: floor(y) and floor(y)+1)
+                    bool wouldBlockPlayer = (placePos == playerBlockPos) ||
+                                           (placePos == playerBlockPos + glm::ivec3(0, 1, 0));
+
+                    if (!wouldBlockPlayer) {
+                        LOG_INFO("CLIENT: Placing {} at ({}, {}, {})",
+                                static_cast<int>(selectedItem.toBlockType()),
+                                placePos.x, placePos.y, placePos.z);
+
+                        networkClient->sendBlockPlace(
+                            placePos.x,
+                            placePos.y,
+                            placePos.z,
+                            static_cast<uint16_t>(selectedItem.toBlockType())
+                        );
+
+                        lastBlockPlace = currentTime;
+                    } else {
+                        LOG_DEBUG("CLIENT: Cannot place block - would conflict with player position");
+                    }
+                }
+            }
+        } else {
+            // Reset when button is released or conditions not met
+            wasRightClickPressed = false;
+        }
+
+        // Reset mouse capture flag at end of frame
+        mouseJustCaptured = false;
+
         // Update block outline renderer
         blockOutlineRenderer->update(targetedBlock);
+
+        // Update player cube renderer
+        playerCubeRenderer->update(networkClient->getOtherPlayers());
 
         // Recreate swapchain if needed (after resize or out of date)
         if (framebufferResized) {
@@ -805,6 +951,15 @@ void VulkanEngine::mainLoop() {
 
         // Render crosshair
         debugOverlay->renderCrosshair();
+
+        // Render hotbar UI (always visible)
+        hotbarUI->render();
+
+        // Render creative menu (if open)
+        creativeMenu->render();
+
+        // Render console (if open)
+        console->render();
 
         // Finalize ImGui rendering
         ImGui::Render();

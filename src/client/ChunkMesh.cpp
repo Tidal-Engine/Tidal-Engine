@@ -167,7 +167,7 @@ size_t ChunkMesh::generateMesh(const Chunk& chunk,
                         glm::vec3 normal(0, 0, 0);
                         normal[axis] = dir;
 
-                        glm::vec3 color = getBlockColor(cell.blockType);
+                        glm::vec3 color = getBlockColor(cell.blockType, normal);
 
                         addQuad(vertices, indices, quadPos, size, normal, color, cell.blockType, atlas);
 
@@ -185,16 +185,15 @@ size_t ChunkMesh::generateMesh(const Chunk& chunk,
     return vertices.size();
 }
 
-glm::vec3 ChunkMesh::getBlockColor(BlockType type) {
-    switch (type) {
-        case BlockType::Stone:
-            return glm::vec3(0.5f, 0.5f, 0.5f);  // Gray
-        case BlockType::Dirt:
-            return glm::vec3(0.6f, 0.4f, 0.2f);  // Brown
-        case BlockType::Air:
-        default:
-            return glm::vec3(1.0f, 0.0f, 1.0f);  // Magenta (error color)
+glm::vec3 ChunkMesh::getBlockColor(BlockType type, const glm::vec3& normal) {
+    // Special handling for grass blocks - only tint the top face
+    if (type == BlockType::Grass && normal.y > 0.5f) {
+        // Top face: green tint for grass_top texture
+        return glm::vec3(0.4f, 0.8f, 0.3f);  // Green
     }
+
+    // All other blocks use white (no tinting)
+    return glm::vec3(1.0f, 1.0f, 1.0f);
 }
 
 void ChunkMesh::addQuad(std::vector<Vertex>& vertices,
@@ -227,7 +226,23 @@ void ChunkMesh::addQuad(std::vector<Vertex>& vertices,
     glm::vec2 uvMin, uvMax;
     glm::vec2 uvBlockSize;
     if (atlas != nullptr) {
-        glm::vec4 uvs = atlas->getBlockUVs(blockType);
+        BlockType texBlockType = blockType;
+
+        // Special handling for grass blocks
+        if (blockType == BlockType::Grass) {
+            if (normal.y > 0.5f) {
+                // Top face (+Y): use grass_top texture
+                texBlockType = BlockType::GrassTop;
+            } else if (normal.y < -0.5f) {
+                // Bottom face (-Y): use dirt texture
+                texBlockType = BlockType::Dirt;
+            } else {
+                // Side faces: use grass_side texture
+                texBlockType = BlockType::GrassSide;
+            }
+        }
+
+        glm::vec4 uvs = atlas->getBlockUVs(texBlockType);
         uvMin = glm::vec2(uvs.x, uvs.y);
         uvMax = glm::vec2(uvs.z, uvs.w);
         uvBlockSize = uvMax - uvMin; // Size of one block's texture in UV space
@@ -267,15 +282,17 @@ void ChunkMesh::addQuad(std::vector<Vertex>& vertices,
     // The fragment shader will remap: atlasOffset + fract(texCoord) * atlasSize
     if (rotateUVs) {
         // Rotated UVs for X-facing: U along bitangent (horizontal), V along tangent (vertical)
-        vertices.push_back({position, color, normal, glm::vec2(0.0f, 0.0f), uvMin, uvBlockSize});
-        vertices.push_back({position + tangent, color, normal, glm::vec2(0.0f, uvTiled.y), uvMin, uvBlockSize});
-        vertices.push_back({position + tangent + bitangent, color, normal, uvTiled, uvMin, uvBlockSize});
-        vertices.push_back({position + bitangent, color, normal, glm::vec2(uvTiled.x, 0.0f), uvMin, uvBlockSize});
+        // Flip V coordinate to fix upside-down textures
+        vertices.push_back({position, color, normal, glm::vec2(0.0f, uvTiled.y), uvMin, uvBlockSize});
+        vertices.push_back({position + tangent, color, normal, glm::vec2(0.0f, 0.0f), uvMin, uvBlockSize});
+        vertices.push_back({position + tangent + bitangent, color, normal, glm::vec2(uvTiled.x, 0.0f), uvMin, uvBlockSize});
+        vertices.push_back({position + bitangent, color, normal, uvTiled, uvMin, uvBlockSize});
     } else {
-        vertices.push_back({position, color, normal, glm::vec2(0.0f, 0.0f), uvMin, uvBlockSize});
-        vertices.push_back({position + tangent, color, normal, glm::vec2(uvTiled.x, 0.0f), uvMin, uvBlockSize});
-        vertices.push_back({position + tangent + bitangent, color, normal, uvTiled, uvMin, uvBlockSize});
-        vertices.push_back({position + bitangent, color, normal, glm::vec2(0.0f, uvTiled.y), uvMin, uvBlockSize});
+        // Flip V coordinate to fix upside-down textures
+        vertices.push_back({position, color, normal, glm::vec2(0.0f, uvTiled.y), uvMin, uvBlockSize});
+        vertices.push_back({position + tangent, color, normal, uvTiled, uvMin, uvBlockSize});
+        vertices.push_back({position + tangent + bitangent, color, normal, glm::vec2(uvTiled.x, 0.0f), uvMin, uvBlockSize});
+        vertices.push_back({position + bitangent, color, normal, glm::vec2(0.0f, 0.0f), uvMin, uvBlockSize});
     }
 
     // Create two triangles (counter-clockwise winding)

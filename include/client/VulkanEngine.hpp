@@ -35,6 +35,11 @@ class Camera;
 class TextureAtlas;
 class DebugOverlay;
 class BlockOutlineRenderer;
+class Inventory;
+class HotbarUI;
+class CreativeMenu;
+class Console;
+class PlayerCubeRenderer;
 
 /**
  * @brief Uniform buffer object for shader uniforms
@@ -98,6 +103,11 @@ private:
     std::unique_ptr<TextureAtlas> textureAtlas;
     std::unique_ptr<DebugOverlay> debugOverlay;
     std::unique_ptr<BlockOutlineRenderer> blockOutlineRenderer;
+    std::unique_ptr<Inventory> inventory;
+    std::unique_ptr<HotbarUI> hotbarUI;
+    std::unique_ptr<CreativeMenu> creativeMenu;
+    std::unique_ptr<Console> console;
+    std::unique_ptr<PlayerCubeRenderer> playerCubeRenderer;
 
     EngineConfig::Runtime config;
     PerformanceMetrics performanceMetrics;
@@ -120,6 +130,14 @@ private:
     std::chrono::steady_clock::time_point lastBlockBreak;
     bool wasLeftClickPressed = false;  // Track previous frame's button state
     static constexpr float BLOCK_BREAK_COOLDOWN = 0.25f;  // seconds between breaks when holding
+
+    // Block placing state
+    std::chrono::steady_clock::time_point lastBlockPlace;
+    bool wasRightClickPressed = false;
+    static constexpr float BLOCK_PLACE_COOLDOWN = 0.25f;  // seconds between placements when holding
+
+    // Mouse capture state
+    bool mouseJustCaptured = false;  // Track if mouse was just captured this frame
 
     // ImGui resources
     VkDescriptorPool imguiDescriptorPool = VK_NULL_HANDLE;

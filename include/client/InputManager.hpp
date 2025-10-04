@@ -70,6 +70,12 @@ public:
     bool isMouseButtonPressed(uint8_t button) const;
 
     /**
+     * @brief Get mouse wheel delta (scroll amount)
+     * @return float - positive for scroll up, negative for scroll down
+     */
+    float getMouseWheelDelta() const { return mouseWheelDelta; }
+
+    /**
      * @brief Reset per-frame state (call at end of frame)
      */
     void endFrame();
@@ -82,6 +88,7 @@ private:
     glm::vec2 mouseDelta{0.0f, 0.0f};
     glm::vec2 mousePosition{0.0f, 0.0f};
     glm::vec2 lastMousePosition{0.0f, 0.0f};
+    float mouseWheelDelta = 0.0f;
 };
 
 } // namespace engine

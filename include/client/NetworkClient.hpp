@@ -94,6 +94,17 @@ public:
         onChunkUnloaded = callback;
     }
 
+    /**
+     * @brief Get all other players' positions
+     */
+    struct PlayerData {
+        glm::vec3 position;
+        float yaw = 0.0f;
+        float pitch = 0.0f;
+    };
+
+    const std::unordered_map<uint32_t, PlayerData>& getOtherPlayers() const { return otherPlayers; }
+
 private:
     ENetHost* client = nullptr;
     ENetPeer* serverPeer = nullptr;
@@ -101,6 +112,9 @@ private:
 
     // Received chunks from server
     std::unordered_map<ChunkCoord, std::unique_ptr<Chunk>> chunks;
+
+    // Other players
+    std::unordered_map<uint32_t, PlayerData> otherPlayers;  ///< Player ID -> Player data (position, yaw, pitch)
 
     // Callbacks
     std::function<void(const ChunkCoord&)> onChunkReceived;

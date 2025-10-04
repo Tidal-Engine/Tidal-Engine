@@ -51,6 +51,23 @@ public:
     void stop();
 
     /**
+     * @brief Start playit.gg tunnel
+     * @param secretKey The playit.gg secret key (optional, will prompt if not provided)
+     * @return true if tunnel started successfully
+     */
+    bool startTunnel(const std::string& secretKey = "");
+
+    /**
+     * @brief Stop playit.gg tunnel
+     */
+    void stopTunnel();
+
+    /**
+     * @brief Check if tunnel is running
+     */
+    bool isTunnelRunning() const { return tunnelRunning; }
+
+    /**
      * @brief Get current tick number
      */
     uint64_t getCurrentTick() const { return currentTick; }
@@ -58,6 +75,7 @@ public:
 private:
     // Player tracking
     struct PlayerData {
+        uint32_t playerId = 0;                 ///< Unique player ID
         glm::vec3 position{0.0f, 5.0f, 0.0f};  ///< Player world position (spawn at Y=5)
         glm::vec3 lastChunkUpdatePos{0.0f, 5.0f, 0.0f};  ///< Last position where chunks were sent
         std::unordered_set<ChunkCoord> loadedChunks;  ///< Chunks this player has loaded
@@ -77,6 +95,13 @@ private:
 
     uint64_t currentTick = 0;
     std::atomic<bool> running{false};
+
+    // Player ID generation
+    uint32_t nextPlayerId = 1;  ///< Next player ID to assign
+
+    // Tunnel management
+    std::atomic<bool> tunnelRunning{false};
+    int tunnelPid = -1;  ///< Process ID of playit agent
 
     /**
      * @brief Initialize ENet networking

@@ -158,8 +158,8 @@ std::unique_ptr<Chunk> World::generateChunk(const ChunkCoord& coord) {
                     // Below Y=0: stone
                     block.type = BlockType::Stone;
                 } else if (worldY == 0) {
-                    // Y=0: dirt surface
-                    block.type = BlockType::Dirt;
+                    // Y=0: grass surface
+                    block.type = BlockType::Grass;
                 } else {
                     // Above Y=0: air
                     block.type = BlockType::Air;
@@ -300,7 +300,6 @@ size_t World::unloadDistantChunks(const std::vector<glm::vec3>& playerPositions,
         }
         chunks.erase(coord);
         unloadedCount++;
-        LOG_TRACE("Unloaded distant chunk ({}, {}, {})", coord.x, coord.y, coord.z);
     }
 
     if (unloadedCount > 0) {
